@@ -51,7 +51,7 @@ coverage/
 *.key
 !infrastructure/tls/openssl/**
 !infrastructure/tls/**/README.md
-secrets/
+/secrets/
 infrastructure/tls/**/live/
 infrastructure/tls/var/
 infrastructure/tls/trust-store/*.crt
