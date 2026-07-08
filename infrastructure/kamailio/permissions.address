@@ -1,0 +1,19 @@
+# VSP Phone v4 — permissions address table
+# Format for address_file mode: <group_id> <ip> <mask> [port] [proto] [pattern] [contextInfo]
+#
+# group 1 = trusted internal Docker network sources (lab)
+# group 2 = Telnyx SIP signaling PoPs (Phase 8 IP authentication)
+#
+# NestJS still owns call authorization (ADR-024). Kamailio ACL is edge gate only.
+# Refresh PoP ranges from https://sip.telnyx.com published IPs in production.
+
+1 172.16.0.0 12 any any
+1 192.168.0.0 16 any any
+1 10.0.0.0 8 any any
+1 127.0.0.1 32 any any
+
+# Telnyx signaling — published edge samples (expand in ops). Lab also trusts group 1.
+2 192.76.120.0 24 5060 udp telnyx_pop
+2 64.16.250.0 24 5060 udp telnyx_pop
+2 185.246.48.0 22 5060 udp telnyx_pop
+2 192.76.120.0 24 5061 tcp telnyx_pop

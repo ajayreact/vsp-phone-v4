@@ -1,0 +1,1657 @@
+// VSP Phone v4 — Prisma schema
+// Sprint 1–3: Identity, Telephony & Call Engine (DIAG-ERD-001, ADR-002–004, ADR-006–010)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum TenantStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  PENDING
+
+  @@map("tenant_status")
+}
+
+enum SiteStatus {
+  ACTIVE
+  INACTIVE
+
+  @@map("site_status")
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  PENDING
+  LOCKED
+
+  @@map("user_status")
+}
+
+enum PlatformAdminStatus {
+  ACTIVE
+  INACTIVE
+  LOCKED
+  SUSPENDED
+
+  @@map("platform_admin_status")
+}
+
+enum LineStatus {
+  ACTIVE
+  INACTIVE
+
+  @@map("line_status")
+}
+
+enum DeviceType {
+  DESK_PHONE
+  WEBRTC
+  MOBILE
+  SIP
+
+  @@map("device_type")
+}
+
+enum DeviceStatus {
+  REGISTERED
+  UNREGISTERED
+  ONLINE
+  OFFLINE
+  BUSY
+  PROVISIONING
+
+  @@map("device_status")
+}
+
+enum PresenceStatus {
+  AVAILABLE
+  BUSY
+  ON_CALL
+  AWAY
+  DND
+  OFFLINE
+
+  @@map("presence_status")
+}
+
+enum CarrierType {
+  TELNYX
+  BANDWIDTH
+  TWILIO
+  PLIVO
+  CUSTOM_SIP
+
+  @@map("carrier_type")
+}
+
+enum CarrierStatus {
+  ACTIVE
+  INACTIVE
+
+  @@map("carrier_status")
+}
+
+enum PhoneNumberStatus {
+  ACTIVE
+  INACTIVE
+  PORTING
+
+  @@map("phone_number_status")
+}
+
+enum SIPEndpointStatus {
+  REGISTERED
+  UNREGISTERED
+
+  @@map("sip_endpoint_status")
+}
+
+enum CallLifecycleState {
+  CREATED
+  DIALING
+  RINGING
+  ANSWERED
+  ACTIVE
+  HOLD
+  TRANSFER
+  PARK
+  ENDED
+  ARCHIVED
+
+  @@map("call_lifecycle_state")
+}
+
+enum CallType {
+  INTERNAL
+  INBOUND_PSTN
+  OUTBOUND_PSTN
+  QUEUE
+  IVR
+  CONFERENCE
+  WEBRTC
+  MOBILE
+  SIP
+  DESK_PHONE
+
+  @@map("call_type")
+}
+
+enum CallParticipantRole {
+  CALLER
+  CALLEE
+  AGENT
+  SUPERVISOR
+  EXTERNAL
+
+  @@map("call_participant_role")
+}
+
+enum CallParticipantStatus {
+  INVITED
+  RINGING
+  JOINED
+  HELD
+  LEFT
+  FAILED
+
+  @@map("call_participant_status")
+}
+
+enum QueueStatus {
+  ACTIVE
+  INACTIVE
+
+  @@map("queue_status")
+}
+
+enum QueueStrategy {
+  ROUND_ROBIN
+  LEAST_CALLS
+  LONGEST_IDLE
+  RING_ALL
+  PRIORITY
+
+  @@map("queue_strategy")
+}
+
+enum QueueMemberStatus {
+  ACTIVE
+  INACTIVE
+
+  @@map("queue_member_status")
+}
+
+enum IvrStatus {
+  ACTIVE
+  INACTIVE
+
+  @@map("ivr_status")
+}
+
+enum IvrDestinationType {
+  LINE
+  QUEUE
+  CONFERENCE
+  VOICEMAIL
+
+  @@map("ivr_destination_type")
+}
+
+enum ConferenceStatus {
+  ACTIVE
+  INACTIVE
+  LOCKED
+
+  @@map("conference_status")
+}
+
+enum ConferenceParticipantStatus {
+  INVITED
+  JOINED
+  MUTED
+  LEFT
+
+  @@map("conference_participant_status")
+}
+
+enum VoicemailStatus {
+  ACTIVE
+  INACTIVE
+
+  @@map("voicemail_status")
+}
+
+enum RecordingStatus {
+  PENDING
+  RECORDING
+  COMPLETED
+  FAILED
+  DELETED
+
+  @@map("recording_status")
+}
+
+// ---------------------------------------------------------------------------
+// PlatformAdmin — platform-level identity (outside Tenant scope)
+// ---------------------------------------------------------------------------
+
+model PlatformAdmin {
+  id              String              @id @db.Uuid
+  publicId        String              @unique @map("public_id")
+  email           String              @unique
+  username        String?             @unique
+  passwordHash    String              @map("password_hash")
+  firstName       String              @map("first_name")
+  lastName        String              @map("last_name")
+  displayName     String              @map("display_name")
+  status          PlatformAdminStatus @default(ACTIVE)
+  emailVerifiedAt DateTime?           @map("email_verified_at") @db.Timestamptz(6)
+  lastLoginAt     DateTime?           @map("last_login_at") @db.Timestamptz(6)
+  version         Int                 @default(1)
+  createdAt       DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt       DateTime?           @map("deleted_at") @db.Timestamptz(6)
+  createdBy       String?             @map("created_by") @db.Uuid
+  updatedBy       String?             @map("updated_by") @db.Uuid
+  deletedBy       String?             @map("deleted_by") @db.Uuid
+
+  creator       PlatformAdmin?  @relation("PlatformAdminCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
+  updater       PlatformAdmin?  @relation("PlatformAdminUpdatedBy", fields: [updatedBy], references: [id], onDelete: Restrict)
+  deleter       PlatformAdmin?  @relation("PlatformAdminDeletedBy", fields: [deletedBy], references: [id], onDelete: Restrict)
+  createdAdmins PlatformAdmin[] @relation("PlatformAdminCreatedBy")
+  updatedAdmins PlatformAdmin[] @relation("PlatformAdminUpdatedBy")
+  deletedAdmins PlatformAdmin[] @relation("PlatformAdminDeletedBy")
+
+  tenantsDeleted Tenant[]   @relation("TenantDeletedBy")
+  auditLogs      AuditLog[] @relation("AuditLogPlatformAdminActor")
+
+  @@index([status])
+  @@index([deletedAt])
+  @@map("platform_admins")
+}
+
+// ---------------------------------------------------------------------------
+// Tenant
+// ---------------------------------------------------------------------------
+
+model Tenant {
+  id          String       @id @db.Uuid
+  publicId    String       @unique @map("public_id")
+  name        String
+  displayName String       @map("display_name")
+  slug        String
+  status      TenantStatus @default(PENDING)
+  version     Int          @default(1)
+  createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt   DateTime?    @map("deleted_at") @db.Timestamptz(6)
+  deletedBy   String?      @map("deleted_by") @db.Uuid
+
+  deleter                PlatformAdmin?          @relation("TenantDeletedBy", fields: [deletedBy], references: [id], onDelete: Restrict)
+  settings               TenantSettings?
+  sites                  Site[]
+  siteSettings           SiteSettings[]
+  users                  User[]
+  userProfiles           UserProfile[]
+  roles                  Role[]
+  permissions            Permission[]
+  userSites              UserSite[]
+  userRoles              UserRole[]
+  rolePermissions        RolePermission[]
+  features               TenantFeature[]
+  auditLogs              AuditLog[]
+  lines                  Line[]
+  extensions             Extension[]
+  devices                Device[]
+  deviceAssignments      DeviceAssignment[]
+  phoneNumbers           PhoneNumber[]
+  numberAssignments      NumberAssignment[]
+  carriers               Carrier[]
+  sipEndpoints           SIPEndpoint[]
+  presences              Presence[]
+  callerIds              CallerID[]
+  recordingPolicies      RecordingPolicy[]
+  callPolicies           CallPolicy[]
+  callSessions           CallSession[]
+  callParticipants       CallParticipant[]
+  queues                 Queue[]
+  queueMembers           QueueMember[]
+  ivrs                   IVR[]
+  ivrMenus               IVRMenu[]
+  conferences            Conference[]
+  conferenceParticipants ConferenceParticipant[]
+  voicemails             Voicemail[]
+  recordings             Recording[]
+
+  @@unique([slug])
+  @@index([status])
+  @@index([deletedAt])
+  @@map("tenants")
+}
+
+// ---------------------------------------------------------------------------
+// TenantSettings — 1:1 with Tenant
+// ---------------------------------------------------------------------------
+
+model TenantSettings {
+  id              String    @id @db.Uuid
+  tenantId        String    @unique @map("tenant_id") @db.Uuid
+  timezone        String
+  defaultLanguage String    @map("default_language")
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt       DateTime? @map("deleted_at") @db.Timestamptz(6)
+  createdBy       String?   @map("created_by") @db.Uuid
+  updatedBy       String?   @map("updated_by") @db.Uuid
+  deletedBy       String?   @map("deleted_by") @db.Uuid
+
+  tenant  Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  creator User?  @relation("TenantSettingsCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
+  updater User?  @relation("TenantSettingsUpdatedBy", fields: [updatedBy], references: [id], onDelete: Restrict)
+  deleter User?  @relation("TenantSettingsDeletedBy", fields: [deletedBy], references: [id], onDelete: Restrict)
+
+  @@index([deletedAt])
+  @@map("tenant_settings")
+}
+
+// ---------------------------------------------------------------------------
+// Site
+// ---------------------------------------------------------------------------
+
+model Site {
+  id        String     @id @db.Uuid
+  publicId  String     @unique @map("public_id")
+  tenantId  String     @map("tenant_id") @db.Uuid
+  name      String
+  code      String
+  address   String?
+  city      String?
+  state     String?
+  country   String?
+  status    SiteStatus @default(ACTIVE)
+  version   Int        @default(1)
+  createdAt DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt DateTime?  @map("deleted_at") @db.Timestamptz(6)
+  createdBy String?    @map("created_by") @db.Uuid
+  updatedBy String?    @map("updated_by") @db.Uuid
+  deletedBy String?    @map("deleted_by") @db.Uuid
+
+  tenant            Tenant             @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  creator           User?              @relation("SiteCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
+  updater           User?              @relation("SiteUpdatedBy", fields: [updatedBy], references: [id], onDelete: Restrict)
+  deleter           User?              @relation("SiteDeletedBy", fields: [deletedBy], references: [id], onDelete: Restrict)
+  settings          SiteSettings?
+  userSites         UserSite[]
+  userRoles         UserRole[]
+  phoneNumbers      PhoneNumber[]
+  numberAssignments NumberAssignment[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([deletedAt])
+  @@map("sites")
+}
+
+// ---------------------------------------------------------------------------
+// SiteSettings — 1:1 with Site
+// ---------------------------------------------------------------------------
+
+model SiteSettings {
+  id               String    @id @db.Uuid
+  tenantId         String    @map("tenant_id") @db.Uuid
+  siteId           String    @unique @map("site_id") @db.Uuid
+  timezone         String?
+  emergencyAddress String?   @map("emergency_address")
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt        DateTime? @map("deleted_at") @db.Timestamptz(6)
+  createdBy        String?   @map("created_by") @db.Uuid
+  updatedBy        String?   @map("updated_by") @db.Uuid
+  deletedBy        String?   @map("deleted_by") @db.Uuid
+
+  tenant  Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  site    Site   @relation(fields: [siteId], references: [id], onDelete: Restrict)
+  creator User?  @relation("SiteSettingsCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
+  updater User?  @relation("SiteSettingsUpdatedBy", fields: [updatedBy], references: [id], onDelete: Restrict)
+  deleter User?  @relation("SiteSettingsDeletedBy", fields: [deletedBy], references: [id], onDelete: Restrict)
+
+  @@index([tenantId])
+  @@index([deletedAt])
+  @@map("site_settings")
+}
+
+// ---------------------------------------------------------------------------
+// User
+// ---------------------------------------------------------------------------
+
+model User {
+  id              String     @id @db.Uuid
+  publicId        String     @unique @map("public_id")
+  tenantId        String     @map("tenant_id") @db.Uuid
+  email           String
+  username        String?
+  passwordHash    String     @map("password_hash")
+  status          UserStatus @default(PENDING)
+  emailVerifiedAt DateTime?  @map("email_verified_at") @db.Timestamptz(6)
+  lastLoginAt     DateTime?  @map("last_login_at") @db.Timestamptz(6)
+  version         Int        @default(1)
+  createdAt       DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt       DateTime?  @map("deleted_at") @db.Timestamptz(6)
+  createdBy       String?    @map("created_by") @db.Uuid
+  updatedBy       String?    @map("updated_by") @db.Uuid
+  deletedBy       String?    @map("deleted_by") @db.Uuid
+
+  tenant       Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  creator      User?  @relation("UserCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
+  updater      User?  @relation("UserUpdatedBy", fields: [updatedBy], references: [id], onDelete: Restrict)
+  deleter      User?  @relation("UserDeletedBy", fields: [deletedBy], references: [id], onDelete: Restrict)
+  createdUsers User[] @relation("UserCreatedBy")
+  updatedUsers User[] @relation("UserUpdatedBy")
+  deletedUsers User[] @relation("UserDeletedBy")
+
+  profile                       UserProfile?
+  tenantSettingsCreated         TenantSettings[]        @relation("TenantSettingsCreatedBy")
+  tenantSettingsUpdated         TenantSettings[]        @relation("TenantSettingsUpdatedBy")
+  tenantSettingsDeleted         TenantSettings[]        @relation("TenantSettingsDeletedBy")
+  sitesCreated                  Site[]                  @relation("SiteCreatedBy")
+  sitesUpdated                  Site[]                  @relation("SiteUpdatedBy")
+  sitesDeleted                  Site[]                  @relation("SiteDeletedBy")
+  siteSettingsCreated           SiteSettings[]          @relation("SiteSettingsCreatedBy")
+  siteSettingsUpdated           SiteSettings[]          @relation("SiteSettingsUpdatedBy")
+  siteSettingsDeleted           SiteSettings[]          @relation("SiteSettingsDeletedBy")
+  profilesCreated               UserProfile[]           @relation("UserProfileCreatedBy")
+  profilesUpdated               UserProfile[]           @relation("UserProfileUpdatedBy")
+  profilesDeleted               UserProfile[]           @relation("UserProfileDeletedBy")
+  rolesCreated                  Role[]                  @relation("RoleCreatedBy")
+  rolesUpdated                  Role[]                  @relation("RoleUpdatedBy")
+  rolesDeleted                  Role[]                  @relation("RoleDeletedBy")
+  permissionsCreated            Permission[]            @relation("PermissionCreatedBy")
+  permissionsUpdated            Permission[]            @relation("PermissionUpdatedBy")
+  permissionsDeleted            Permission[]            @relation("PermissionDeletedBy")
+  userSitesCreated              UserSite[]              @relation("UserSiteCreatedBy")
+  userSitesUpdated              UserSite[]              @relation("UserSiteUpdatedBy")
+  userSitesDeleted              UserSite[]              @relation("UserSiteDeletedBy")
+  userRolesCreated              UserRole[]              @relation("UserRoleCreatedBy")
+  userRolesUpdated              UserRole[]              @relation("UserRoleUpdatedBy")
+  userRolesDeleted              UserRole[]              @relation("UserRoleDeletedBy")
+  rolePermissionsCreated        RolePermission[]        @relation("RolePermissionCreatedBy")
+  rolePermissionsUpdated        RolePermission[]        @relation("RolePermissionUpdatedBy")
+  rolePermissionsDeleted        RolePermission[]        @relation("RolePermissionDeletedBy")
+  featuresCreated               TenantFeature[]         @relation("TenantFeatureCreatedBy")
+  featuresUpdated               TenantFeature[]         @relation("TenantFeatureUpdatedBy")
+  featuresDeleted               TenantFeature[]         @relation("TenantFeatureDeletedBy")
+  auditLogs                     AuditLog[]              @relation("AuditLogUserActor")
+  linesCreated                  Line[]                  @relation("LineCreatedBy")
+  linesUpdated                  Line[]                  @relation("LineUpdatedBy")
+  linesDeleted                  Line[]                  @relation("LineDeletedBy")
+  extensionsCreated             Extension[]             @relation("ExtensionCreatedBy")
+  extensionsUpdated             Extension[]             @relation("ExtensionUpdatedBy")
+  extensionsDeleted             Extension[]             @relation("ExtensionDeletedBy")
+  devicesCreated                Device[]                @relation("DeviceCreatedBy")
+  devicesUpdated                Device[]                @relation("DeviceUpdatedBy")
+  devicesDeleted                Device[]                @relation("DeviceDeletedBy")
+  deviceAssignmentsCreated      DeviceAssignment[]      @relation("DeviceAssignmentCreatedBy")
+  deviceAssignmentsUpdated      DeviceAssignment[]      @relation("DeviceAssignmentUpdatedBy")
+  deviceAssignmentsDeleted      DeviceAssignment[]      @relation("DeviceAssignmentDeletedBy")
+  phoneNumbersCreated           PhoneNumber[]           @relation("PhoneNumberCreatedBy")
+  phoneNumbersUpdated           PhoneNumber[]           @relation("PhoneNumberUpdatedBy")
+  phoneNumbersDeleted           PhoneNumber[]           @relation("PhoneNumberDeletedBy")
+  numberAssignmentsCreated      NumberAssignment[]      @relation("NumberAssignmentCreatedBy")
+  numberAssignmentsUpdated      NumberAssignment[]      @relation("NumberAssignmentUpdatedBy")
+  numberAssignmentsDeleted      NumberAssignment[]      @relation("NumberAssignmentDeletedBy")
+  carriersCreated               Carrier[]               @relation("CarrierCreatedBy")
+  carriersUpdated               Carrier[]               @relation("CarrierUpdatedBy")
+  carriersDeleted               Carrier[]               @relation("CarrierDeletedBy")
+  sipEndpointsCreated           SIPEndpoint[]           @relation("SIPEndpointCreatedBy")
+  sipEndpointsUpdated           SIPEndpoint[]           @relation("SIPEndpointUpdatedBy")
+  sipEndpointsDeleted           SIPEndpoint[]           @relation("SIPEndpointDeletedBy")
+  presencesCreated              Presence[]              @relation("PresenceCreatedBy")
+  presencesUpdated              Presence[]              @relation("PresenceUpdatedBy")
+  presencesDeleted              Presence[]              @relation("PresenceDeletedBy")
+  callerIdsCreated              CallerID[]              @relation("CallerIDCreatedBy")
+  callerIdsUpdated              CallerID[]              @relation("CallerIDUpdatedBy")
+  callerIdsDeleted              CallerID[]              @relation("CallerIDDeletedBy")
+  recordingPoliciesCreated      RecordingPolicy[]       @relation("RecordingPolicyCreatedBy")
+  recordingPoliciesUpdated      RecordingPolicy[]       @relation("RecordingPolicyUpdatedBy")
+  recordingPoliciesDeleted      RecordingPolicy[]       @relation("RecordingPolicyDeletedBy")
+  callPoliciesCreated           CallPolicy[]            @relation("CallPolicyCreatedBy")
+  callPoliciesUpdated           CallPolicy[]            @relation("CallPolicyUpdatedBy")
+  callPoliciesDeleted           CallPolicy[]            @relation("CallPolicyDeletedBy")
+  callSessionsCreated           CallSession[]           @relation("CallSessionCreatedBy")
+  callSessionsUpdated           CallSession[]           @relation("CallSessionUpdatedBy")
+  callSessionsDeleted           CallSession[]           @relation("CallSessionDeletedBy")
+  callParticipantsCreated       CallParticipant[]       @relation("CallParticipantCreatedBy")
+  callParticipantsUpdated       CallParticipant[]       @relation("CallParticipantUpdatedBy")
+  callParticipantsDeleted       CallParticipant[]       @relation("CallParticipantDeletedBy")
+  queuesCreated                 Queue[]                 @relation("QueueCreatedBy")
+  queuesUpdated                 Queue[]                 @relation("QueueUpdatedBy")
+  queuesDeleted                 Queue[]                 @relation("QueueDeletedBy")
+  queueMembersCreated           QueueMember[]           @relation("QueueMemberCreatedBy")
+  queueMembersUpdated           QueueMember[]           @relation("QueueMemberUpdatedBy")
+  queueMembersDeleted           QueueMember[]           @relation("QueueMemberDeletedBy")
+  ivrsCreated                   IVR[]                   @relation("IVRCreatedBy")
+  ivrsUpdated                   IVR[]                   @relation("IVRUpdatedBy")
+  ivrsDeleted                   IVR[]                   @relation("IVRDeletedBy")
+  ivrMenusCreated               IVRMenu[]               @relation("IVRMenuCreatedBy")
+  ivrMenusUpdated               IVRMenu[]               @relation("IVRMenuUpdatedBy")
+  ivrMenusDeleted               IVRMenu[]               @relation("IVRMenuDeletedBy")
+  conferencesCreated            Conference[]            @relation("ConferenceCreatedBy")
+  conferencesUpdated            Conference[]            @relation("ConferenceUpdatedBy")
+  conferencesDeleted            Conference[]            @relation("ConferenceDeletedBy")
+  conferenceParticipantsCreated ConferenceParticipant[] @relation("ConferenceParticipantCreatedBy")
+  conferenceParticipantsUpdated ConferenceParticipant[] @relation("ConferenceParticipantUpdatedBy")
+  conferenceParticipantsDeleted ConferenceParticipant[] @relation("ConferenceParticipantDeletedBy")
+  voicemailsCreated             Voicemail[]             @relation("VoicemailCreatedBy")
+  voicemailsUpdated             Voicemail[]             @relation("VoicemailUpdatedBy")
+  voicemailsDeleted             Voicemail[]             @relation("VoicemailDeletedBy")
+  recordingsCreated             Recording[]             @relation("RecordingCreatedBy")
+  recordingsUpdated             Recording[]             @relation("RecordingUpdatedBy")
+  recordingsDeleted             Recording[]             @relation("RecordingDeletedBy")
+
+  lines             Line[]
+  devices           Device[]
+  deviceAssignments DeviceAssignment[]
+
+  userSites UserSite[]
+  userRoles UserRole[]
+
+  @@unique([tenantId, email])
+  @@unique([tenantId, username])
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([deletedAt])
+  @@map("users")
+}
+
+// ---------------------------------------------------------------------------
+// UserProfile — 1:1 with User
+// ---------------------------------------------------------------------------
+
+model UserProfile {
+  id          String    @id @db.Uuid
+  tenantId    String    @map("tenant_id") @db.Uuid
+  userId      String    @unique @map("user_id") @db.Uuid
+  firstName   String    @map("first_name")
+  lastName    String    @map("last_name")
+  displayName String    @map("display_name")
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(6)
+  createdBy   String?   @map("created_by") @db.Uuid
+  updatedBy   String?   @map("updated_by") @db.Uuid
+  deletedBy   String?   @map("deleted_by") @db.Uuid
+
+  tenant  Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  user    User   @relation(fields: [userId], references: [id], onDelete: Restrict)
+  creator User?  @relation("UserProfileCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
+  updater User?  @relation("UserProfileUpdatedBy", fields: [updatedBy], references: [id], onDelete: Restrict)
+  deleter User?  @relation("UserProfileDeletedBy", fields: [deletedBy], references: [id], onDelete: Restrict)
+
+  @@index([tenantId])
+  @@index([deletedAt])
+  @@map("user_profiles")
+}
+
+// ---------------------------------------------------------------------------
+// Role
+// ---------------------------------------------------------------------------
+
+model Role {
+  id          String    @id @db.Uuid
+  publicId    String    @unique @map("public_id")
+  tenantId    String    @map("tenant_id") @db.Uuid
+  name        String
+  description String?
+  systemRole  Boolean   @default(false) @map("system_role")
+  version     Int       @default(1)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(6)
+  createdBy   String?   @map("created_by") @db.Uuid
+  updatedBy   String?   @map("updated_by") @db.Uuid
+  deletedBy   String?   @map("deleted_by") @db.Uuid
+
+  tenant      Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  creator     User?            @relation("RoleCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
+  updater     User?            @relation("RoleUpdatedBy", fields: [updatedBy], references: [id], onDelete: Restrict)
+  deleter     User?            @relation("RoleDeletedBy", fields: [deletedBy], references: [id], onDelete: Restrict)
+  permissions RolePermission[]
+  userRoles   UserRole[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+  @@index([tenantId, systemRole])
+  @@index([deletedAt])
+  @@map("roles")
+}
+
+// ---------------------------------------------------------------------------
+// Permission
+// ---------------------------------------------------------------------------
+
+model Permission {
+  id          String    @id @db.Uuid
+  publicId    String    @unique @map("public_id")
+  tenantId    String    @map("tenant_id") @db.Uuid
+  key         String
+  description String?
+  version     Int       @default(1)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(6)
+  createdBy   String?   @map("created_by") @db.Uuid
+  updatedBy   String?   @map("updated_by") @db.Uuid
+  deletedBy   String?   @map("deleted_by") @db.Uuid
+
+  tenant  Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  creator User?            @relation("PermissionCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
+  updater User?            @relation("PermissionUpdatedBy", fields: [updatedBy], references: [id], onDelete: Restrict)
+  deleter User?            @relation("PermissionDeletedBy", fields: [deletedBy], references: [id], onDelete: Restrict)
+  roles   RolePermission[]
+
+  @@unique([tenantId, key])
+  @@index([tenantId])
+  @@index([deletedAt])
+  @@map("permissions")
+}
+
+// ---------------------------------------------------------------------------
+// UserSite — User ↔ Site
+// ---------------------------------------------------------------------------
+
+model UserSite {
+  id        String    @id @db.Uuid
+  tenantId  String    @map("tenant_id") @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  siteId    String    @map("site_id") @db.Uuid
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedBy String?   @map("deleted_by") @db.Uuid
+
+  tenant  Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  user    User   @relation(fields: [userId], references: [id], onDelete: Restrict)
+  site    Site   @relation(fields: [siteId], references: [id], onDelete: Restrict)
+  creator User?  @relation("UserSiteCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
+  updater User?  @relation("UserSiteUpdatedBy", fields: [updatedBy], references: [id], onDelete: Restrict)
+  deleter User?  @relation("UserSiteDeletedBy", fields: [deletedBy], references: [id], onDelete: Restrict)
+
+  @@unique([tenantId, userId, siteId])
+  @@index([tenantId])
+  @@index([tenantId, userId])
+  @@index([tenantId, siteId])
+  @@index([deletedAt])
+  @@map("user_sites")
+}
+
+// ---------------------------------------------------------------------------
+// UserRole — User ↔ Role (optionally scoped to Site per ADR-007)
+// ---------------------------------------------------------------------------
+
+model UserRole {
+  id        String    @id @db.Uuid
+  tenantId  String    @map("tenant_id") @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  roleId    String    @map("role_id") @db.Uuid
+  siteId    String?   @map("site_id") @db.Uuid
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedBy String?   @map("deleted_by") @db.Uuid
+
+  tenant  Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  user    User   @relation(fields: [userId], references: [id], onDelete: Restrict)
+  role    Role   @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  site    Site?  @relation(fields: [siteId], references: [id], onDelete: Restrict)
+  creator User?  @relation("UserRoleCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
+  updater User?  @relation("UserRoleUpdatedBy", fields: [updatedBy], references: [id], onDelete: Restrict)
+  deleter User?  @relation("UserRoleDeletedBy", fields: [deletedBy], references: [id], onDelete: Restrict)
+
+  @@unique([tenantId, userId, roleId, siteId])
+  @@index([tenantId])
+  @@index([tenantId, userId])
+  @@index([tenantId, roleId])
+  @@index([tenantId, siteId])
+  @@index([deletedAt])
+  @@map("user_roles")
+}
+
+// ---------------------------------------------------------------------------
+// RolePermission — Role ↔ Permission
+// ---------------------------------------------------------------------------
+
+model RolePermission {
+  id           String    @id @db.Uuid
+  tenantId     String    @map("tenant_id") @db.Uuid
+  roleId       String    @map("role_id") @db.Uuid
+  permissionId String    @map("permission_id") @db.Uuid
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt    DateTime? @map("deleted_at") @db.Timestamptz(6)
+  createdBy    String?   @map("created_by") @db.Uuid
+  updatedBy    String?   @map("updated_by") @db.Uuid
+  deletedBy    String?   @map("deleted_by") @db.Uuid
+
+  tenant     Tenant     @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Restrict)
+  creator    User?      @relation("RolePermissionCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
+  updater    User?      @relation("RolePermissionUpdatedBy", fields: [updatedBy], references: [id], onDelete: Restrict)
+  deleter    User?      @relation("RolePermissionDeletedBy", fields: [deletedBy], references: [id], onDelete: Restrict)
+
+  @@unique([tenantId, roleId, permissionId])
+  @@index([tenantId])
+  @@index([tenantId, roleId])
+  @@index([tenantId, permissionId])
+  @@index([deletedAt])
+  @@map("role_permissions")
+}
+
+// ---------------------------------------------------------------------------
+// TenantFeature — per-tenant feature flags
+// ---------------------------------------------------------------------------
+
+model TenantFeature {
+  id         String    @id @db.Uuid
+  tenantId   String    @map("tenant_id") @db.Uuid
+  featureKey String    @map("feature_key")
+  enabled    Boolean   @default(false)
+  version    Int       @default(1)
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt  DateTime? @map("deleted_at") @db.Timestamptz(6)
+  createdBy  String?   @map("created_by") @db.Uuid
+  updatedBy  String?   @map("updated_by") @db.Uuid
+  deletedBy  String?   @map("deleted_by") @db.Uuid
+
+  tenant  Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  creator User?  @relation("TenantFeatureCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
+  updater User?  @relation("TenantFeatureUpdatedBy", fields: [updatedBy], references: [id], onDelete: Restrict)
+  deleter User?  @relation("TenantFeatureDeletedBy", fields: [deletedBy], references: [id], onDelete: Restrict)
+
+  @@unique([tenantId, featureKey])
+  @@index([tenantId])
+  @@index([tenantId, enabled])
+  @@index([deletedAt])
+  @@map("tenant_features")
+}
+
+// ---------------------------------------------------------------------------
+// AuditLog — immutable platform audit trail
+// ---------------------------------------------------------------------------
+
+model AuditLog {
+  id                   String   @id @db.Uuid
+  publicId             String   @unique @map("public_id")
+  tenantId             String?  @map("tenant_id") @db.Uuid
+  actorUserId          String?  @map("actor_user_id") @db.Uuid
+  actorPlatformAdminId String?  @map("actor_platform_admin_id") @db.Uuid
+  action               String
+  entityType           String   @map("entity_type")
+  entityId             String?  @map("entity_id") @db.Uuid
+  entityPublicId       String?  @map("entity_public_id")
+  metadata             Json?    @db.JsonB
+  ipAddress            String?  @map("ip_address")
+  userAgent            String?  @map("user_agent")
+  createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  tenant             Tenant?        @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  actorUser          User?          @relation("AuditLogUserActor", fields: [actorUserId], references: [id], onDelete: Restrict)
+  actorPlatformAdmin PlatformAdmin? @relation("AuditLogPlatformAdminActor", fields: [actorPlatformAdminId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId])
+  @@index([tenantId, entityType])
+  @@index([tenantId, createdAt])
+  @@index([actorUserId])
+  @@index([actorPlatformAdminId])
+  @@index([entityType, entityId])
+  @@map("audit_logs")
+}
+
+// =============================================================================
+// Sprint 2: Telephony Foundation
+// =============================================================================
+
+// ---------------------------------------------------------------------------
+// Line — telephony identity hub (ADR-002 Rule 6)
+// ---------------------------------------------------------------------------
+
+model Line {
+  id        String     @id @db.Uuid
+  publicId  String     @unique @map("public_id")
+  tenantId  String     @map("tenant_id") @db.Uuid
+  userId    String     @map("user_id") @db.Uuid
+  name      String
+  status    LineStatus @default(ACTIVE)
+  version   Int        @default(1)
+  createdAt DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt DateTime?  @map("deleted_at") @db.Timestamptz(6)
+  createdBy String?    @map("created_by") @db.Uuid
+  updatedBy String?    @map("updated_by") @db.Uuid
+  deletedBy String?    @map("deleted_by") @db.Uuid
+
+  tenant                 Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  user                   User                    @relation(fields: [userId], references: [id], onDelete: Restrict)
+  creator                User?                   @relation("LineCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
+  updater                User?                   @relation("LineUpdatedBy", fields: [updatedBy], references: [id], onDelete: Restrict)
+  deleter                User?                   @relation("LineDeletedBy", fields: [deletedBy], references: [id], onDelete: Restrict)
+  extension              Extension?
+  presence               Presence?
+  callerId               CallerID?
+  recordingPolicy        RecordingPolicy?
+  callPolicy             CallPolicy?
+  devices                Device[]
+  phoneNumbers           PhoneNumber[]
+  deviceAssignments      DeviceAssignment[]
+  numberAssignments      NumberAssignment[]
+  voicemail              Voicemail?
+  callSessionsFrom       CallSession[]           @relation("CallSessionFromLine")
+  callSessionsTo         CallSession[]           @relation("CallSessionToLine")
+  callParticipants       CallParticipant[]
+  queueMembers           QueueMember[]
+  conferenceParticipants ConferenceParticipant[]
+  ivrMenuDestinations    IVRMenu[]               @relation("IVRMenuDestinationLine")
+  recordings             Recording[]
+
+  @@index([tenantId])
+  @@index([tenantId, userId])
+  @@index([tenantId, status])
+  @@index([deletedAt])
+  @@map("lines")
+}
+
+// ---------------------------------------------------------------------------
+// Extension — owned by Line, unique within Tenant (ADR-002 Rule 9)
+// ---------------------------------------------------------------------------
+
+model Extension {
+  id        String    @id @db.Uuid
+  tenantId  String    @map("tenant_id") @db.Uuid
+  lineId    String    @unique @map("line_id") @db.Uuid
+  extension String
+  version   Int       @default(1)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedBy String?   @map("deleted_by") @db.Uuid
+
+  tenant  Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  line    Line   @relation(fields: [lineId], references: [id], onDelete: Restrict)
+  creator User?  @relation("ExtensionCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
+  updater User?  @relation("ExtensionUpdatedBy", fields: [updatedBy], references: [id], onDelete: Restrict)
+  deleter User?  @relation("ExtensionDeletedBy", fields: [deletedBy], references: [id], onDelete: Restrict)
+
+  @@unique([tenantId, extension])
+  @@index([tenantId])
+  @@index([tenantId, lineId])
+  @@index([deletedAt])
+  @@map("extensions")
+}
+
+// ---------------------------------------------------------------------------
+// Device — tenant endpoint (ADR-002 Rules 7–8)
+// ---------------------------------------------------------------------------
+
+model Device {
+  id            String       @id @db.Uuid
+  publicId      String       @unique @map("public_id")
+  tenantId      String       @map("tenant_id") @db.Uuid
+  lineId        String?      @map("line_id") @db.Uuid
+  userId        String?      @map("user_id") @db.Uuid
+  sipEndpointId String?      @unique @map("sip_endpoint_id") @db.Uuid
+  name          String
+  deviceType    DeviceType   @map("device_type")
+  status        DeviceStatus @default(PROVISIONING)
+  macAddress    String?      @map("mac_address")
+  version       Int          @default(1)
+  createdAt     DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt     DateTime?    @map("deleted_at") @db.Timestamptz(6)
+  createdBy     String?      @map("created_by") @db.Uuid
+  updatedBy     String?      @map("updated_by") @db.Uuid
+  deletedBy     String?      @map("deleted_by") @db.Uuid
+
+  tenant           Tenant             @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  line             Line?              @relation(fields: [lineId], references: [id], onDelete: Restrict)
+  user             User?              @relation(fields: [userId], references: [id], onDelete: Restrict)
+  sipEndpoint      SIPEndpoint?       @relation(fields: [sipEndpointId], references: [id], onDelete: Restrict)
+  creator          User?              @relation("DeviceCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
+  updater          User?              @relation("DeviceUpdatedBy", fields: [updatedBy], references: [id], onDelete: Restrict)
+  deleter          User?              @relation("DeviceDeletedBy", fields: [deletedBy], references: [id], onDelete: Restrict)
+  assignments      DeviceAssignment[]
+  presence         Presence?
+  callParticipants CallParticipant[]
+
+  @@unique([tenantId, macAddress])
+  @@index([tenantId])
+  @@index([tenantId, lineId])
+  @@index([tenantId, userId])
+  @@index([tenantId, deviceType])
+  @@index([tenantId, status])
+  @@index([deletedAt])
+  @@map("devices")
+}
+
+// ---------------------------------------------------------------------------
+// DeviceAssignment — device reassignment history (ADR-002 Rule 8)
+// ---------------------------------------------------------------------------
+
+model DeviceAssignment {
+  id            String    @id @db.Uuid
+  tenantId      String    @map("tenant_id") @db.Uuid
+  deviceId      String    @map("device_id") @db.Uuid
+  userId        String    @map("user_id") @db.Uuid
+  lineId        String?   @map("line_id") @db.Uuid
+  effectiveFrom DateTime  @map("effective_from") @db.Timestamptz(6)
+  effectiveTo   DateTime? @map("effective_to") @db.Timestamptz(6)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt     DateTime? @map("deleted_at") @db.Timestamptz(6)
+  createdBy     String?   @map("created_by") @db.Uuid
+  updatedBy     String?   @map("updated_by") @db.Uuid
+  deletedBy     String?   @map("deleted_by") @db.Uuid
+
+  tenant  Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  device  Device @relation(fields: [deviceId], references: [id], onDelete: Restrict)
+  user    User   @relation(fields: [userId], references: [id], onDelete: Restrict)
+  line    Line?  @relation(fields: [lineId], references: [id], onDelete: Restrict)
+  creator User?  @relation("DeviceAssignmentCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
+  updater User?  @relation("DeviceAssignmentUpdatedBy", fields: [updatedBy], references: [id], onDelete: Restrict)
+  deleter User?  @relation("DeviceAssignmentDeletedBy", fields: [deletedBy], references: [id], onDelete: Restrict)
+
+  @@index([tenantId])
+  @@index([tenantId, deviceId])
+  @@index([tenantId, userId])
+  @@index([tenantId, lineId])
+  @@index([tenantId, effectiveFrom])
+  @@index([deletedAt])
+  @@map("device_assignments")
+}
+
+// ---------------------------------------------------------------------------
+// PhoneNumber — tenant dialable number (ADR-002 Rules 10–11)
+// ---------------------------------------------------------------------------
+
+model PhoneNumber {
+  id        String            @id @db.Uuid
+  publicId  String            @unique @map("public_id")
+  tenantId  String            @map("tenant_id") @db.Uuid
+  siteId    String?           @map("site_id") @db.Uuid
+  lineId    String?           @map("line_id") @db.Uuid
+  carrierId String?           @map("carrier_id") @db.Uuid
+  number    String
+  status    PhoneNumberStatus @default(ACTIVE)
+  version   Int               @default(1)
+  createdAt DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt DateTime?         @map("deleted_at") @db.Timestamptz(6)
+  createdBy String?           @map("created_by") @db.Uuid
+  updatedBy String?           @map("updated_by") @db.Uuid
+  deletedBy String?           @map("deleted_by") @db.Uuid
+
+  tenant                Tenant             @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  site                  Site?              @relation(fields: [siteId], references: [id], onDelete: Restrict)
+  line                  Line?              @relation(fields: [lineId], references: [id], onDelete: Restrict)
+  carrier               Carrier?           @relation(fields: [carrierId], references: [id], onDelete: Restrict)
+  creator               User?              @relation("PhoneNumberCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
+  updater               User?              @relation("PhoneNumberUpdatedBy", fields: [updatedBy], references: [id], onDelete: Restrict)
+  deleter               User?              @relation("PhoneNumberDeletedBy", fields: [deletedBy], references: [id], onDelete: Restrict)
+  assignments           NumberAssignment[]
+  callerIdPresentations CallerID[]
+  callSessions          CallSession[]
+
+  @@unique([tenantId, number])
+  @@index([tenantId])
+  @@index([tenantId, siteId])
+  @@index([tenantId, lineId])
+  @@index([tenantId, carrierId])
+  @@index([tenantId, status])
+  @@index([deletedAt])
+  @@map("phone_numbers")
+}
+
+// ---------------------------------------------------------------------------
+// NumberAssignment — phone number reassignment history (ADR-002 Rule 10)
+// ---------------------------------------------------------------------------
+
+model NumberAssignment {
+  id            String    @id @db.Uuid
+  tenantId      String    @map("tenant_id") @db.Uuid
+  phoneNumberId String    @map("phone_number_id") @db.Uuid
+  siteId        String?   @map("site_id") @db.Uuid
+  lineId        String?   @map("line_id") @db.Uuid
+  effectiveFrom DateTime  @map("effective_from") @db.Timestamptz(6)
+  effectiveTo   DateTime? @map("effective_to") @db.Timestamptz(6)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt     DateTime? @map("deleted_at") @db.Timestamptz(6)
+  createdBy     String?   @map("created_by") @db.Uuid
+  updatedBy     String?   @map("updated_by") @db.Uuid
+  deletedBy     String?   @map("deleted_by") @db.Uuid
+
+  tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  phoneNumber PhoneNumber @relation(fields: [phoneNumberId], references: [id], onDelete: Restrict)
+  site        Site?       @relation(fields: [siteId], references: [id], onDelete: Restrict)
+  line        Line?       @relation(fields: [lineId], references: [id], onDelete: Restrict)
+  creator     User?       @relation("NumberAssignmentCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
+  updater     User?       @relation("NumberAssignmentUpdatedBy", fields: [updatedBy], references: [id], onDelete: Restrict)
+  deleter     User?       @relation("NumberAssignmentDeletedBy", fields: [deletedBy], references: [id], onDelete: Restrict)
+
+  @@index([tenantId])
+  @@index([tenantId, phoneNumberId])
+  @@index([tenantId, siteId])
+  @@index([tenantId, lineId])
+  @@index([tenantId, effectiveFrom])
+  @@index([deletedAt])
+  @@map("number_assignments")
+}
+
+// ---------------------------------------------------------------------------
+// Carrier — abstract carrier association (ADR-010)
+// ---------------------------------------------------------------------------
+
+model Carrier {
+  id            String        @id @db.Uuid
+  publicId      String        @unique @map("public_id")
+  tenantId      String        @map("tenant_id") @db.Uuid
+  name          String
+  code          String
+  carrierType   CarrierType   @map("carrier_type")
+  status        CarrierStatus @default(ACTIVE)
+  configuration Json?         @db.JsonB
+  version       Int           @default(1)
+  createdAt     DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt     DateTime?     @map("deleted_at") @db.Timestamptz(6)
+  createdBy     String?       @map("created_by") @db.Uuid
+  updatedBy     String?       @map("updated_by") @db.Uuid
+  deletedBy     String?       @map("deleted_by") @db.Uuid
+
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  creator      User?         @relation("CarrierCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
+  updater      User?         @relation("CarrierUpdatedBy", fields: [updatedBy], references: [id], onDelete: Restrict)
+  deleter      User?         @relation("CarrierDeletedBy", fields: [deletedBy], references: [id], onDelete: Restrict)
+  phoneNumbers PhoneNumber[]
+  sipEndpoints SIPEndpoint[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+  @@index([tenantId, carrierType])
+  @@index([tenantId, status])
+  @@index([deletedAt])
+  @@map("carriers")
+}
+
+// ---------------------------------------------------------------------------
+// SIPEndpoint — SIP registration identity and configuration
+// ---------------------------------------------------------------------------
+
+model SIPEndpoint {
+  id                 String            @id @db.Uuid
+  publicId           String            @unique @map("public_id")
+  tenantId           String            @map("tenant_id") @db.Uuid
+  carrierId          String?           @map("carrier_id") @db.Uuid
+  aor                String
+  authUsername       String            @map("auth_username")
+  registrationStatus SIPEndpointStatus @default(UNREGISTERED) @map("registration_status")
+  lastRegisteredAt   DateTime?         @map("last_registered_at") @db.Timestamptz(6)
+  registrationConfig Json?             @map("registration_config") @db.JsonB
+  version            Int               @default(1)
+  createdAt          DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt          DateTime?         @map("deleted_at") @db.Timestamptz(6)
+  createdBy          String?           @map("created_by") @db.Uuid
+  updatedBy          String?           @map("updated_by") @db.Uuid
+  deletedBy          String?           @map("deleted_by") @db.Uuid
+
+  tenant  Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  carrier Carrier? @relation(fields: [carrierId], references: [id], onDelete: Restrict)
+  creator User?    @relation("SIPEndpointCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
+  updater User?    @relation("SIPEndpointUpdatedBy", fields: [updatedBy], references: [id], onDelete: Restrict)
+  deleter User?    @relation("SIPEndpointDeletedBy", fields: [deletedBy], references: [id], onDelete: Restrict)
+  device  Device?
+
+  @@unique([tenantId, aor])
+  @@index([tenantId])
+  @@index([tenantId, carrierId])
+  @@index([tenantId, registrationStatus])
+  @@index([deletedAt])
+  @@map("sip_endpoints")
+}
+
+// ---------------------------------------------------------------------------
+// Presence — owned by Line (ADR-004)
+// ---------------------------------------------------------------------------
+
+model Presence {
+  id            String         @id @db.Uuid
+  tenantId      String         @map("tenant_id") @db.Uuid
+  lineId        String         @unique @map("line_id") @db.Uuid
+  deviceId      String?        @unique @map("device_id") @db.Uuid
+  status        PresenceStatus @default(OFFLINE)
+  customMessage String?        @map("custom_message")
+  version       Int            @default(1)
+  createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt     DateTime?      @map("deleted_at") @db.Timestamptz(6)
+  createdBy     String?        @map("created_by") @db.Uuid
+  updatedBy     String?        @map("updated_by") @db.Uuid
+  deletedBy     String?        @map("deleted_by") @db.Uuid
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  line    Line    @relation(fields: [lineId], references: [id], onDelete: Restrict)
+  device  Device? @relation(fields: [deviceId], references: [id], onDelete: Restrict)
+  creator User?   @relation("PresenceCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
+  updater User?   @relation("PresenceUpdatedBy", fields: [updatedBy], references: [id], onDelete: Restrict)
+  deleter User?   @relation("PresenceDeletedBy", fields: [deletedBy], references: [id], onDelete: Restrict)
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([deletedAt])
+  @@map("presences")
+}
+
+// ---------------------------------------------------------------------------
+// CallerID — owned by Line
+// ---------------------------------------------------------------------------
+
+model CallerID {
+  id            String    @id @db.Uuid
+  tenantId      String    @map("tenant_id") @db.Uuid
+  lineId        String    @unique @map("line_id") @db.Uuid
+  phoneNumberId String?   @map("phone_number_id") @db.Uuid
+  callerIdName  String?   @map("caller_id_name")
+  version       Int       @default(1)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt     DateTime? @map("deleted_at") @db.Timestamptz(6)
+  createdBy     String?   @map("created_by") @db.Uuid
+  updatedBy     String?   @map("updated_by") @db.Uuid
+  deletedBy     String?   @map("deleted_by") @db.Uuid
+
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  line        Line         @relation(fields: [lineId], references: [id], onDelete: Restrict)
+  phoneNumber PhoneNumber? @relation(fields: [phoneNumberId], references: [id], onDelete: Restrict)
+  creator     User?        @relation("CallerIDCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
+  updater     User?        @relation("CallerIDUpdatedBy", fields: [updatedBy], references: [id], onDelete: Restrict)
+  deleter     User?        @relation("CallerIDDeletedBy", fields: [deletedBy], references: [id], onDelete: Restrict)
+
+  @@index([tenantId])
+  @@index([tenantId, phoneNumberId])
+  @@index([deletedAt])
+  @@map("caller_ids")
+}
+
+// ---------------------------------------------------------------------------
+// RecordingPolicy — owned by Line
+// ---------------------------------------------------------------------------
+
+model RecordingPolicy {
+  id               String    @id @db.Uuid
+  tenantId         String    @map("tenant_id") @db.Uuid
+  lineId           String    @unique @map("line_id") @db.Uuid
+  recordingEnabled Boolean   @default(false) @map("recording_enabled")
+  recordInbound    Boolean   @default(false) @map("record_inbound")
+  recordOutbound   Boolean   @default(false) @map("record_outbound")
+  version          Int       @default(1)
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt        DateTime? @map("deleted_at") @db.Timestamptz(6)
+  createdBy        String?   @map("created_by") @db.Uuid
+  updatedBy        String?   @map("updated_by") @db.Uuid
+  deletedBy        String?   @map("deleted_by") @db.Uuid
+
+  tenant  Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  line    Line   @relation(fields: [lineId], references: [id], onDelete: Restrict)
+  creator User?  @relation("RecordingPolicyCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
+  updater User?  @relation("RecordingPolicyUpdatedBy", fields: [updatedBy], references: [id], onDelete: Restrict)
+  deleter User?  @relation("RecordingPolicyDeletedBy", fields: [deletedBy], references: [id], onDelete: Restrict)
+
+  @@index([tenantId])
+  @@index([deletedAt])
+  @@map("recording_policies")
+}
+
+// ---------------------------------------------------------------------------
+// CallPolicy — owned by Line
+// ---------------------------------------------------------------------------
+
+model CallPolicy {
+  id              String    @id @db.Uuid
+  tenantId        String    @map("tenant_id") @db.Uuid
+  lineId          String    @unique @map("line_id") @db.Uuid
+  inboundEnabled  Boolean   @default(true) @map("inbound_enabled")
+  outboundEnabled Boolean   @default(true) @map("outbound_enabled")
+  version         Int       @default(1)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt       DateTime? @map("deleted_at") @db.Timestamptz(6)
+  createdBy       String?   @map("created_by") @db.Uuid
+  updatedBy       String?   @map("updated_by") @db.Uuid
+  deletedBy       String?   @map("deleted_by") @db.Uuid
+
+  tenant  Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  line    Line   @relation(fields: [lineId], references: [id], onDelete: Restrict)
+  creator User?  @relation("CallPolicyCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
+  updater User?  @relation("CallPolicyUpdatedBy", fields: [updatedBy], references: [id], onDelete: Restrict)
+  deleter User?  @relation("CallPolicyDeletedBy", fields: [deletedBy], references: [id], onDelete: Restrict)
+
+  @@index([tenantId])
+  @@index([deletedAt])
+  @@map("call_policies")
+}
+
+// =============================================================================
+// Sprint 3: Call Engine Foundation
+// =============================================================================
+
+// ---------------------------------------------------------------------------
+// CallSession — Platform UUID call identity aggregate (ADR-004)
+// ---------------------------------------------------------------------------
+
+model CallSession {
+  id            String             @id @db.Uuid
+  publicId      String             @unique @map("public_id")
+  platformUuid  String             @unique @map("platform_uuid") @db.Uuid
+  tenantId      String             @map("tenant_id") @db.Uuid
+  fromLineId    String?            @map("from_line_id") @db.Uuid
+  toLineId      String?            @map("to_line_id") @db.Uuid
+  phoneNumberId String?            @map("phone_number_id") @db.Uuid
+  queueId       String?            @map("queue_id") @db.Uuid
+  ivrId         String?            @map("ivr_id") @db.Uuid
+  conferenceId  String?            @map("conference_id") @db.Uuid
+  callType      CallType           @map("call_type")
+  state         CallLifecycleState @default(CREATED)
+  sipCallId     String?            @map("sip_call_id")
+  startedAt     DateTime?          @map("started_at") @db.Timestamptz(6)
+  answeredAt    DateTime?          @map("answered_at") @db.Timestamptz(6)
+  endedAt       DateTime?          @map("ended_at") @db.Timestamptz(6)
+  version       Int                @default(1)
+  createdAt     DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt     DateTime?          @map("deleted_at") @db.Timestamptz(6)
+  createdBy     String?            @map("created_by") @db.Uuid
+  updatedBy     String?            @map("updated_by") @db.Uuid
+  deletedBy     String?            @map("deleted_by") @db.Uuid
+
+  tenant       Tenant            @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  fromLine     Line?             @relation("CallSessionFromLine", fields: [fromLineId], references: [id], onDelete: Restrict)
+  toLine       Line?             @relation("CallSessionToLine", fields: [toLineId], references: [id], onDelete: Restrict)
+  phoneNumber  PhoneNumber?      @relation(fields: [phoneNumberId], references: [id], onDelete: Restrict)
+  queue        Queue?            @relation(fields: [queueId], references: [id], onDelete: Restrict)
+  ivr          IVR?              @relation(fields: [ivrId], references: [id], onDelete: Restrict)
+  conference   Conference?       @relation(fields: [conferenceId], references: [id], onDelete: Restrict)
+  creator      User?             @relation("CallSessionCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
+  updater      User?             @relation("CallSessionUpdatedBy", fields: [updatedBy], references: [id], onDelete: Restrict)
+  deleter      User?             @relation("CallSessionDeletedBy", fields: [deletedBy], references: [id], onDelete: Restrict)
+  participants CallParticipant[]
+  recordings   Recording[]
+
+  @@index([tenantId])
+  @@index([tenantId, state])
+  @@index([tenantId, callType])
+  @@index([tenantId, fromLineId])
+  @@index([tenantId, toLineId])
+  @@index([tenantId, queueId])
+  @@index([tenantId, ivrId])
+  @@index([tenantId, conferenceId])
+  @@index([tenantId, startedAt])
+  @@index([deletedAt])
+  @@map("call_sessions")
+}
+
+// ---------------------------------------------------------------------------
+// CallParticipant — multi-party legs on a CallSession
+// ---------------------------------------------------------------------------
+
+model CallParticipant {
+  id            String                @id @db.Uuid
+  publicId      String                @unique @map("public_id")
+  tenantId      String                @map("tenant_id") @db.Uuid
+  callSessionId String                @map("call_session_id") @db.Uuid
+  lineId        String?               @map("line_id") @db.Uuid
+  deviceId      String?               @map("device_id") @db.Uuid
+  role          CallParticipantRole
+  status        CallParticipantStatus @default(INVITED)
+  joinedAt      DateTime?             @map("joined_at") @db.Timestamptz(6)
+  leftAt        DateTime?             @map("left_at") @db.Timestamptz(6)
+  version       Int                   @default(1)
+  createdAt     DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime              @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt     DateTime?             @map("deleted_at") @db.Timestamptz(6)
+  createdBy     String?               @map("created_by") @db.Uuid
+  updatedBy     String?               @map("updated_by") @db.Uuid
+  deletedBy     String?               @map("deleted_by") @db.Uuid
+
+  tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  callSession CallSession @relation(fields: [callSessionId], references: [id], onDelete: Restrict)
+  line        Line?       @relation(fields: [lineId], references: [id], onDelete: Restrict)
+  device      Device?     @relation(fields: [deviceId], references: [id], onDelete: Restrict)
+  creator     User?       @relation("CallParticipantCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
+  updater     User?       @relation("CallParticipantUpdatedBy", fields: [updatedBy], references: [id], onDelete: Restrict)
+  deleter     User?       @relation("CallParticipantDeletedBy", fields: [deletedBy], references: [id], onDelete: Restrict)
+
+  @@index([tenantId])
+  @@index([tenantId, callSessionId])
+  @@index([tenantId, lineId])
+  @@index([tenantId, deviceId])
+  @@index([tenantId, status])
+  @@index([deletedAt])
+  @@map("call_participants")
+}
+
+// ---------------------------------------------------------------------------
+// Queue
+// ---------------------------------------------------------------------------
+
+model Queue {
+  id        String        @id @db.Uuid
+  publicId  String        @unique @map("public_id")
+  tenantId  String        @map("tenant_id") @db.Uuid
+  name      String
+  code      String
+  strategy  QueueStrategy @default(ROUND_ROBIN)
+  status    QueueStatus   @default(ACTIVE)
+  version   Int           @default(1)
+  createdAt DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt DateTime?     @map("deleted_at") @db.Timestamptz(6)
+  createdBy String?       @map("created_by") @db.Uuid
+  updatedBy String?       @map("updated_by") @db.Uuid
+  deletedBy String?       @map("deleted_by") @db.Uuid
+
+  tenant          Tenant        @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  creator         User?         @relation("QueueCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
+  updater         User?         @relation("QueueUpdatedBy", fields: [updatedBy], references: [id], onDelete: Restrict)
+  deleter         User?         @relation("QueueDeletedBy", fields: [deletedBy], references: [id], onDelete: Restrict)
+  members         QueueMember[]
+  callSessions    CallSession[]
+  ivrDestinations IVRMenu[]     @relation("IVRMenuDestinationQueue")
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([tenantId, strategy])
+  @@index([deletedAt])
+  @@map("queues")
+}
+
+// ---------------------------------------------------------------------------
+// QueueMember — Queue ↔ Line
+// ---------------------------------------------------------------------------
+
+model QueueMember {
+  id        String            @id @db.Uuid
+  publicId  String            @unique @map("public_id")
+  tenantId  String            @map("tenant_id") @db.Uuid
+  queueId   String            @map("queue_id") @db.Uuid
+  lineId    String            @map("line_id") @db.Uuid
+  priority  Int               @default(0)
+  status    QueueMemberStatus @default(ACTIVE)
+  version   Int               @default(1)
+  createdAt DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt DateTime?         @map("deleted_at") @db.Timestamptz(6)
+  createdBy String?           @map("created_by") @db.Uuid
+  updatedBy String?           @map("updated_by") @db.Uuid
+  deletedBy String?           @map("deleted_by") @db.Uuid
+
+  tenant  Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  queue   Queue  @relation(fields: [queueId], references: [id], onDelete: Restrict)
+  line    Line   @relation(fields: [lineId], references: [id], onDelete: Restrict)
+  creator User?  @relation("QueueMemberCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
+  updater User?  @relation("QueueMemberUpdatedBy", fields: [updatedBy], references: [id], onDelete: Restrict)
+  deleter User?  @relation("QueueMemberDeletedBy", fields: [deletedBy], references: [id], onDelete: Restrict)
+
+  @@unique([tenantId, queueId, lineId])
+  @@index([tenantId])
+  @@index([tenantId, queueId])
+  @@index([tenantId, lineId])
+  @@index([tenantId, status])
+  @@index([deletedAt])
+  @@map("queue_members")
+}
+
+// ---------------------------------------------------------------------------
+// IVR
+// ---------------------------------------------------------------------------
+
+model IVR {
+  id        String    @id @db.Uuid
+  publicId  String    @unique @map("public_id")
+  tenantId  String    @map("tenant_id") @db.Uuid
+  name      String
+  code      String
+  status    IvrStatus @default(ACTIVE)
+  version   Int       @default(1)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedBy String?   @map("deleted_by") @db.Uuid
+
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  creator      User?         @relation("IVRCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
+  updater      User?         @relation("IVRUpdatedBy", fields: [updatedBy], references: [id], onDelete: Restrict)
+  deleter      User?         @relation("IVRDeletedBy", fields: [deletedBy], references: [id], onDelete: Restrict)
+  menus        IVRMenu[]
+  callSessions CallSession[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([deletedAt])
+  @@map("ivrs")
+}
+
+// ---------------------------------------------------------------------------
+// IVRMenu — digit/option routing destinations
+// ---------------------------------------------------------------------------
+
+model IVRMenu {
+  id                      String             @id @db.Uuid
+  publicId                String             @unique @map("public_id")
+  tenantId                String             @map("tenant_id") @db.Uuid
+  ivrId                   String             @map("ivr_id") @db.Uuid
+  digit                   String
+  label                   String?
+  destinationType         IvrDestinationType @map("destination_type")
+  destinationLineId       String?            @map("destination_line_id") @db.Uuid
+  destinationQueueId      String?            @map("destination_queue_id") @db.Uuid
+  destinationConferenceId String?            @map("destination_conference_id") @db.Uuid
+  destinationVoicemailId  String?            @map("destination_voicemail_id") @db.Uuid
+  sortOrder               Int                @default(0) @map("sort_order")
+  version                 Int                @default(1)
+  createdAt               DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt               DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt               DateTime?          @map("deleted_at") @db.Timestamptz(6)
+  createdBy               String?            @map("created_by") @db.Uuid
+  updatedBy               String?            @map("updated_by") @db.Uuid
+  deletedBy               String?            @map("deleted_by") @db.Uuid
+
+  tenant                Tenant      @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  ivr                   IVR         @relation(fields: [ivrId], references: [id], onDelete: Restrict)
+  destinationLine       Line?       @relation("IVRMenuDestinationLine", fields: [destinationLineId], references: [id], onDelete: Restrict)
+  destinationQueue      Queue?      @relation("IVRMenuDestinationQueue", fields: [destinationQueueId], references: [id], onDelete: Restrict)
+  destinationConference Conference? @relation("IVRMenuDestinationConference", fields: [destinationConferenceId], references: [id], onDelete: Restrict)
+  destinationVoicemail  Voicemail?  @relation("IVRMenuDestinationVoicemail", fields: [destinationVoicemailId], references: [id], onDelete: Restrict)
+  creator               User?       @relation("IVRMenuCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
+  updater               User?       @relation("IVRMenuUpdatedBy", fields: [updatedBy], references: [id], onDelete: Restrict)
+  deleter               User?       @relation("IVRMenuDeletedBy", fields: [deletedBy], references: [id], onDelete: Restrict)
+
+  @@unique([tenantId, ivrId, digit])
+  @@index([tenantId])
+  @@index([tenantId, ivrId])
+  @@index([tenantId, destinationType])
+  @@index([deletedAt])
+  @@map("ivr_menus")
+}
+
+// ---------------------------------------------------------------------------
+// Conference
+// ---------------------------------------------------------------------------
+
+model Conference {
+  id        String           @id @db.Uuid
+  publicId  String           @unique @map("public_id")
+  tenantId  String           @map("tenant_id") @db.Uuid
+  name      String
+  code      String
+  status    ConferenceStatus @default(ACTIVE)
+  pin       String?
+  version   Int              @default(1)
+  createdAt DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt DateTime?        @map("deleted_at") @db.Timestamptz(6)
+  createdBy String?          @map("created_by") @db.Uuid
+  updatedBy String?          @map("updated_by") @db.Uuid
+  deletedBy String?          @map("deleted_by") @db.Uuid
+
+  tenant          Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  creator         User?                   @relation("ConferenceCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
+  updater         User?                   @relation("ConferenceUpdatedBy", fields: [updatedBy], references: [id], onDelete: Restrict)
+  deleter         User?                   @relation("ConferenceDeletedBy", fields: [deletedBy], references: [id], onDelete: Restrict)
+  participants    ConferenceParticipant[]
+  callSessions    CallSession[]
+  recordings      Recording[]
+  ivrDestinations IVRMenu[]               @relation("IVRMenuDestinationConference")
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([deletedAt])
+  @@map("conferences")
+}
+
+// ---------------------------------------------------------------------------
+// ConferenceParticipant
+// ---------------------------------------------------------------------------
+
+model ConferenceParticipant {
+  id           String                      @id @db.Uuid
+  publicId     String                      @unique @map("public_id")
+  tenantId     String                      @map("tenant_id") @db.Uuid
+  conferenceId String                      @map("conference_id") @db.Uuid
+  lineId       String?                     @map("line_id") @db.Uuid
+  status       ConferenceParticipantStatus @default(INVITED)
+  muted        Boolean                     @default(false)
+  joinedAt     DateTime?                   @map("joined_at") @db.Timestamptz(6)
+  leftAt       DateTime?                   @map("left_at") @db.Timestamptz(6)
+  version      Int                         @default(1)
+  createdAt    DateTime                    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime                    @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt    DateTime?                   @map("deleted_at") @db.Timestamptz(6)
+  createdBy    String?                     @map("created_by") @db.Uuid
+  updatedBy    String?                     @map("updated_by") @db.Uuid
+  deletedBy    String?                     @map("deleted_by") @db.Uuid
+
+  tenant     Tenant     @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  conference Conference @relation(fields: [conferenceId], references: [id], onDelete: Restrict)
+  line       Line?      @relation(fields: [lineId], references: [id], onDelete: Restrict)
+  creator    User?      @relation("ConferenceParticipantCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
+  updater    User?      @relation("ConferenceParticipantUpdatedBy", fields: [updatedBy], references: [id], onDelete: Restrict)
+  deleter    User?      @relation("ConferenceParticipantDeletedBy", fields: [deletedBy], references: [id], onDelete: Restrict)
+
+  @@index([tenantId])
+  @@index([tenantId, conferenceId])
+  @@index([tenantId, lineId])
+  @@index([tenantId, status])
+  @@index([deletedAt])
+  @@map("conference_participants")
+}
+
+// ---------------------------------------------------------------------------
+// Voicemail — owned by Line (ADR-002 Rule 6)
+// ---------------------------------------------------------------------------
+
+model Voicemail {
+  id        String          @id @db.Uuid
+  publicId  String          @unique @map("public_id")
+  tenantId  String          @map("tenant_id") @db.Uuid
+  lineId    String          @unique @map("line_id") @db.Uuid
+  status    VoicemailStatus @default(ACTIVE)
+  pin       String?
+  version   Int             @default(1)
+  createdAt DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt DateTime?       @map("deleted_at") @db.Timestamptz(6)
+  createdBy String?         @map("created_by") @db.Uuid
+  updatedBy String?         @map("updated_by") @db.Uuid
+  deletedBy String?         @map("deleted_by") @db.Uuid
+
+  tenant          Tenant    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  line            Line      @relation(fields: [lineId], references: [id], onDelete: Restrict)
+  creator         User?     @relation("VoicemailCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
+  updater         User?     @relation("VoicemailUpdatedBy", fields: [updatedBy], references: [id], onDelete: Restrict)
+  deleter         User?     @relation("VoicemailDeletedBy", fields: [deletedBy], references: [id], onDelete: Restrict)
+  ivrDestinations IVRMenu[] @relation("IVRMenuDestinationVoicemail")
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([deletedAt])
+  @@map("voicemails")
+}
+
+// ---------------------------------------------------------------------------
+// Recording — metadata only; media owned by RTPengine (ADR-004 / ADR-009)
+// ---------------------------------------------------------------------------
+
+model Recording {
+  id              String          @id @db.Uuid
+  publicId        String          @unique @map("public_id")
+  tenantId        String          @map("tenant_id") @db.Uuid
+  callSessionId   String          @map("call_session_id") @db.Uuid
+  lineId          String?         @map("line_id") @db.Uuid
+  conferenceId    String?         @map("conference_id") @db.Uuid
+  status          RecordingStatus @default(PENDING)
+  startedAt       DateTime?       @map("started_at") @db.Timestamptz(6)
+  endedAt         DateTime?       @map("ended_at") @db.Timestamptz(6)
+  durationSeconds Int?            @map("duration_seconds")
+  mediaObjectKey  String?         @map("media_object_key")
+  mediaFormat     String?         @map("media_format")
+  version         Int             @default(1)
+  createdAt       DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt       DateTime?       @map("deleted_at") @db.Timestamptz(6)
+  createdBy       String?         @map("created_by") @db.Uuid
+  updatedBy       String?         @map("updated_by") @db.Uuid
+  deletedBy       String?         @map("deleted_by") @db.Uuid
+
+  tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  callSession CallSession @relation(fields: [callSessionId], references: [id], onDelete: Restrict)
+  line        Line?       @relation(fields: [lineId], references: [id], onDelete: Restrict)
+  conference  Conference? @relation(fields: [conferenceId], references: [id], onDelete: Restrict)
+  creator     User?       @relation("RecordingCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
+  updater     User?       @relation("RecordingUpdatedBy", fields: [updatedBy], references: [id], onDelete: Restrict)
+  deleter     User?       @relation("RecordingDeletedBy", fields: [deletedBy], references: [id], onDelete: Restrict)
+
+  @@index([tenantId])
+  @@index([tenantId, callSessionId])
+  @@index([tenantId, lineId])
+  @@index([tenantId, conferenceId])
+  @@index([tenantId, status])
+  @@index([deletedAt])
+  @@map("recordings")
+}

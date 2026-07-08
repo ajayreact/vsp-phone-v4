@@ -1,0 +1,38 @@
+# Phase 4 RTPengine — media foundation (NG control + spool + ICE/DTLS-capable daemon when packaged)
+
+FROM debian:bookworm-slim
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    RTPENGINE_CONF=/etc/rtpengine/rtpengine.conf \
+    RTPENGINE_NG_PORT=2223 \
+    RTPENGINE_RECORDING_DIR=/var/spool/rtpengine \
+    RTPENGINE_LOG_DIR=/var/log/rtpengine
+
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends \
+      ca-certificates \
+      curl \
+      gnupg \
+      procps \
+      iproute2 \
+      python3 \
+      netcat-openbsd \
+  && mkdir -p /etc/rtpengine /var/spool/rtpengine /var/log/rtpengine \
+  && rm -rf /var/lib/apt/lists/*
+
+COPY infrastructure/docker/rtpengine/install-or-stub.sh /usr/local/bin/install-or-stub.sh
+COPY infrastructure/docker/rtpengine/docker-entrypoint.sh /docker-entrypoint.sh
+COPY infrastructure/docker/rtpengine/healthcheck.sh /healthcheck.sh
+COPY infrastructure/rtpengine/rtpengine.conf /etc/rtpengine/rtpengine.conf
+
+RUN chmod +x /usr/local/bin/install-or-stub.sh /docker-entrypoint.sh /healthcheck.sh \
+  && sed -i 's/\r$//' /usr/local/bin/install-or-stub.sh /docker-entrypoint.sh /healthcheck.sh \
+  && /usr/local/bin/install-or-stub.sh
+
+EXPOSE 2223/udp 2224/tcp 10000-10099/udp
+
+HEALTHCHECK --interval=15s --timeout=5s --start-period=20s --retries=8 \
+  CMD /healthcheck.sh
+
+ENTRYPOINT ["/docker-entrypoint.sh"]
+CMD ["rtpengine"]

@@ -1,0 +1,46 @@
+# syntax=docker/dockerfile:1.7
+# Next.js Admin — development and production (standalone) targets
+
+FROM node:20-bookworm-slim AS base
+WORKDIR /workspace
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends ca-certificates curl \
+  && rm -rf /var/lib/apt/lists/*
+
+COPY package.json package-lock.json nx.json tsconfig.base.json ./
+COPY packages ./packages
+COPY apps/admin ./apps/admin
+
+FROM base AS deps
+RUN npm ci
+
+FROM deps AS development
+ENV NODE_ENV=development
+ENV PORT=3001
+ENV HOSTNAME=0.0.0.0
+ENV NEXT_TELEMETRY_DISABLED=1
+EXPOSE 3001
+WORKDIR /workspace
+CMD ["npx", "nx", "dev", "admin"]
+
+FROM deps AS build
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+RUN npx nx build admin
+
+FROM node:20-bookworm-slim AS production
+WORKDIR /app
+ENV NODE_ENV=production
+ENV PORT=3001
+ENV HOSTNAME=0.0.0.0
+ENV NEXT_TELEMETRY_DISABLED=1
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends ca-certificates curl \
+  && rm -rf /var/lib/apt/lists/*
+COPY --from=build /workspace/apps/admin/.next/standalone ./
+COPY --from=build /workspace/apps/admin/.next/static ./apps/admin/.next/static
+COPY --from=build /workspace/apps/admin/public ./apps/admin/public
+EXPOSE 3001
+HEALTHCHECK --interval=10s --timeout=5s --start-period=25s --retries=5 \
+  CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||3001)+'/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+CMD ["node", "apps/admin/server.js"]

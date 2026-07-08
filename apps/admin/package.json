@@ -1,0 +1,6 @@
+{
+  "name": "@vsp/admin",
+  "version": "4.0.0-rc1",
+  "private": true,
+  "description": "VSP Phone v4 — Next.js admin and WebRTC softphone"
+}

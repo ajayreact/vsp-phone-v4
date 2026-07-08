@@ -1,0 +1,39 @@
+# Phase 3 Kamailio — foundation (registrar, dispatcher, websocket, rtpengine hooks)
+
+FROM kamailio/kamailio:5.8.4-bookworm
+
+USER root
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends \
+      curl \
+      ca-certificates \
+      netcat-openbsd \
+      procps \
+  && (apt-get install -y --no-install-recommends kamailio-redis-modules || true) \
+  && (apt-get install -y --no-install-recommends kamailio-tls-modules || true) \
+  && (apt-get install -y --no-install-recommends kamailio-websocket-modules || true) \
+  && (apt-get install -y --no-install-recommends kamailio-presence-modules || true) \
+  && (apt-get install -y --no-install-recommends kamailio-extra-modules || true) \
+  && (apt-get install -y --no-install-recommends kamailio-utils-modules || true) \
+  && (apt-get install -y --no-install-recommends kamailio-json-modules || true) \
+  && rm -rf /var/lib/apt/lists/* \
+  && mkdir -p /var/log/kamailio /tmp /etc/kamailio/tls \
+  && (ls /usr/lib/x86_64-linux-gnu/kamailio/modules/rtpengine.so \
+        || ls /usr/lib/*/kamailio/modules/rtpengine.so \
+        || echo "WARN: rtpengine.so not found — ensure kamailio-extra-modules provides it") \
+  && chown -R kamailio:kamailio /var/log/kamailio || true
+
+COPY infrastructure/kamailio/kamailio.cfg /etc/kamailio/kamailio.cfg
+COPY infrastructure/kamailio/tls.cfg /etc/kamailio/tls.cfg
+COPY infrastructure/kamailio/dispatcher.list /etc/kamailio/dispatcher.list
+COPY infrastructure/kamailio/permissions.address /etc/kamailio/permissions.address
+COPY infrastructure/docker/kamailio/docker-entrypoint.sh /docker-entrypoint.sh
+COPY infrastructure/docker/kamailio/healthcheck.sh /healthcheck.sh
+RUN chmod +x /docker-entrypoint.sh /healthcheck.sh \
+  && sed -i 's/\r$//' /docker-entrypoint.sh /healthcheck.sh
+
+EXPOSE 5060/udp 5060/tcp 5061 8080 8443 8880
+HEALTHCHECK --interval=15s --timeout=5s --start-period=35s --retries=10 \
+  CMD /healthcheck.sh
+ENTRYPOINT ["/docker-entrypoint.sh"]
+CMD ["kamailio", "-DD", "-E", "-f", "/etc/kamailio/kamailio.cfg"]

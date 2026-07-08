@@ -1,0 +1,19 @@
+# TLS / PKI assets for VSP Phone v4 (Phase 2)
+#
+# Tracked: OpenSSL configs, READMEs, rotation notes.
+# NEVER commit private keys or live PEMs (see root .gitignore + development/.gitignore).
+
+infrastructure/tls/var/
+infrastructure/tls/**/private/
+infrastructure/tls/**/*.key
+infrastructure/tls/**/*-key.pem
+infrastructure/tls/development/live/
+infrastructure/tls/staging/live/
+infrastructure/tls/production/live/
+
+# Allow committing public trust-store stubs documentation only
+!infrastructure/tls/**/README.md
+!infrastructure/tls/**/.gitkeep
+!infrastructure/tls/openssl/**
+!infrastructure/tls/trust-store/.gitkeep
+!infrastructure/tls/trust-store/README.md

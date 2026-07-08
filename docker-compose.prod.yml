@@ -1,0 +1,24 @@
+# ------------------------------------------------------------------------------
+# VSP Phone v4 — production-oriented Compose overlay (Phase 1 skeleton)
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+#
+# Do not commit real production secrets. Supply env via sealed mechanism.
+# ------------------------------------------------------------------------------
+
+services:
+  api:
+    build:
+      target: production
+    environment:
+      NODE_ENV: production
+      VSP_ENV: production
+      LOG_FORMAT: json
+      LOG_LEVEL: info
+
+  admin:
+    build:
+      target: production
+    environment:
+      NODE_ENV: production
+      VSP_ENV: production

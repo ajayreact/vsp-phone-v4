@@ -1,0 +1,42 @@
+{
+  "name": "admin",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "apps/admin",
+  "projectType": "application",
+  "tags": ["scope:app", "type:admin"],
+  "targets": {
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "apps/admin",
+        "command": "next build",
+        "env": {
+          "NODE_ENV": "production"
+        }
+      },
+      "outputs": ["{projectRoot}/.next"]
+    },
+    "dev": {
+      "continuous": true,
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "apps/admin",
+        "command": "next dev -H 0.0.0.0 -p 3001",
+        "env": {
+          "PORT": "3001"
+        }
+      }
+    },
+    "start": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "apps/admin",
+        "command": "next start -H 0.0.0.0 -p 3001",
+        "env": {
+          "PORT": "3001",
+          "NODE_ENV": "production"
+        }
+      }
+    }
+  }
+}

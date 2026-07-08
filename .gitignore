@@ -1,0 +1,69 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build outputs
+dist/
+build/
+.next/
+out/
+*.tsbuildinfo
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+*.swo
+
+# Test / coverage
+coverage/
+.nyc_output/
+
+# Docker
+*.local.yml
+
+# Terraform / infra secrets
+*.tfstate
+*.tfstate.*
+.terraform/
+
+# Misc
+*.pem
+*.key
+!infrastructure/tls/openssl/**
+!infrastructure/tls/**/README.md
+secrets/
+infrastructure/tls/**/live/
+infrastructure/tls/var/
+infrastructure/tls/trust-store/*.crt
+
+
+
+.nx/cache
+.nx/workspace-data
+.nx/migrate-runs
+
+tmp/
+
+# Prisma
+generated/
+/generated/prisma

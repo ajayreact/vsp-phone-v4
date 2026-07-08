@@ -1,0 +1,6 @@
+{
+  "name": "@vsp/api",
+  "version": "4.0.0-rc1",
+  "private": true,
+  "description": "VSP Phone v4 — NestJS telecom API"
+}

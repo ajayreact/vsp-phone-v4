@@ -1,0 +1,262 @@
+# ------------------------------------------------------------------------------
+# VSP Phone v4 — Docker Compose (Phase 1 foundation)
+#
+# Profiles:
+#   (default)  full stack: postgres redis api admin kamailio rtpengine
+#   core       postgres + redis only          → docker compose --profile core up -d
+#   extras     + MinIO object storage         → docker compose --profile extras up -d
+#
+# Targets (API_DOCKER_TARGET / ADMIN_DOCKER_TARGET):
+#   development | production (default: development)
+# ------------------------------------------------------------------------------
+
+name: vsp-phone-v4
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: '10m'
+    max-file: '3'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: vsp-postgres
+    restart: unless-stopped
+    logging: *default-logging
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-vsp}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vsp_dev_password}
+      POSTGRES_DB: ${POSTGRES_DB:-vsp_phone}
+    ports:
+      - '${POSTGRES_PORT:-5432}:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infrastructure/docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    networks: [vsp_internal]
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  redis:
+    image: redis:7-alpine
+    container_name: vsp-redis
+    restart: unless-stopped
+    logging: *default-logging
+    command: ['redis-server', '--appendonly', 'yes', '--save', '60', '1000']
+    ports:
+      - '${REDIS_PORT:-6379}:6379'
+    volumes:
+      - redis_data:/data
+    networks: [vsp_internal]
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+  api:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/Dockerfile.api
+      target: ${API_DOCKER_TARGET:-development}
+    container_name: vsp-api
+    restart: unless-stopped
+    logging: *default-logging
+    env_file: [.env]
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      VSP_ENV: ${VSP_ENV:-development}
+      PORT: ${PORT:-3000}
+      API_GLOBAL_PREFIX: ${API_GLOBAL_PREFIX:-api}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      LOG_FORMAT: ${LOG_FORMAT:-json}
+      POSTGRES_HOST: postgres
+      REDIS_HOST: redis
+      DATABASE_URL: postgresql://${POSTGRES_USER:-vsp}:${POSTGRES_PASSWORD:-vsp_dev_password}@postgres:5432/${POSTGRES_DB:-vsp_phone}?schema=public
+      REDIS_URL: redis://redis:6379
+      TELECOM_SERVICE_AUTH_TOKEN: ${TELECOM_SERVICE_AUTH_TOKEN:-}
+      SIP_PLATFORM_DOMAIN: ${SIP_PLATFORM_DOMAIN:-vsp.internal}
+      SIP_DEV_PASSWORD: ${SIP_DEV_PASSWORD:-}
+      SIP_VAULT_JSON: ${SIP_VAULT_JSON:-}
+      TLS_ENABLED: ${TLS_ENABLED:-false}
+      TLS_ENV: ${TLS_ENV:-development}
+      TLS_API_CERT_FILE: ${TLS_API_CERT_FILE:-/etc/vsp/tls/api/fullchain.pem}
+      TLS_API_KEY_FILE: ${TLS_API_KEY_FILE:-/etc/vsp/tls/api/privkey.pem}
+      TLS_CA_FILE: ${TLS_CA_FILE:-/etc/vsp/tls/ca/ca.crt}
+    ports:
+      - '${API_PORT:-3000}:3000'
+      - '${API_TLS_PORT:-3443}:3443'
+    volumes:
+      - ./infrastructure/tls/${TLS_ENV:-development}/live:/etc/vsp/tls:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks: [vsp_internal]
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'node -e "fetch(\"http://127.0.0.1:3000/api/health\").then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"',
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 60s
+
+  admin:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/Dockerfile.admin
+      target: ${ADMIN_DOCKER_TARGET:-development}
+    container_name: vsp-admin
+    restart: unless-stopped
+    logging: *default-logging
+    env_file: [.env]
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      VSP_ENV: ${VSP_ENV:-development}
+      PORT: ${ADMIN_PORT:-3001}
+      HOSTNAME: 0.0.0.0
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3000/api}
+      NEXT_TELEMETRY_DISABLED: '1'
+    ports:
+      - '${ADMIN_HOST_PORT:-3001}:3001'
+    depends_on:
+      api:
+        condition: service_healthy
+    networks: [vsp_internal]
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'node -e "fetch(\"http://127.0.0.1:3001/api/health\").then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"',
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 60s
+
+  kamailio:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/Dockerfile.kamailio
+    container_name: vsp-kamailio
+    restart: unless-stopped
+    logging: *default-logging
+    environment:
+      KAMAILIO_CFG: /etc/kamailio/kamailio.cfg
+      REDIS_HOST: redis
+      RTPENGINE_HOST: rtpengine
+      RTPENGINE_NG_PORT: ${RTPENGINE_NG_PORT:-2223}
+      KAMAILIO_REQUIRE_TLS: ${KAMAILIO_REQUIRE_TLS:-true}
+      NESTJS_BASE_URL: http://api:3000
+      TELECOM_SERVICE_AUTH_TOKEN: ${TELECOM_SERVICE_AUTH_TOKEN:-}
+    ports:
+      - '${KAMAILIO_SIP_PORT:-5060}:5060/udp'
+      - '${KAMAILIO_SIP_PORT:-5060}:5060/tcp'
+      - '${KAMAILIO_TLS_PORT:-5061}:5061'
+      - '${KAMAILIO_WS_PORT:-8080}:8080'
+      - '${KAMAILIO_WSS_PORT:-8443}:8443'
+      - '${KAMAILIO_HTTP_PORT:-8880}:8880'
+    volumes:
+      - ./infrastructure/kamailio/kamailio.cfg:/etc/kamailio/kamailio.cfg:ro
+      - ./infrastructure/kamailio/tls.cfg:/etc/kamailio/tls.cfg:ro
+      - ./infrastructure/kamailio/dispatcher.list:/etc/kamailio/dispatcher.list:ro
+      - ./infrastructure/kamailio/permissions.address:/etc/kamailio/permissions.address:ro
+      - ./infrastructure/tls/${TLS_ENV:-development}/live/kamailio:/etc/kamailio/tls:ro
+      - kamailio_logs:/var/log/kamailio
+    depends_on:
+      redis:
+        condition: service_healthy
+      rtpengine:
+        condition: service_started
+      api:
+        condition: service_started
+    networks: [vsp_internal]
+    healthcheck:
+      test: ['CMD', '/healthcheck.sh']
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+
+  rtpengine:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/Dockerfile.rtpengine
+    container_name: vsp-rtpengine
+    restart: unless-stopped
+    logging: *default-logging
+    environment:
+      RTPENGINE_CONF: /etc/rtpengine/rtpengine.conf
+      RTPENGINE_NG_PORT: ${RTPENGINE_NG_PORT:-2223}
+      RTPENGINE_NG_HOST: 0.0.0.0
+      RTPENGINE_RECORDING_DIR: /var/spool/rtpengine
+      RTPENGINE_LOG_DIR: /var/log/rtpengine
+      RTPENGINE_ADVERTISE: ${RTPENGINE_ADVERTISE:-}
+      RTPENGINE_LOG_LEVEL: ${RTPENGINE_LOG_LEVEL:-6}
+    ports:
+      - '${RTPENGINE_NG_PORT:-2223}:2223/udp'
+      - '${RTPENGINE_CLI_PORT:-2224}:2224/tcp'
+      - '${RTPENGINE_MEDIA_PORT_RANGE:-10000-10099}:10000-10099/udp'
+    volumes:
+      - ./infrastructure/rtpengine/rtpengine.conf:/etc/rtpengine/rtpengine.conf:ro
+      - rtpengine_spool:/var/spool/rtpengine
+      - rtpengine_logs:/var/log/rtpengine
+    networks: [vsp_internal]
+    healthcheck:
+      test: ['CMD', '/healthcheck.sh']
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 25s
+    cap_add: [NET_ADMIN]
+
+  minio:
+    profiles: ['extras']
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+    container_name: vsp-minio
+    restart: unless-stopped
+    logging: *default-logging
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-vspminio}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-vsp_minio_dev_password}
+    ports:
+      - '${MINIO_API_PORT:-9000}:9000'
+      - '${MINIO_CONSOLE_PORT:-9001}:9001'
+    volumes:
+      - minio_data:/data
+    networks: [vsp_internal]
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://127.0.0.1:9000/minio/health/live']
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+networks:
+  vsp_internal:
+    name: vsp_internal
+    driver: bridge
+
+volumes:
+  postgres_data:
+    name: vsp_postgres_data
+  redis_data:
+    name: vsp_redis_data
+  kamailio_logs:
+    name: vsp_kamailio_logs
+  rtpengine_spool:
+    name: vsp_rtpengine_spool
+  rtpengine_logs:
+    name: vsp_rtpengine_logs
+  minio_data:
+    name: vsp_minio_data

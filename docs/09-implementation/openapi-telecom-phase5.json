@@ -1,0 +1,1550 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/api/health": {
+      "get": {
+        "operationId": "HealthController_liveliness",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Health"
+        ]
+      }
+    },
+    "/api/ready": {
+      "get": {
+        "operationId": "HealthController_readiness",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Health"
+        ]
+      }
+    },
+    "/api/v1/telecom/health": {
+      "get": {
+        "description": "Timeout guidance: 1000ms. No auth DB checks.",
+        "operationId": "TelecomController_health",
+        "parameters": [
+          {
+            "name": "x-vsp-service-auth",
+            "in": "header",
+            "description": "Shared service token (required when TELECOM_SERVICE_AUTH_TOKEN is set)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "in": "header",
+            "description": "Idempotency key for safe retries",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-vsp-platform-uuid",
+            "in": "header",
+            "description": "Business correlator (ADR-019) when already allocated",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-correlation-id",
+            "in": "header",
+            "description": "Cross-service correlation id",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-request-id",
+            "in": "header",
+            "description": "Client request id; generated if omitted",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TelecomHealthResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "telecom-service-auth": []
+          }
+        ],
+        "summary": "Telecom module health",
+        "tags": [
+          "telecom"
+        ]
+      }
+    },
+    "/api/v1/telecom/authenticate": {
+      "post": {
+        "description": "Maps to future ADR-024 sip-digest. Timeout ≤ 2000ms. Idempotent on nonce+user (cache later). Phase 5 returns allow:false placeholder.",
+        "operationId": "TelecomController_authenticate",
+        "parameters": [
+          {
+            "name": "x-vsp-service-auth",
+            "in": "header",
+            "description": "Shared service token (required when TELECOM_SERVICE_AUTH_TOKEN is set)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "in": "header",
+            "description": "Idempotency key for safe retries",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-vsp-platform-uuid",
+            "in": "header",
+            "description": "Business correlator (ADR-019) when already allocated",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-correlation-id",
+            "in": "header",
+            "description": "Cross-service correlation id",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-request-id",
+            "in": "header",
+            "description": "Client request id; generated if omitted",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AuthenticateRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthenticateResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "401": {
+            "description": "Service auth failed"
+          }
+        },
+        "security": [
+          {
+            "telecom-service-auth": []
+          }
+        ],
+        "summary": "SIP digest authentication (contract)",
+        "tags": [
+          "telecom"
+        ]
+      }
+    },
+    "/api/v1/telecom/register": {
+      "post": {
+        "description": "Timeout ≤ 2000ms. Idempotent on aor+contact+expires.",
+        "operationId": "TelecomController_register",
+        "parameters": [
+          {
+            "name": "x-vsp-service-auth",
+            "in": "header",
+            "description": "Shared service token (required when TELECOM_SERVICE_AUTH_TOKEN is set)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "in": "header",
+            "description": "Idempotency key for safe retries",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-vsp-platform-uuid",
+            "in": "header",
+            "description": "Business correlator (ADR-019) when already allocated",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-correlation-id",
+            "in": "header",
+            "description": "Cross-service correlation id",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-request-id",
+            "in": "header",
+            "description": "Client request id; generated if omitted",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegisterResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "telecom-service-auth": []
+          }
+        ],
+        "summary": "Registration accepted notification (contract)",
+        "tags": [
+          "telecom"
+        ]
+      }
+    },
+    "/api/v1/telecom/unregister": {
+      "post": {
+        "description": "Timeout ≤ 2000ms. Idempotent on aor+contact.",
+        "operationId": "TelecomController_unregister",
+        "parameters": [
+          {
+            "name": "x-vsp-service-auth",
+            "in": "header",
+            "description": "Shared service token (required when TELECOM_SERVICE_AUTH_TOKEN is set)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "in": "header",
+            "description": "Idempotency key for safe retries",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-vsp-platform-uuid",
+            "in": "header",
+            "description": "Business correlator (ADR-019) when already allocated",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-correlation-id",
+            "in": "header",
+            "description": "Cross-service correlation id",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-request-id",
+            "in": "header",
+            "description": "Client request id; generated if omitted",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UnregisterRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnregisterResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "telecom-service-auth": []
+          }
+        ],
+        "summary": "Unregistration notification (contract)",
+        "tags": [
+          "telecom"
+        ]
+      }
+    },
+    "/api/v1/telecom/route": {
+      "post": {
+        "description": "Maps to ADR-024 routing/resolve. Timeout ≤ 2000ms. Allocates placeholder platformUuid (not persisted). Idempotent via Idempotency-Key or callId+requestUri (cache later).",
+        "operationId": "TelecomController_route",
+        "parameters": [
+          {
+            "name": "x-vsp-service-auth",
+            "in": "header",
+            "description": "Shared service token (required when TELECOM_SERVICE_AUTH_TOKEN is set)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "in": "header",
+            "description": "Idempotency key for safe retries",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-vsp-platform-uuid",
+            "in": "header",
+            "description": "Business correlator (ADR-019) when already allocated",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-correlation-id",
+            "in": "header",
+            "description": "Cross-service correlation id",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-request-id",
+            "in": "header",
+            "description": "Client request id; generated if omitted",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RouteRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RouteResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "telecom-service-auth": []
+          }
+        ],
+        "summary": "Route plan resolve (contract)",
+        "tags": [
+          "telecom"
+        ]
+      }
+    },
+    "/api/v1/telecom/call/start": {
+      "post": {
+        "description": "Timeout ≤ 5000ms. Idempotent on platformUuid. No CallSession write in Phase 5.",
+        "operationId": "TelecomController_callStart",
+        "parameters": [
+          {
+            "name": "x-vsp-service-auth",
+            "in": "header",
+            "description": "Shared service token (required when TELECOM_SERVICE_AUTH_TOKEN is set)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "in": "header",
+            "description": "Idempotency key for safe retries",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-vsp-platform-uuid",
+            "in": "header",
+            "description": "Business correlator (ADR-019) when already allocated",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-correlation-id",
+            "in": "header",
+            "description": "Cross-service correlation id",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-request-id",
+            "in": "header",
+            "description": "Client request id; generated if omitted",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CallStartRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallLifecycleResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "telecom-service-auth": []
+          }
+        ],
+        "summary": "Call start lifecycle (contract)",
+        "tags": [
+          "telecom"
+        ]
+      }
+    },
+    "/api/v1/telecom/call/update": {
+      "post": {
+        "description": "Timeout ≤ 2000ms. Idempotent on platformUuid+state+seq.",
+        "operationId": "TelecomController_callUpdate",
+        "parameters": [
+          {
+            "name": "x-vsp-service-auth",
+            "in": "header",
+            "description": "Shared service token (required when TELECOM_SERVICE_AUTH_TOKEN is set)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "in": "header",
+            "description": "Idempotency key for safe retries",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-vsp-platform-uuid",
+            "in": "header",
+            "description": "Business correlator (ADR-019) when already allocated",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-correlation-id",
+            "in": "header",
+            "description": "Cross-service correlation id",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-request-id",
+            "in": "header",
+            "description": "Client request id; generated if omitted",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CallUpdateRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallLifecycleResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "telecom-service-auth": []
+          }
+        ],
+        "summary": "Call update lifecycle (contract)",
+        "tags": [
+          "telecom"
+        ]
+      }
+    },
+    "/api/v1/telecom/call/end": {
+      "post": {
+        "description": "Timeout ≤ 5000ms. Idempotent on platformUuid+seq.",
+        "operationId": "TelecomController_callEnd",
+        "parameters": [
+          {
+            "name": "x-vsp-service-auth",
+            "in": "header",
+            "description": "Shared service token (required when TELECOM_SERVICE_AUTH_TOKEN is set)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "in": "header",
+            "description": "Idempotency key for safe retries",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-vsp-platform-uuid",
+            "in": "header",
+            "description": "Business correlator (ADR-019) when already allocated",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-correlation-id",
+            "in": "header",
+            "description": "Cross-service correlation id",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-request-id",
+            "in": "header",
+            "description": "Client request id; generated if omitted",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CallEndRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallLifecycleResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "telecom-service-auth": []
+          }
+        ],
+        "summary": "Call end lifecycle (contract)",
+        "tags": [
+          "telecom"
+        ]
+      }
+    },
+    "/api/v1/telecom/presence": {
+      "post": {
+        "description": "Timeout ≤ 2000ms.",
+        "operationId": "TelecomController_presence",
+        "parameters": [
+          {
+            "name": "x-vsp-service-auth",
+            "in": "header",
+            "description": "Shared service token (required when TELECOM_SERVICE_AUTH_TOKEN is set)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "in": "header",
+            "description": "Idempotency key for safe retries",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-vsp-platform-uuid",
+            "in": "header",
+            "description": "Business correlator (ADR-019) when already allocated",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-correlation-id",
+            "in": "header",
+            "description": "Cross-service correlation id",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-request-id",
+            "in": "header",
+            "description": "Client request id; generated if omitted",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PresenceRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PresenceResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "telecom-service-auth": []
+          }
+        ],
+        "summary": "Presence update (contract)",
+        "tags": [
+          "telecom"
+        ]
+      }
+    },
+    "/api/v1/telecom/device": {
+      "post": {
+        "description": "Timeout ≤ 2000ms. No Device Prisma write in Phase 5.",
+        "operationId": "TelecomController_device",
+        "parameters": [
+          {
+            "name": "x-vsp-service-auth",
+            "in": "header",
+            "description": "Shared service token (required when TELECOM_SERVICE_AUTH_TOKEN is set)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "in": "header",
+            "description": "Idempotency key for safe retries",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-vsp-platform-uuid",
+            "in": "header",
+            "description": "Business correlator (ADR-019) when already allocated",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-correlation-id",
+            "in": "header",
+            "description": "Cross-service correlation id",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-request-id",
+            "in": "header",
+            "description": "Client request id; generated if omitted",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeviceRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "telecom-service-auth": []
+          }
+        ],
+        "summary": "Device signal (contract)",
+        "tags": [
+          "telecom"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "VSP Phone v4 — Telecom API",
+    "description": "Phase 5 contract-first NestJS telecom surface for Kamailio HTTP clients (ADR-024 shape via Wave-2 Phase 5 paths). Placeholder business logic only.",
+    "version": "1.0.0-phase5",
+    "contact": {}
+  },
+  "tags": [
+    {
+      "name": "telecom",
+      "description": "Kamailio ↔ NestJS telecom contracts"
+    }
+  ],
+  "servers": [],
+  "components": {
+    "securitySchemes": {
+      "telecom-service-auth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "x-vsp-service-auth",
+        "description": "Shared telecom service credential (HMAC/token stub)"
+      }
+    },
+    "schemas": {
+      "RouteActionDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "FORK",
+              "SERIAL",
+              "BRIDGE_CARRIER",
+              "APP_MEDIA",
+              "VOICEMAIL",
+              "REJECT"
+            ]
+          },
+          "target": {
+            "type": "string"
+          },
+          "priority": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "type"
+        ]
+      },
+      "RouteRecordingDto": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "direction": {
+            "type": "string",
+            "enum": [
+              "both",
+              "caller",
+              "callee"
+            ]
+          },
+          "pauseAllowed": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled",
+          "pauseAllowed"
+        ]
+      },
+      "RouteRtpDto": {
+        "type": "object",
+        "properties": {
+          "flags": {
+            "type": "string",
+            "description": "Future rtpengine flags string"
+          }
+        }
+      },
+      "RouteTimersDto": {
+        "type": "object",
+        "properties": {
+          "noAnswerSec": {
+            "type": "number"
+          },
+          "queueRingSec": {
+            "type": "number"
+          },
+          "ivrTimeoutSec": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "noAnswerSec",
+          "queueRingSec",
+          "ivrTimeoutSec"
+        ]
+      },
+      "TelecomHealthResponseDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "example": "ok"
+          },
+          "service": {
+            "type": "string",
+            "example": "telecom"
+          },
+          "mode": {
+            "type": "string",
+            "example": "phase5-contract"
+          },
+          "timestamp": {
+            "type": "string"
+          },
+          "timeoutGuidanceMs": {
+            "type": "number",
+            "description": "Recommended client timeout (ms)",
+            "example": 1000
+          }
+        },
+        "required": [
+          "status",
+          "service",
+          "mode",
+          "timestamp",
+          "timeoutGuidanceMs"
+        ]
+      },
+      "AuthenticateRequestDto": {
+        "type": "object",
+        "properties": {
+          "aor": {
+            "type": "string",
+            "example": "sip:1001@tenant.example.com"
+          },
+          "username": {
+            "type": "string",
+            "example": "1001"
+          },
+          "realm": {
+            "type": "string",
+            "example": "tenant.example.com"
+          },
+          "nonce": {
+            "type": "string"
+          },
+          "response": {
+            "type": "string",
+            "description": "SIP digest response hash"
+          },
+          "method": {
+            "type": "string",
+            "example": "REGISTER"
+          },
+          "uri": {
+            "type": "string",
+            "example": "sip:tenant.example.com"
+          },
+          "srcIp": {
+            "type": "string",
+            "example": "203.0.113.10"
+          }
+        },
+        "required": [
+          "aor",
+          "username",
+          "realm",
+          "nonce",
+          "response",
+          "method",
+          "uri"
+        ]
+      },
+      "AuthenticateResponseDto": {
+        "type": "object",
+        "properties": {
+          "allow": {
+            "type": "boolean"
+          },
+          "tenantId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "deviceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "lineId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "expiresSec": {
+            "type": "number",
+            "example": 3600
+          },
+          "placeholder": {
+            "type": "boolean",
+            "description": "Phase 5: true until auth service is implemented"
+          },
+          "timeoutGuidanceMs": {
+            "type": "number",
+            "example": 2000
+          },
+          "idempotencyKey": {
+            "type": "string"
+          },
+          "platformUuid": {
+            "type": "string",
+            "description": "Echo or allocate when known"
+          }
+        },
+        "required": [
+          "allow",
+          "placeholder",
+          "timeoutGuidanceMs"
+        ]
+      },
+      "RegisterRequestDto": {
+        "type": "object",
+        "properties": {
+          "aor": {
+            "type": "string",
+            "example": "sip:1001@tenant.example.com"
+          },
+          "contact": {
+            "type": "string",
+            "description": "Contact URI from REGISTER"
+          },
+          "expires": {
+            "type": "number",
+            "example": 3600
+          },
+          "userAgent": {
+            "type": "string"
+          },
+          "srcIp": {
+            "type": "string"
+          },
+          "deviceId": {
+            "type": "string",
+            "description": "Device id when known from prior auth"
+          },
+          "tenantId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "aor",
+          "contact",
+          "expires"
+        ]
+      },
+      "RegisterResponseDto": {
+        "type": "object",
+        "properties": {
+          "accepted": {
+            "type": "boolean"
+          },
+          "deviceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "expiresSec": {
+            "type": "number",
+            "example": 3600
+          },
+          "placeholder": {
+            "type": "boolean"
+          },
+          "timeoutGuidanceMs": {
+            "type": "number",
+            "example": 2000
+          },
+          "idempotencyKey": {
+            "type": "string"
+          },
+          "platformUuid": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "accepted",
+          "placeholder",
+          "timeoutGuidanceMs"
+        ]
+      },
+      "UnregisterRequestDto": {
+        "type": "object",
+        "properties": {
+          "aor": {
+            "type": "string",
+            "example": "sip:1001@tenant.example.com"
+          },
+          "contact": {
+            "type": "string"
+          },
+          "deviceId": {
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "aor"
+        ]
+      },
+      "UnregisterResponseDto": {
+        "type": "object",
+        "properties": {
+          "accepted": {
+            "type": "boolean"
+          },
+          "placeholder": {
+            "type": "boolean"
+          },
+          "timeoutGuidanceMs": {
+            "type": "number",
+            "example": 2000
+          },
+          "idempotencyKey": {
+            "type": "string"
+          },
+          "platformUuid": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "accepted",
+          "placeholder",
+          "timeoutGuidanceMs"
+        ]
+      },
+      "RouteRequestDto": {
+        "type": "object",
+        "properties": {
+          "callerAor": {
+            "type": "string",
+            "description": "Caller Address of Record"
+          },
+          "requestUri": {
+            "type": "string",
+            "example": "sip:1002@tenant.example.com"
+          },
+          "callId": {
+            "type": "string",
+            "description": "SIP Call-ID (telecom plane only — not persisted to Prisma)"
+          },
+          "to": {
+            "type": "string"
+          },
+          "from": {
+            "type": "string"
+          },
+          "dnis": {
+            "type": "string",
+            "description": "Dialed Number Identification Service"
+          },
+          "cli": {
+            "type": "string",
+            "description": "Calling Line Identity"
+          },
+          "intentHint": {
+            "type": "string",
+            "enum": [
+              "INTERNAL",
+              "INBOUND",
+              "OUTBOUND",
+              "UNKNOWN"
+            ]
+          },
+          "tenantId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "requestUri",
+          "callId",
+          "to",
+          "from"
+        ]
+      },
+      "RouteResponseDto": {
+        "type": "object",
+        "properties": {
+          "platformUuid": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Business correlator (ADR-019). Placeholder UUID in Phase 5 — not persisted."
+          },
+          "tenantId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "callIntent": {
+            "type": "string",
+            "enum": [
+              "INTERNAL",
+              "INBOUND",
+              "OUTBOUND",
+              "UNKNOWN",
+              "DEFERRED"
+            ]
+          },
+          "actions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RouteActionDto"
+            }
+          },
+          "recording": {
+            "$ref": "#/components/schemas/RouteRecordingDto"
+          },
+          "rtp": {
+            "$ref": "#/components/schemas/RouteRtpDto"
+          },
+          "timers": {
+            "$ref": "#/components/schemas/RouteTimersDto"
+          },
+          "placeholder": {
+            "type": "boolean",
+            "description": "Phase 5: no routing decision yet"
+          },
+          "timeoutGuidanceMs": {
+            "type": "number",
+            "example": 2000
+          },
+          "idempotencyKey": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "platformUuid",
+          "callIntent",
+          "actions",
+          "recording",
+          "rtp",
+          "timers",
+          "placeholder",
+          "timeoutGuidanceMs"
+        ]
+      },
+      "CallStartRequestDto": {
+        "type": "object",
+        "properties": {
+          "platformUuid": {
+            "type": "string",
+            "description": "Business correlator — required once allocated"
+          },
+          "tenantId": {
+            "type": "string"
+          },
+          "callIntent": {
+            "type": "string",
+            "enum": [
+              "INTERNAL",
+              "INBOUND",
+              "OUTBOUND"
+            ]
+          },
+          "callId": {
+            "type": "string"
+          },
+          "srcIp": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "platformUuid"
+        ]
+      },
+      "CallLifecycleResponseDto": {
+        "type": "object",
+        "properties": {
+          "accepted": {
+            "type": "boolean"
+          },
+          "platformUuid": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "placeholder": {
+            "type": "boolean"
+          },
+          "timeoutGuidanceMs": {
+            "type": "number"
+          },
+          "idempotencyKey": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "accepted",
+          "platformUuid",
+          "placeholder",
+          "timeoutGuidanceMs"
+        ]
+      },
+      "CallUpdateRequestDto": {
+        "type": "object",
+        "properties": {
+          "platformUuid": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "description": "Lifecycle update reason",
+            "enum": [
+              "RINGING",
+              "ANSWERED",
+              "HOLD",
+              "RESUME",
+              "TRANSFER",
+              "REINVITE",
+              "CUSTOM"
+            ]
+          },
+          "seq": {
+            "type": "number",
+            "description": "Monotonic sequence for idempotent updates"
+          },
+          "detail": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "platformUuid",
+          "state"
+        ]
+      },
+      "CallEndRequestDto": {
+        "type": "object",
+        "properties": {
+          "platformUuid": {
+            "type": "string"
+          },
+          "cause": {
+            "type": "string",
+            "example": "NORMAL_CLEARING"
+          },
+          "durationSec": {
+            "type": "number"
+          },
+          "seq": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "platformUuid"
+        ]
+      },
+      "PresenceRequestDto": {
+        "type": "object",
+        "properties": {
+          "aor": {
+            "type": "string",
+            "example": "sip:1001@tenant.example.com"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "OPEN",
+              "CLOSED",
+              "AWAY",
+              "BUSY",
+              "UNKNOWN"
+            ]
+          },
+          "note": {
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string"
+          },
+          "deviceId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "aor",
+          "status"
+        ]
+      },
+      "PresenceResponseDto": {
+        "type": "object",
+        "properties": {
+          "accepted": {
+            "type": "boolean"
+          },
+          "placeholder": {
+            "type": "boolean"
+          },
+          "timeoutGuidanceMs": {
+            "type": "number",
+            "example": 2000
+          },
+          "idempotencyKey": {
+            "type": "string"
+          },
+          "platformUuid": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "accepted",
+          "placeholder",
+          "timeoutGuidanceMs"
+        ]
+      },
+      "DeviceRequestDto": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "description": "Device lifecycle / signal from Kamailio edge",
+            "enum": [
+              "HEARTBEAT",
+              "ONLINE",
+              "OFFLINE",
+              "TLS_FINGERPRINT",
+              "USER_AGENT"
+            ]
+          },
+          "deviceId": {
+            "type": "string"
+          },
+          "aor": {
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string"
+          },
+          "userAgent": {
+            "type": "string"
+          },
+          "tlsFingerprint": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "action"
+        ]
+      },
+      "DeviceResponseDto": {
+        "type": "object",
+        "properties": {
+          "accepted": {
+            "type": "boolean"
+          },
+          "placeholder": {
+            "type": "boolean"
+          },
+          "timeoutGuidanceMs": {
+            "type": "number",
+            "example": 2000
+          },
+          "idempotencyKey": {
+            "type": "string"
+          },
+          "deviceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "platformUuid": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "accepted",
+          "placeholder",
+          "timeoutGuidanceMs"
+        ]
+      }
+    }
+  }
+}

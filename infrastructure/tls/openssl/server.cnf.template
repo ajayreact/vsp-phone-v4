@@ -1,0 +1,35 @@
+# VSP Phone v4 — leaf server certificate (OpenSSL)
+# Placeholders __CN__ and __SAN__ are substituted by generate-dev-certs.sh
+
+[ req ]
+default_bits       = 2048
+prompt             = no
+default_md         = sha256
+distinguished_name = dn
+req_extensions     = v3_req
+
+[ dn ]
+C  = US
+ST = Local
+L  = Development
+O  = VSP Phone v4
+OU = Development
+CN = __CN__
+
+[ v3_req ]
+basicConstraints       = CA:FALSE
+keyUsage               = critical, digitalSignature, keyEncipherment
+extendedKeyUsage       = serverAuth, clientAuth
+subjectAltName         = @alt_names
+subjectKeyIdentifier   = hash
+
+[ alt_names ]
+__SAN__
+
+[ v3_sign ]
+basicConstraints       = CA:FALSE
+keyUsage               = critical, digitalSignature, keyEncipherment
+extendedKeyUsage       = serverAuth, clientAuth
+subjectAltName         = @alt_names
+subjectKeyIdentifier   = hash
+authorityKeyIdentifier = keyid,issuer
