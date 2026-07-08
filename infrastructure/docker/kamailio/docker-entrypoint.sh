@@ -3,6 +3,10 @@
 set -eu
 
 CFG="${KAMAILIO_CFG:-/etc/kamailio/kamailio.cfg}"
+# Compose mounts kamailio.cfg read-only; copy to a writable runtime file before sed.
+RUNTIME_CFG="/tmp/kamailio.runtime.cfg"
+cp "${CFG}" "${RUNTIME_CFG}"
+CFG="${RUNTIME_CFG}"
 TLS_KEY="${KAMAILIO_TLS_KEY:-/etc/kamailio/tls/privkey.pem}"
 TLS_CERT="${KAMAILIO_TLS_CERT:-/etc/kamailio/tls/fullchain.pem}"
 DISPATCHER="${KAMAILIO_DISPATCHER_LIST:-/etc/kamailio/dispatcher.list}"

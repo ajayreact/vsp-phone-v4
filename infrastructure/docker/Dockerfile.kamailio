@@ -1,6 +1,7 @@
 # Phase 3 Kamailio — foundation (registrar, dispatcher, websocket, rtpengine hooks)
 
-FROM kamailio/kamailio:5.8.4-bookworm
+# Official images moved from Docker Hub → ghcr.io (see kamailio.org wiki)
+FROM ghcr.io/kamailio/kamailio:5.8.7-bookworm
 
 USER root
 RUN apt-get update \
