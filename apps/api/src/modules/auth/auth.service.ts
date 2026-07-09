@@ -168,15 +168,19 @@ export class AuthService {
     return { userId, tenantId, email: dto.email };
   }
 
-  /** scrypt$N$r$p$... or plain dev compare for lab hashes */
+  /** scrypt$N$r$saltB64$hashB64 (5 segments when split on $) */
   private verifyPassword(plain: string, stored: string): boolean {
     if (stored.startsWith('scrypt$')) {
       const parts = stored.split('$');
       if (parts.length !== 5) return false;
-      const [, , saltB64, hashB64] = parts;
+      const saltB64 = parts[3];
+      const hashB64 = parts[4];
+      if (!saltB64 || !hashB64) return false;
       const salt = Buffer.from(saltB64, 'base64');
       const expected = Buffer.from(hashB64, 'base64');
-      const derived = scryptSync(plain, salt, expected.length);
+      const N = Number.parseInt(parts[1] ?? '16384', 10) || 16384;
+      const r = Number.parseInt(parts[2] ?? '8', 10) || 8;
+      const derived = scryptSync(plain, salt, expected.length, { N, r });
       return timingSafeEqual(derived, expected);
     }
     return false;
