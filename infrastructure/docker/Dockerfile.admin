@@ -12,7 +12,8 @@ COPY packages ./packages
 COPY apps/admin ./apps/admin
 
 FROM base AS deps
-RUN npm ci
+RUN npm install -g npm@11.16.0 \
+  && npm ci
 
 FROM deps AS development
 ENV NODE_ENV=development

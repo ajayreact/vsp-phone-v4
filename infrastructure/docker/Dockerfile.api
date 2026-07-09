@@ -15,7 +15,8 @@ COPY prisma.config.ts ./
 COPY scripts/platform ./scripts/platform
 
 FROM base AS deps
-RUN npm ci
+RUN npm install -g npm@11.16.0 \
+  && npm ci
 
 FROM deps AS development
 ENV NODE_ENV=development
