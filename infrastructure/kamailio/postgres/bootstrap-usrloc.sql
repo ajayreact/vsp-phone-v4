@@ -39,11 +39,35 @@ CREATE TABLE IF NOT EXISTS location (
 );
 
 -- Upgrade legacy v4 usrloc-schema.sql deployments without dropping data.
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'location' AND column_name = 'sip_instance'
+    ) AND NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'location' AND column_name = 'instance'
+    ) THEN
+        ALTER TABLE location RENAME COLUMN sip_instance TO instance;
+    END IF;
+END $$;
+
+ALTER TABLE location ADD COLUMN IF NOT EXISTS instance VARCHAR(255) DEFAULT NULL;
 ALTER TABLE location ADD COLUMN IF NOT EXISTS reg_id INTEGER DEFAULT 0 NOT NULL;
 ALTER TABLE location ADD COLUMN IF NOT EXISTS server_id INTEGER DEFAULT 0 NOT NULL;
 ALTER TABLE location ADD COLUMN IF NOT EXISTS connection_id INTEGER DEFAULT 0 NOT NULL;
 ALTER TABLE location ADD COLUMN IF NOT EXISTS keepalive INTEGER DEFAULT 0 NOT NULL;
 ALTER TABLE location ADD COLUMN IF NOT EXISTS partition INTEGER DEFAULT 0 NOT NULL;
+
+-- Kamailio 5.8 requires unique ruid; legacy rows often used empty string.
+UPDATE location SET ruid = ('legacy-' || id::text) WHERE ruid IS NULL OR ruid = '';
+
+UPDATE location AS l
+SET ruid = ('legacy-' || l.id::text)
+FROM (
+    SELECT ruid AS dup_ruid FROM location GROUP BY ruid HAVING COUNT(*) > 1
+) AS d
+WHERE l.ruid = d.dup_ruid;
 
 DO $$
 BEGIN
@@ -60,7 +84,7 @@ CREATE INDEX IF NOT EXISTS location_tcpcon_idx ON location (connection_id);
 CREATE INDEX IF NOT EXISTS location_connection_idx ON location (server_id, connection_id);
 
 INSERT INTO version (table_name, table_version) VALUES ('location', 9)
-ON CONFLICT (table_name) DO NOTHING;
+ON CONFLICT (table_name) DO UPDATE SET table_version = EXCLUDED.table_version;
 
 CREATE TABLE IF NOT EXISTS location_attrs (
     id SERIAL PRIMARY KEY NOT NULL,
@@ -78,4 +102,4 @@ CREATE INDEX IF NOT EXISTS location_attrs_last_modified_idx ON location_attrs (l
 CREATE INDEX IF NOT EXISTS location_attrs_account_idx ON location_attrs (username, domain, aname);
 
 INSERT INTO version (table_name, table_version) VALUES ('location_attrs', 1)
-ON CONFLICT (table_name) DO NOTHING;
+ON CONFLICT (table_name) DO UPDATE SET table_version = EXCLUDED.table_version;

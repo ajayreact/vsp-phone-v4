@@ -38,4 +38,8 @@ echo "[kamailio] verifying version table rows"
 psql "${DB_URL}" -v ON_ERROR_STOP=1 -c \
   "SELECT table_name, table_version FROM version WHERE table_name IN ('version', 'location', 'location_attrs') ORDER BY table_name;"
 
+echo "[kamailio] verifying location columns required by Kamailio 5.8"
+psql "${DB_URL}" -v ON_ERROR_STOP=1 -c \
+  "SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name='location' AND column_name IN ('instance','reg_id','server_id','connection_id','keepalive','partition') ORDER BY column_name;"
+
 echo "[kamailio] usrloc postgres schema OK"
