@@ -45,7 +45,7 @@ export function Header() {
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             className="h-10 border-transparent bg-muted/60 pl-9 shadow-none focus-visible:bg-card"
-            placeholder="Search extensions, users, DIDs, devices…"
+            placeholder="Search numbers, tenants, extensions, trunks…"
           />
           <kbd className="pointer-events-none absolute right-3 top-1/2 hidden -translate-y-1/2 rounded border border-border bg-card px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground sm:inline">
             ⌘K
@@ -60,10 +60,12 @@ export function Header() {
           </span>
         ) : null}
 
-        <Button variant="default" size="sm" className="hidden sm:inline-flex shadow-sm">
-          <Plus className="h-4 w-4" />
-          Quick Create
-        </Button>
+        <Link href="/telnyx-numbers" className="hidden sm:inline-flex">
+          <Button variant="default" size="sm" className="shadow-sm">
+            <Plus className="h-4 w-4" />
+            Add Number
+          </Button>
+        </Link>
 
         <Link href="/softphone">
           <Button variant="outline" size="sm" title="Browser Softphone">

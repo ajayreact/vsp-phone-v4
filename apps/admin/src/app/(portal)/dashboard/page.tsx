@@ -1,5 +1,5 @@
-import { DashboardContent } from '../../../components/modules/DashboardContent';
+import { OpsCenterDashboard } from '../../../components/modules/OpsCenterDashboard';
 
 export default function DashboardPage() {
-  return <DashboardContent />;
+  return <OpsCenterDashboard />;
 }

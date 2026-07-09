@@ -1,6 +1,16 @@
 import type { LucideIcon } from 'lucide-react';
 
-export type NavGroup = 'overview' | 'organization' | 'telephony' | 'routing' | 'analytics' | 'operations' | 'infrastructure' | 'security' | 'system';
+export type NavGroup =
+  | 'operations'
+  | 'carrier'
+  | 'platform'
+  | 'telephony'
+  | 'routing'
+  | 'analytics'
+  | 'billing'
+  | 'infrastructure'
+  | 'security'
+  | 'system';
 
 export type ApiIntegrationStatus = 'live' | 'bff' | 'planned';
 
@@ -13,6 +23,8 @@ export type NavItem = {
   permission: string | string[];
   integration: ApiIntegrationStatus;
   description: string;
+  /** Highlight as primary nav item (e.g. Telnyx Numbers) */
+  primary?: boolean;
 };
 
 export type ModuleDefinition = NavItem & {

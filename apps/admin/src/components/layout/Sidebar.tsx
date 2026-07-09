@@ -2,15 +2,17 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { ChevronLeft, ChevronRight, Phone } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Radio } from 'lucide-react';
 import { motion } from 'framer-motion';
 import {
   NAV_GROUP_LABELS,
+  NAV_GROUP_ORDER,
   filterNavByPermissions,
 } from '../../lib/navigation/config';
 import type { NavGroup } from '../../types/navigation';
 import { cn } from '../../lib/utils/cn';
 import { usePermissions } from '../../lib/auth/AuthProvider';
+import { LiveIndicator } from '../ui/LiveIndicator';
 
 export function Sidebar({
   collapsed,
@@ -23,15 +25,13 @@ export function Sidebar({
   const permissions = usePermissions();
   const items = filterNavByPermissions(permissions);
 
-  const groups = items.reduce<Record<NavGroup, typeof items>>((acc, item) => {
+  const groups = items.reduce<Partial<Record<NavGroup, typeof items>>>((acc, item) => {
     if (!acc[item.group]) acc[item.group] = [];
-    acc[item.group].push(item);
+    acc[item.group]!.push(item);
     return acc;
-  }, {} as Record<NavGroup, typeof items>);
+  }, {});
 
-  const orderedGroups = (Object.keys(NAV_GROUP_LABELS) as NavGroup[]).filter(
-    (g) => groups[g]?.length,
-  );
+  const orderedGroups = NAV_GROUP_ORDER.filter((g) => groups[g]?.length);
 
   return (
     <aside
@@ -42,15 +42,21 @@ export function Sidebar({
     >
       <div className="flex h-16 items-center gap-3 border-b border-sidebar-border px-4">
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
-          <Phone className="h-4 w-4" />
+          <Radio className="h-4 w-4" />
         </div>
         {!collapsed ? (
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold tracking-tight">VSP Phone</p>
-            <p className="truncate text-[11px] text-muted-foreground">Admin Console</p>
+            <p className="truncate text-[11px] text-muted-foreground">Operations Center</p>
           </div>
         ) : null}
       </div>
+
+      {!collapsed ? (
+        <div className="border-b border-sidebar-border px-4 py-3">
+          <LiveIndicator label="Platform online" status="online" className="w-full justify-center" />
+        </div>
+      ) : null}
 
       <nav className="flex-1 overflow-y-auto px-3 py-4">
         {orderedGroups.map((group) => (
@@ -63,9 +69,10 @@ export function Sidebar({
               <div className="mb-2 h-px bg-border" />
             )}
             <ul className="space-y-0.5">
-              {groups[group].map((item) => {
+              {groups[group]!.map((item) => {
                 const Icon = item.icon;
                 const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+                const isPrimary = item.primary;
                 return (
                   <li key={item.id}>
                     <Link
@@ -75,8 +82,11 @@ export function Sidebar({
                         'group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-150',
                         active
                           ? 'bg-primary/10 text-primary'
-                          : 'text-sidebar-fg hover:bg-sidebar-accent hover:text-foreground',
+                          : isPrimary
+                            ? 'text-primary hover:bg-primary/5'
+                            : 'text-sidebar-fg hover:bg-sidebar-accent hover:text-foreground',
                         collapsed && 'justify-center px-2',
+                        isPrimary && !active && 'ring-1 ring-primary/20',
                       )}
                     >
                       {active ? (
@@ -86,8 +96,15 @@ export function Sidebar({
                           transition={{ duration: 0.15 }}
                         />
                       ) : null}
-                      <Icon className={cn('relative h-4 w-4 shrink-0', active && 'text-primary')} />
-                      {!collapsed ? <span className="relative truncate">{item.label}</span> : null}
+                      <Icon className={cn('relative h-4 w-4 shrink-0', (active || isPrimary) && 'text-primary')} />
+                      {!collapsed ? (
+                        <span className="relative truncate">
+                          {item.label}
+                          {isPrimary ? (
+                            <span className="ml-1.5 inline-block h-1.5 w-1.5 rounded-full bg-primary" />
+                          ) : null}
+                        </span>
+                      ) : null}
                     </Link>
                   </li>
                 );

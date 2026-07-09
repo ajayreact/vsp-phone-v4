@@ -11,8 +11,8 @@ const inter = Inter({
 });
 
 export const metadata = {
-  title: 'VSP Phone Admin',
-  description: 'Enterprise PBX administration portal',
+  title: 'VSP Phone — Operations Center',
+  description: 'Telecom operations center for VSP Phone v4 platform administration',
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

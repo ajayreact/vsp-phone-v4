@@ -111,9 +111,10 @@ function getColumns(moduleId: string): Column<ModuleRow>[] {
     case 'trunks':
       return [
         { key: 'name', header: 'Trunk', sortable: true, cell: (r) => <span className="font-medium">{String(r.name ?? '')}</span> },
-        { key: 'carrier', header: 'Carrier', cell: (r) => String(r.carrier ?? '') },
-        { key: 'channels', header: 'Channels', cell: (r) => String(r.channels ?? '') },
-        { key: 'status', header: 'Status', cell: (r) => <StatusBadge status={r.status as 'active'} /> },
+        { key: 'host', header: 'SIP Host', cell: (r) => <span className="font-mono text-xs">{String(r.host ?? r.carrier ?? '')}</span> },
+        { key: 'channels', header: 'Channels', cell: (r) => `${String(r.inUse ?? 0)}/${String(r.channels ?? 0)}` },
+        { key: 'latencyMs', header: 'Latency', cell: (r) => <span className="text-muted-foreground">{String(r.latencyMs ?? '—')}ms</span> },
+        { key: 'status', header: 'Status', cell: (r) => <StatusBadge status={r.status === 'healthy' ? 'healthy' : 'warning'} /> },
       ];
     default:
       return [

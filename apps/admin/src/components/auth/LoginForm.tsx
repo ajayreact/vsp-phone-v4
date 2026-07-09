@@ -46,7 +46,7 @@ export function LoginForm() {
             </div>
             <div>
               <h2 className="text-xl font-semibold tracking-tight">Sign in</h2>
-              <p className="text-sm text-muted-foreground">VSP Phone Admin Console</p>
+              <p className="text-sm text-muted-foreground">VSP Phone Operations Center</p>
             </div>
           </div>
           <form onSubmit={onSubmit} className="space-y-5">

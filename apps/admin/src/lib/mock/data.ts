@@ -1,4 +1,4 @@
-/** Mock data adapters — replace with live API hooks when backend CRUD is ready. */
+import { mockSipTrunks } from './telecom';
 
 export type MockUser = {
   id: string;
@@ -161,10 +161,7 @@ export function getMockRows(moduleId: string): Record<string, unknown>[] {
         { id: '3', username: '1003@sip.acme.com', extension: '1003', domain: 'sip.acme.com', status: 'offline' as const },
       ];
     case 'trunks':
-      return [
-        { id: '1', name: 'Telnyx Primary', carrier: 'Telnyx', channels: 50, status: 'active' as const },
-        { id: '2', name: 'Telnyx Failover', carrier: 'Telnyx', channels: 25, status: 'active' as const },
-      ];
+      return mockSipTrunks.map((t) => ({ ...t, status: t.status }));
     default:
       return Array.from({ length: 5 }, (_, i) => ({
         id: String(i + 1),
