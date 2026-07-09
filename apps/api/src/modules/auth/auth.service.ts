@@ -3,10 +3,11 @@ import { ConfigService } from '@nestjs/config';
 import { UserStatus } from '@prisma/client';
 import { scryptSync, timingSafeEqual } from 'node:crypto';
 import { AuthHardeningService } from '../enterprise-security/auth/auth-hardening.service';
+import { PermissionsService } from '../enterprise-security/auth/permissions.service';
 import { RefreshTokenService } from '../enterprise-security/auth/refresh-token.service';
 import { SecurityAuditService } from '../enterprise-security/audit/security-audit.service';
 import { PrismaService } from '../telecom/prisma/prisma.service';
-import type { LoginRequestDto, LoginResponseDto } from './dto/auth.dto';
+import type { LoginRequestDto, LoginResponseDto, MeResponseDto } from './dto/auth.dto';
 import { signJwt } from './jwt.util';
 
 /**
@@ -24,6 +25,7 @@ export class AuthService {
     private readonly hardening: AuthHardeningService,
     private readonly refreshTokens: RefreshTokenService,
     private readonly securityAudit: SecurityAuditService,
+    private readonly permissions: PermissionsService,
   ) {
     this.jwtTtlSec = Number(this.config.get('JWT_ACCESS_TTL_SEC') ?? '3600');
   }
@@ -143,6 +145,56 @@ export class AuthService {
     }
     this.securityAudit.logout({ tenantId: params.tenantId, userId: params.userId });
     return { ok: true };
+  }
+
+  async me(userId: string, tenantId: string, email: string): Promise<MeResponseDto> {
+    const permissionKeys = await this.permissions.userPermissions(userId);
+    const uniquePermissions = [...new Set(permissionKeys)];
+
+    if (!this.prisma.connected) {
+      return {
+        userId,
+        tenantId,
+        email,
+        permissions: uniquePermissions,
+        roles: [],
+      };
+    }
+
+    const user = await this.prisma.user.findFirst({
+      where: { id: userId, deletedAt: null },
+      include: {
+        profile: true,
+        tenant: { select: { id: true, name: true, slug: true } },
+        userRoles: {
+          where: { deletedAt: null },
+          include: { role: { select: { id: true, name: true } } },
+        },
+      },
+    });
+
+    const roles = (user?.userRoles ?? [])
+      .map((ur) => ur.role)
+      .filter((r) => r?.name)
+      .map((r) => ({ id: r.id, name: r.name }));
+
+    return {
+      userId,
+      tenantId,
+      email,
+      permissions: uniquePermissions,
+      roles,
+      tenant: user?.tenant
+        ? { id: user.tenant.id, name: user.tenant.name, slug: user.tenant.slug }
+        : undefined,
+      profile: user?.profile
+        ? {
+            firstName: user.profile.firstName,
+            lastName: user.profile.lastName,
+            displayName: user.profile.displayName,
+          }
+        : undefined,
+    };
   }
 
   private jwtSecret(): string {

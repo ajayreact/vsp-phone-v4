@@ -1,4 +1,4 @@
-import { Body, Controller, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Post, Req, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { AuthRateLimitGuard } from '../enterprise-security/guards/scoped-rate-limit.guards';
@@ -7,6 +7,7 @@ import {
   LoginRequestDto,
   LoginResponseDto,
   LogoutResponseDto,
+  MeResponseDto,
   RefreshTokenIssueResponseDto,
   RefreshTokenRequestDto,
 } from './dto/auth.dto';
@@ -67,5 +68,15 @@ export class AuthController {
       tenantId: user.tenantId,
       refreshToken: body?.refreshToken,
     });
+  }
+
+  @Get('me')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Current user profile, roles, and permissions' })
+  @ApiResponse({ status: 200, type: MeResponseDto })
+  me(@Req() req: Request): Promise<MeResponseDto> {
+    const user = getJwtUser(req);
+    return this.auth.me(user.sub, user.tenantId, user.email);
   }
 }

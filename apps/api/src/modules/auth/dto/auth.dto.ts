@@ -59,3 +59,56 @@ export class LogoutResponseDto {
   @ApiProperty()
   ok!: true;
 }
+
+export class MeTenantDto {
+  @ApiProperty({ format: 'uuid' })
+  id!: string;
+
+  @ApiProperty()
+  name!: string;
+
+  @ApiProperty()
+  slug!: string;
+}
+
+export class MeRoleDto {
+  @ApiProperty({ format: 'uuid' })
+  id!: string;
+
+  @ApiProperty()
+  name!: string;
+}
+
+export class MeProfileDto {
+  @ApiProperty()
+  firstName!: string;
+
+  @ApiProperty()
+  lastName!: string;
+
+  @ApiProperty()
+  displayName!: string;
+}
+
+export class MeResponseDto {
+  @ApiProperty({ format: 'uuid' })
+  userId!: string;
+
+  @ApiProperty({ format: 'uuid' })
+  tenantId!: string;
+
+  @ApiProperty()
+  email!: string;
+
+  @ApiProperty({ type: [String] })
+  permissions!: string[];
+
+  @ApiProperty({ type: [MeRoleDto] })
+  roles!: MeRoleDto[];
+
+  @ApiPropertyOptional({ type: MeTenantDto })
+  tenant?: MeTenantDto;
+
+  @ApiPropertyOptional({ type: MeProfileDto })
+  profile?: MeProfileDto;
+}
