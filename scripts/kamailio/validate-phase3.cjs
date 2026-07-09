@@ -65,6 +65,7 @@ mustInclude(CFG, [
   'http_client_query',
   'contact_flows_avp',
   '$avp(nh_received)',
+  'nat_bflag',
   'rtpengine_sock',
   '/health',
 ], 'kamailio.cfg');
