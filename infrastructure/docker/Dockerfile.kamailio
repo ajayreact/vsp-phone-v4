@@ -37,7 +37,8 @@ COPY infrastructure/docker/kamailio/docker-entrypoint.sh /docker-entrypoint.sh
 COPY infrastructure/docker/kamailio/init-kamailio-db.sh /init-kamailio-db.sh
 COPY infrastructure/docker/kamailio/healthcheck.sh /healthcheck.sh
 RUN chmod +x /docker-entrypoint.sh /init-kamailio-db.sh /healthcheck.sh \
-  && sed -i 's/\r$//' /docker-entrypoint.sh /init-kamailio-db.sh /healthcheck.sh
+  && sed -i 's/\r$//' /docker-entrypoint.sh /init-kamailio-db.sh /healthcheck.sh \
+  && test -f /etc/kamailio/postgres/bootstrap-usrloc.sql
 
 EXPOSE 5060/udp 5060/tcp 5061 8080 8443 8880
 HEALTHCHECK --interval=15s --timeout=5s --start-period=35s --retries=10 \

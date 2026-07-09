@@ -170,6 +170,7 @@ services:
       - ./infrastructure/kamailio/tls.cfg:/etc/kamailio/tls.cfg:ro
       - ./infrastructure/kamailio/dispatcher.list:/etc/kamailio/dispatcher.list:ro
       - ./infrastructure/kamailio/permissions.address:/etc/kamailio/permissions.address:ro
+      - ./infrastructure/kamailio/postgres:/etc/kamailio/postgres:ro
       - ./infrastructure/tls/${TLS_ENV:-development}/live/kamailio:/etc/kamailio/tls:ro
       - kamailio_logs:/var/log/kamailio
     depends_on:
