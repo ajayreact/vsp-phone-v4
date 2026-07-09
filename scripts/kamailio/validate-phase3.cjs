@@ -64,6 +64,7 @@ mustInclude(CFG, [
   'route[NESTJS_HTTP_POST]',
   'http_client_query',
   'contact_flows_avp',
+  '$avp(nh_received)',
   'rtpengine_sock',
   '/health',
 ], 'kamailio.cfg');
