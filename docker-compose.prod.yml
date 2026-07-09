@@ -10,6 +10,9 @@ services:
   api:
     build:
       target: production
+    volumes:
+      # Operational scripts (bootstrap) — mounted from host so rebuild is not required
+      - ./scripts/platform:/app/scripts/platform:ro
     environment:
       NODE_ENV: production
       VSP_ENV: production

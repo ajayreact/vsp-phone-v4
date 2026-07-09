@@ -14,5 +14,6 @@ Central documentation for VSP Phone v4.
 - [08-testing](08-testing/) — Test strategy and quality gates
 - [11-final-audit](11-final-audit/) — Final engineering audit and remediation
 - [12-release](12-release/) — RC1 release package and quality gates
+- [13-production-validation](13-production-validation/) — Production acceptance, smoke tests, go-live
 - [ADR](ADR/) — Architecture Decision Records
 - [diagrams](diagrams/) — Architecture and sequence diagrams
