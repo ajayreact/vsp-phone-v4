@@ -115,6 +115,8 @@ services:
       context: .
       dockerfile: infrastructure/docker/Dockerfile.admin
       target: ${ADMIN_DOCKER_TARGET:-development}
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3000/api}
     container_name: vsp-admin
     restart: unless-stopped
     logging: *default-logging

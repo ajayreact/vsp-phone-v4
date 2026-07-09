@@ -80,6 +80,22 @@ async function bootstrap() {
         : String(swaggerRaw).toLowerCase() !== 'false';
 
     app.setGlobalPrefix(globalPrefix);
+
+    const corsOriginsRaw = configService.get<string>('CORS_ORIGINS');
+    const defaultCorsOrigins =
+      envName === 'production'
+        ? ['https://admin.vspphone.com', 'https://app.vspphone.com']
+        : ['http://localhost:3001', 'http://127.0.0.1:3001'];
+    const corsOrigins = corsOriginsRaw
+      ? corsOriginsRaw.split(',').map((o) => o.trim()).filter(Boolean)
+      : defaultCorsOrigins;
+    app.enableCors({
+      origin: corsOrigins,
+      credentials: true,
+      methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization'],
+    });
+
     const bodyLimit = configService.get<string>('REQUEST_BODY_MAX_BYTES') ?? '1mb';
     app.use(json({ limit: bodyLimit }));
     app.use(urlencoded({ extended: true, limit: bodyLimit }));
@@ -120,6 +136,7 @@ async function bootstrap() {
         port,
         tls: tlsEnabled,
         prefix: globalPrefix,
+        corsOrigins,
         health: `${scheme}://0.0.0.0:${port}/${globalPrefix}/health`,
         ready: `${scheme}://0.0.0.0:${port}/${globalPrefix}/ready`,
         telecomHealth: `${scheme}://0.0.0.0:${port}/${globalPrefix}/v1/telecom/health`,

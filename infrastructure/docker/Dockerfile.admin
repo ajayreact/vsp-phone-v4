@@ -25,8 +25,11 @@ WORKDIR /workspace
 CMD ["npx", "nx", "dev", "admin"]
 
 FROM deps AS build
+# NEXT_PUBLIC_* must be set at build time — browser bundle inlines this URL.
+ARG NEXT_PUBLIC_API_URL=http://localhost:3000/api
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
+ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 RUN npx nx build admin
 
 FROM node:22-bookworm-slim AS production

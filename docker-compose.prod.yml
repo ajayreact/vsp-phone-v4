@@ -24,6 +24,8 @@ services:
   admin:
     build:
       target: production
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://api.vspphone.com/api}
     environment:
       NODE_ENV: production
       VSP_ENV: production

@@ -8,6 +8,7 @@ export type ApiEnv = {
   VSP_ENV: string;
   PORT: number;
   API_GLOBAL_PREFIX: string;
+  CORS_ORIGINS?: string;
   LOG_LEVEL: string;
   LOG_FORMAT: string;
   DATABASE_URL: string;
@@ -193,6 +194,7 @@ export function validateEnv(env: NodeJS.ProcessEnv): ApiEnv {
     VSP_ENV: env.VSP_ENV ?? 'development',
     PORT: requirePort(env, 'PORT', '3000'),
     API_GLOBAL_PREFIX: env.API_GLOBAL_PREFIX ?? 'api',
+    CORS_ORIGINS: env.CORS_ORIGINS,
     LOG_LEVEL: env.LOG_LEVEL ?? 'info',
     LOG_FORMAT: env.LOG_FORMAT ?? 'json',
     DATABASE_URL: databaseUrl,
