@@ -93,5 +93,5 @@ if ! kamailio -c -f "${CFG}"; then
   exit 1
 fi
 
-echo "[kamailio] configuration OK — exec $*"
-exec "$@"
+echo "[kamailio] configuration OK — starting kamailio"
+exec kamailio -DD -E -f "${RUNTIME_CFG}"

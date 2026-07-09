@@ -41,8 +41,11 @@ import { ShutdownCoordinatorService } from './services/shutdown-coordinator.serv
     KamailioPersistenceService,
     ScalabilityReadinessService,
     LoadBalancerMiddleware,
-    InFlightInterceptor,
-    { provide: APP_INTERCEPTOR, useClass: InFlightInterceptor },
+    {
+      provide: APP_INTERCEPTOR,
+      useFactory: (shutdown: ShutdownCoordinatorService) => new InFlightInterceptor(shutdown),
+      inject: [ShutdownCoordinatorService],
+    },
   ],
   exports: [
     InstanceIdentityService,

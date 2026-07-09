@@ -68,66 +68,66 @@ async function bootstrap() {
       ...(httpsOptions ? { httpsOptions } : {}),
     });
     configureStructuredLogging();
-  const configService = app.get(ConfigService);
-  const globalPrefix = configService.get<string>('API_GLOBAL_PREFIX', 'api');
-  const port = configService.get<number>('PORT', 3000);
-  const envName = configService.get<string>('VSP_ENV', 'development');
-  const tlsEnabled = Boolean(httpsOptions);
-  const swaggerRaw = configService.get<boolean | string>('SWAGGER_ENABLED', true);
-  const swaggerEnabled =
-    typeof swaggerRaw === 'boolean'
-      ? swaggerRaw
-      : String(swaggerRaw).toLowerCase() !== 'false';
+    const configService = app.get(ConfigService);
+    const globalPrefix = configService.get<string>('API_GLOBAL_PREFIX', 'api');
+    const port = configService.get<number>('PORT', 3000);
+    const envName = configService.get<string>('VSP_ENV', 'development');
+    const tlsEnabled = Boolean(httpsOptions);
+    const swaggerRaw = configService.get<boolean | string>('SWAGGER_ENABLED', true);
+    const swaggerEnabled =
+      typeof swaggerRaw === 'boolean'
+        ? swaggerRaw
+        : String(swaggerRaw).toLowerCase() !== 'false';
 
-  app.setGlobalPrefix(globalPrefix);
-  const bodyLimit = configService.get<string>('REQUEST_BODY_MAX_BYTES') ?? '1mb';
-  app.use(json({ limit: bodyLimit }));
-  app.use(urlencoded({ extended: true, limit: bodyLimit }));
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-      transformOptions: { enableImplicitConversion: true },
-    }),
-  );
-  app.enableShutdownHooks();
-
-  if (swaggerEnabled) {
-    const document = SwaggerModule.createDocument(app, buildOpenApiDocumentConfig());
-    SwaggerModule.setup(`${globalPrefix}/docs`, app, document, {
-      jsonDocumentUrl: `${globalPrefix}/docs-json`,
-      yamlDocumentUrl: `${globalPrefix}/docs-yaml`,
-    });
-  }
-
-  await app.listen(port, '0.0.0.0');
-
-  void bootstrapProvEdge().catch((err) => {
-    Logger.error(
-      JSON.stringify({
-        event: 'prov.edge.bootstrap_failed',
-        message: err instanceof Error ? err.message : String(err),
+    app.setGlobalPrefix(globalPrefix);
+    const bodyLimit = configService.get<string>('REQUEST_BODY_MAX_BYTES') ?? '1mb';
+    app.use(json({ limit: bodyLimit }));
+    app.use(urlencoded({ extended: true, limit: bodyLimit }));
+    app.useGlobalPipes(
+      new ValidationPipe({
+        whitelist: true,
+        forbidNonWhitelisted: true,
+        transform: true,
+        transformOptions: { enableImplicitConversion: true },
       }),
     );
-  });
+    app.enableShutdownHooks();
 
-  const scheme = tlsEnabled ? 'https' : 'http';
-  Logger.log(
-    JSON.stringify({
-      event: 'api.started',
-      env: envName,
-      port,
-      tls: tlsEnabled,
-      prefix: globalPrefix,
-      health: `${scheme}://0.0.0.0:${port}/${globalPrefix}/health`,
-      ready: `${scheme}://0.0.0.0:${port}/${globalPrefix}/ready`,
-      telecomHealth: `${scheme}://0.0.0.0:${port}/${globalPrefix}/v1/telecom/health`,
-      openapi: swaggerEnabled
-        ? `${scheme}://0.0.0.0:${port}/${globalPrefix}/docs`
-        : undefined,
-    }),
-  );
+    if (swaggerEnabled) {
+      const document = SwaggerModule.createDocument(app, buildOpenApiDocumentConfig());
+      SwaggerModule.setup(`${globalPrefix}/docs`, app, document, {
+        jsonDocumentUrl: `${globalPrefix}/docs-json`,
+        yamlDocumentUrl: `${globalPrefix}/docs-yaml`,
+      });
+    }
+
+    await app.listen(port, '0.0.0.0');
+
+    void bootstrapProvEdge().catch((err) => {
+      Logger.error(
+        JSON.stringify({
+          event: 'prov.edge.bootstrap_failed',
+          message: err instanceof Error ? err.message : String(err),
+        }),
+      );
+    });
+
+    const scheme = tlsEnabled ? 'https' : 'http';
+    Logger.log(
+      JSON.stringify({
+        event: 'api.started',
+        env: envName,
+        port,
+        tls: tlsEnabled,
+        prefix: globalPrefix,
+        health: `${scheme}://0.0.0.0:${port}/${globalPrefix}/health`,
+        ready: `${scheme}://0.0.0.0:${port}/${globalPrefix}/ready`,
+        telecomHealth: `${scheme}://0.0.0.0:${port}/${globalPrefix}/v1/telecom/health`,
+        openapi: swaggerEnabled
+          ? `${scheme}://0.0.0.0:${port}/${globalPrefix}/docs`
+          : undefined,
+      }),
+    );
   } catch (err) {
     const message = err instanceof Error ? err.stack ?? err.message : String(err);
     // eslint-disable-next-line no-console
