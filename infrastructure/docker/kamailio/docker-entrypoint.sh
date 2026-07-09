@@ -16,6 +16,8 @@ REQUIRE_SERVICE_AUTH="${KAMAILIO_REQUIRE_SERVICE_AUTH:-false}"
 AUTH_TOKEN="${TELECOM_SERVICE_AUTH_TOKEN:-}"
 USRLOC_MODE="${KAMAILIO_USRLOC_PERSISTENCE:-memory}"
 USRLOC_DB_URL="${KAMAILIO_USRLOC_DB_URL:-${DATABASE_URL:-}}"
+# Kamailio usrloc binds db_postgres for postgres:// URLs; postgresql:// maps to missing db_postgresql.
+USRLOC_DB_URL=$(printf '%s' "${USRLOC_DB_URL}" | sed 's|^postgresql://|postgres://|')
 
 echo "[kamailio] remediation entrypoint — validating configuration"
 

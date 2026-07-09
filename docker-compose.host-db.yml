@@ -51,4 +51,4 @@ services:
     environment:
       REDIS_HOST: redis
       KAMAILIO_USRLOC_PERSISTENCE: postgres
-      KAMAILIO_USRLOC_DB_URL: postgresql://${POSTGRES_USER:-vsp}:${POSTGRES_PASSWORD:-vsp}@${DATABASE_HOST:-host.docker.internal}:5432/${POSTGRES_KAMAILIO_DB:-kamailio}?schema=public
+      KAMAILIO_USRLOC_DB_URL: postgres://${POSTGRES_USER:-vsp}:${POSTGRES_PASSWORD:-vsp}@${DATABASE_HOST:-host.docker.internal}:5432/${POSTGRES_KAMAILIO_DB:-kamailio}

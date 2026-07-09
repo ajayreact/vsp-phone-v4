@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { tcpProbe } from '../../../common/health/tcp-probe';
+import { tcpProbe, udpProbe } from '../../../common/health/tcp-probe';
 import { PrismaService } from '../../telecom/prisma/prisma.service';
 import { TelecomRedisService } from '../../telecom/redis/telecom-redis.service';
 import { CarrierService } from '../../carrier/carrier.service';
@@ -71,8 +71,8 @@ export class EnterpriseHealthService {
     const port = Number(this.config.get('RTPENGINE_NG_PORT') ?? '2223');
     const host = this.config.get('RTPENGINE_HOST') ?? 'localhost';
     const started = Date.now();
-    const tcp = await this.tcpCheck(host, port);
-    if (tcp.status === 'down') return this.fail('rtpengine', tcp.failureReason);
+    const probe = await udpProbe(host, port);
+    if (probe.status === 'down') return this.fail('rtpengine', probe.detail);
     return this.ok('rtpengine', { latencyMs: Date.now() - started, version: 'phase4+' });
   }
 

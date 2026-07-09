@@ -1,6 +1,6 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { tcpProbe } from '../../../common/health/tcp-probe';
+import { tcpProbe, udpProbe } from '../../../common/health/tcp-probe';
 import { KamailioPersistenceService } from '../../enterprise-ha/backup/kamailio-persistence.service';
 import { PrismaService } from '../../telecom/prisma/prisma.service';
 import { TelecomRedisService } from '../../telecom/redis/telecom-redis.service';
@@ -89,7 +89,7 @@ export class ProductionConfigValidatorService implements OnModuleInit {
       ))) {
         warnings.push('Kamailio connectivity check failed');
       }
-      if (!(await this.probeTcp(
+      if (!(await this.probeUdp(
         this.config.get('RTPENGINE_HOST') ?? 'localhost',
         Number(this.config.get('RTPENGINE_NG_PORT') ?? '2223'),
       ))) {
@@ -141,6 +141,11 @@ export class ProductionConfigValidatorService implements OnModuleInit {
 
   private async probeTcp(host: string, port: number, timeoutMs = 2000): Promise<boolean> {
     const result = await tcpProbe(host, port, timeoutMs);
+    return result.status === 'up';
+  }
+
+  private async probeUdp(host: string, port: number, timeoutMs = 2000): Promise<boolean> {
+    const result = await udpProbe(host, port, timeoutMs);
     return result.status === 'up';
   }
 }

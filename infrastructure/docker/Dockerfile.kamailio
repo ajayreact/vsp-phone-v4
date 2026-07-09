@@ -17,11 +17,14 @@ RUN apt-get update \
   && (apt-get install -y --no-install-recommends kamailio-extra-modules || true) \
   && (apt-get install -y --no-install-recommends kamailio-utils-modules || true) \
   && (apt-get install -y --no-install-recommends kamailio-json-modules || true) \
+  && apt-get install -y --no-install-recommends kamailio-postgres-modules \
   && rm -rf /var/lib/apt/lists/* \
   && mkdir -p /var/log/kamailio /tmp /etc/kamailio/tls \
   && (ls /usr/lib/x86_64-linux-gnu/kamailio/modules/rtpengine.so \
         || ls /usr/lib/*/kamailio/modules/rtpengine.so \
         || echo "WARN: rtpengine.so not found — ensure kamailio-extra-modules provides it") \
+  && (ls /usr/lib/x86_64-linux-gnu/kamailio/modules/db_postgres.so \
+        || ls /usr/lib/*/kamailio/modules/db_postgres.so) \
   && chown -R kamailio:kamailio /var/log/kamailio || true
 
 COPY infrastructure/kamailio/kamailio.cfg /etc/kamailio/kamailio.cfg
