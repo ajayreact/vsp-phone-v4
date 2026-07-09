@@ -13,6 +13,8 @@ services:
     volumes:
       # Operational scripts (bootstrap) — mounted from host so rebuild is not required
       - ./scripts/platform:/app/scripts/platform:ro
+      - ./prisma:/app/prisma:ro
+      - ./prisma.config.ts:/app/prisma.config.ts:ro
     environment:
       NODE_ENV: production
       VSP_ENV: production

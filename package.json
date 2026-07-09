@@ -18,6 +18,7 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
     "platform:bootstrap": "node scripts/platform/bootstrap-super-admin.cjs",
+    "platform:db-init": "prisma db push",
     "superadmin:create": "npm run platform:bootstrap",
     "platform:verify-jwt": "node scripts/platform/verify-super-admin.cjs",
     "docker:up": "docker compose --env-file .env up -d --build",

@@ -25,6 +25,27 @@
 
 ---
 
+## Prerequisites — initialize app database
+
+RC1 ships `prisma/schema.prisma` without a `prisma/migrations/` folder. Before bootstrap, create tables once:
+
+```bash
+$COMPOSE up -d api postgres
+$COMPOSE exec api npx prisma db push --schema=/app/prisma/schema.prisma
+```
+
+Expected: `Your database is now in sync with your Prisma schema.`
+
+Verify:
+
+```bash
+$COMPOSE exec -T postgres psql -U vsp -d vsp_phone_v4 -c '\dt' | head -20
+```
+
+You should see `tenants`, `users`, `roles`, `permissions`, etc.
+
+---
+
 ## Bootstrap command
 
 ```bash
