@@ -19,7 +19,7 @@ export class RecordingPolicyService {
     toLineId?: string;
     callIntent: CallIntentForRecording;
   }): Promise<RouteRecordingDto> {
-    const killSwitch = (this.config.get<string>('RECORDING_ENABLED') ?? 'true').toLowerCase() === 'false';
+    const killSwitch = String(this.config.get('RECORDING_ENABLED') ?? 'true').toLowerCase() === 'false';
     if (killSwitch || !this.prisma.connected) {
       return { enabled: false, pauseAllowed: false };
     }

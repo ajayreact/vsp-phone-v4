@@ -20,7 +20,7 @@ export class ObjectStorageService {
 
   constructor(private readonly config: ConfigService) {
     this.bucket = config.get<string>('S3_BUCKET_RECORDINGS', 'vsp-recordings');
-    this.enabled = (config.get<string>('RECORDING_UPLOAD_ENABLED') ?? 'true').toLowerCase() !== 'false';
+    this.enabled = String(config.get('RECORDING_UPLOAD_ENABLED') ?? 'true').toLowerCase() !== 'false';
     const endpoint = (config.get<string>('S3_ENDPOINT') || '').trim();
     if (!endpoint || !this.enabled) {
       this.client = null;

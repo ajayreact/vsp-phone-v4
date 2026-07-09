@@ -85,7 +85,7 @@ export class ConfigGeneratorService {
       language: input.language,
       firmwareUrl,
       provServerUrl: `${provBase}/gs/${input.mac}/cfg.xml`,
-      tlsValidate: (this.config.get<string>('PROV_TLS_VALIDATE') ?? 'true').toLowerCase() !== 'false',
+      tlsValidate: String(this.config.get('PROV_TLS_VALIDATE') ?? 'true').toLowerCase() !== 'false',
     });
 
     const objectKey = this.store.objectKey(input.tenantId, input.mac, artifactHash);

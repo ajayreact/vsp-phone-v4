@@ -58,6 +58,7 @@ import { ShutdownCoordinatorService } from './services/shutdown-coordinator.serv
     ScalabilityReadinessService,
     BackupOrchestrationService,
     KamailioPersistenceService,
+    BackupDrService,
     LoadBalancerMiddleware,
   ],
 })
