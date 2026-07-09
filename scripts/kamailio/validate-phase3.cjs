@@ -61,6 +61,8 @@ mustInclude(CFG, [
   'listen=tcp:0.0.0.0:8880',
   'options_reply()',
   'route[REGISTRAR]',
+  'route[NESTJS_HTTP_POST]',
+  'http_client_query',
   'rtpengine_sock',
   '/health',
 ], 'kamailio.cfg');

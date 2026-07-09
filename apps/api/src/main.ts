@@ -61,13 +61,13 @@ export function buildOpenApiDocumentConfig() {
 }
 
 async function bootstrap() {
-  configureStructuredLogging();
-
-  const httpsOptions = loadHttpsOptions(process.env);
-  const app = await NestFactory.create(AppModule, {
-    bufferLogs: true,
-    ...(httpsOptions ? { httpsOptions } : {}),
-  });
+  try {
+    const httpsOptions = loadHttpsOptions(process.env);
+    const app = await NestFactory.create(AppModule, {
+      bufferLogs: true,
+      ...(httpsOptions ? { httpsOptions } : {}),
+    });
+    configureStructuredLogging();
   const configService = app.get(ConfigService);
   const globalPrefix = configService.get<string>('API_GLOBAL_PREFIX', 'api');
   const port = configService.get<number>('PORT', 3000);
@@ -128,6 +128,12 @@ async function bootstrap() {
         : undefined,
     }),
   );
+  } catch (err) {
+    const message = err instanceof Error ? err.stack ?? err.message : String(err);
+    // eslint-disable-next-line no-console
+    console.error(JSON.stringify({ level: 'error', service: 'api', event: 'bootstrap.failed', message }));
+    process.exit(1);
+  }
 }
 
 bootstrap();
