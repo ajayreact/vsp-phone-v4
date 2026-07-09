@@ -66,7 +66,7 @@ const entrypoint = fs.readFileSync(
   path.join(ROOT, 'infrastructure', 'docker', 'kamailio', 'docker-entrypoint.sh'),
   'utf8',
 );
-mustInclude(entrypoint, ['TELECOM_SERVICE_AUTH_TOKEN', 'KAMAILIO_REQUIRE_SERVICE_AUTH'], 'entrypoint C-01');
+mustInclude(entrypoint, ['TELECOM_SERVICE_AUTH_TOKEN', 'KAMAILIO_REQUIRE_SERVICE_AUTH', 'init-kamailio-db.sh'], 'entrypoint C-01');
 
 const prodValidator = fs.readFileSync(
   path.join(API, 'modules', 'production-platform', 'configuration', 'production-config-validator.service.ts'),
@@ -118,7 +118,8 @@ mustInclude(migImport, ['productionImport', 'MigrationDatabaseImportService'], '
 
 // --- H-06 Kamailio persistence ---
 mustInclude(kam, ['__USRLOC_DB_MODE__', '__USRLOC_DB_URL_LINE__'], 'Kamailio H-06 placeholders');
-mustExist(path.join(ROOT, 'infrastructure', 'kamailio', 'usrloc-schema.sql'), 'usrloc schema');
+mustExist(path.join(ROOT, 'infrastructure', 'kamailio', 'postgres', 'bootstrap-usrloc.sql'), 'kamailio usrloc bootstrap');
+mustExist(path.join(ROOT, 'infrastructure', 'docker', 'kamailio', 'init-kamailio-db.sh'), 'kamailio db init');
 mustExist(
   path.join(API, 'modules', 'enterprise-ha', 'backup', 'kamailio-persistence.service.ts'),
   'KamailioPersistenceService',

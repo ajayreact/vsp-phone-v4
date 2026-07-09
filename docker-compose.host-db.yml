@@ -48,6 +48,9 @@ services:
   kamailio:
     extra_hosts:
       - 'host.docker.internal:host-gateway'
+    depends_on:
+      postgres:
+        condition: service_healthy
     environment:
       REDIS_HOST: redis
       KAMAILIO_USRLOC_PERSISTENCE: postgres

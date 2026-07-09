@@ -59,6 +59,7 @@ case "${USRLOC_MODE}" in
       sed -i '/loadmodule "usrloc.so"/i loadmodule "db_postgres.so"' "${CFG}"
     fi
     echo "[kamailio] usrloc persistence=postgres (restart-safe registrations)"
+    /init-kamailio-db.sh
     ;;
   *)
     sed -i 's/__USRLOC_DB_MODE__/0/g' "${CFG}"

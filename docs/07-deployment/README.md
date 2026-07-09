@@ -80,7 +80,7 @@ npx prisma generate
 Kamailio usrloc (if postgres persistence):
 
 ```bash
-psql $KAMAILIO_USRLOC_DB_URL -f infrastructure/kamailio/usrloc-schema.sql
+psql $KAMAILIO_USRLOC_DB_URL -f infrastructure/kamailio/postgres/bootstrap-usrloc.sql
 ```
 
 ### 5. TLS certificates

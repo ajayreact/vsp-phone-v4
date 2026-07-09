@@ -18,6 +18,7 @@ RUN apt-get update \
   && (apt-get install -y --no-install-recommends kamailio-utils-modules || true) \
   && (apt-get install -y --no-install-recommends kamailio-json-modules || true) \
   && apt-get install -y --no-install-recommends kamailio-postgres-modules \
+  && apt-get install -y --no-install-recommends postgresql-client \
   && rm -rf /var/lib/apt/lists/* \
   && mkdir -p /var/log/kamailio /tmp /etc/kamailio/tls \
   && (ls /usr/lib/x86_64-linux-gnu/kamailio/modules/rtpengine.so \
@@ -31,10 +32,12 @@ COPY infrastructure/kamailio/kamailio.cfg /etc/kamailio/kamailio.cfg
 COPY infrastructure/kamailio/tls.cfg /etc/kamailio/tls.cfg
 COPY infrastructure/kamailio/dispatcher.list /etc/kamailio/dispatcher.list
 COPY infrastructure/kamailio/permissions.address /etc/kamailio/permissions.address
+COPY infrastructure/kamailio/postgres /etc/kamailio/postgres
 COPY infrastructure/docker/kamailio/docker-entrypoint.sh /docker-entrypoint.sh
+COPY infrastructure/docker/kamailio/init-kamailio-db.sh /init-kamailio-db.sh
 COPY infrastructure/docker/kamailio/healthcheck.sh /healthcheck.sh
-RUN chmod +x /docker-entrypoint.sh /healthcheck.sh \
-  && sed -i 's/\r$//' /docker-entrypoint.sh /healthcheck.sh
+RUN chmod +x /docker-entrypoint.sh /init-kamailio-db.sh /healthcheck.sh \
+  && sed -i 's/\r$//' /docker-entrypoint.sh /init-kamailio-db.sh /healthcheck.sh
 
 EXPOSE 5060/udp 5060/tcp 5061 8080 8443 8880
 HEALTHCHECK --interval=15s --timeout=5s --start-period=35s --retries=10 \
