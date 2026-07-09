@@ -68,7 +68,7 @@ mustInclude(CFG, [
   '/health',
 ], 'kamailio.cfg');
 
-mustInclude(TLS, ['privkey.pem', 'fullchain.pem', '[server:default]', '[server:8443]'], 'tls.cfg');
+mustInclude(TLS, ['privkey.pem', 'fullchain.pem', '[server:default]', '[server:any]', 'server_name = wss.localhost'], 'tls.cfg');
 mustInclude(DISP, ['rtpengine', 'telnyx'], 'dispatcher.list');
 
 const cfg = fs.readFileSync(CFG, 'utf8');
