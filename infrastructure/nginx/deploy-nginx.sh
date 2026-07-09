@@ -92,6 +92,10 @@ curl -s -o /dev/null -w "Admin direct: %{http_code}\n" http://127.0.0.1:3001/api
 echo ""
 echo "=== 8. External verification ==="
 curl -sk -o /dev/null -w "api.vspphone.com /api/ready: %{http_code}\n" https://api.vspphone.com/api/ready || true
+if ! curl -sk -o /dev/null -w "%{http_code}" https://api.vspphone.com/api/ready | grep -q 200; then
+  echo "API proxy failed — last nginx errors:"
+  tail -15 /var/log/nginx/error.log 2>/dev/null || true
+fi
 curl -sk -o /dev/null -w "app.vspphone.com:            %{http_code}\n" https://app.vspphone.com/ || true
 curl -sk -o /dev/null -w "admin.vspphone.com:          %{http_code}\n" https://admin.vspphone.com/ || true
 
