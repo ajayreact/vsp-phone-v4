@@ -1,7 +1,7 @@
 ﻿'use client';
 
-import { EnterpriseModulePage } from '../../../components/modules/EnterpriseModulePage';
+import { TrunksContent } from '../../../components/modules/TrunksContent';
 
 export default function TrunksPage() {
-  return <EnterpriseModulePage moduleId='trunks' />;
+  return <TrunksContent />;
 }

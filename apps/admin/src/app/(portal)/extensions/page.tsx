@@ -1,7 +1,7 @@
 ﻿'use client';
 
-import { EnterpriseModulePage } from '../../../components/modules/EnterpriseModulePage';
+import { ExtensionsContent } from '../../../components/modules/ExtensionsContent';
 
 export default function ExtensionsPage() {
-  return <EnterpriseModulePage moduleId='extensions' />;
+  return <ExtensionsContent />;
 }

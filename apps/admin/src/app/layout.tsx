@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { Inter } from 'next/font/google';
 import { AuthProvider } from '../lib/auth/AuthProvider';
 import { ThemeProvider } from '../lib/theme/ThemeProvider';
+import { QueryProvider } from '../providers/QueryProvider';
 import './globals.css';
 
 const inter = Inter({
@@ -20,7 +21,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html lang="en" suppressHydrationWarning className={inter.variable}>
       <body className="font-sans antialiased">
         <ThemeProvider>
-          <AuthProvider>{children}</AuthProvider>
+          <QueryProvider>
+            <AuthProvider>{children}</AuthProvider>
+          </QueryProvider>
         </ThemeProvider>
       </body>
     </html>

@@ -31,7 +31,9 @@ export type ApiEnv = {
   TELNYX_SIP_HOST: string;
   TELNYX_DISPATCHER_SET: number;
   TELNYX_WEBHOOK_SECRET?: string;
+  TELNYX_API_KEY?: string;
   TELNYX_API_BASE_URL: string;
+  VSP_PLATFORM_INVENTORY_TENANT_ID?: string;
   JWT_SECRET?: string;
   DEV_JWT_SECRET?: string;
   JWT_ACCESS_TTL_SEC: number;
@@ -217,7 +219,9 @@ export function validateEnv(env: NodeJS.ProcessEnv): ApiEnv {
     TELNYX_SIP_HOST: env.TELNYX_SIP_HOST ?? 'sip.telnyx.com',
     TELNYX_DISPATCHER_SET: Number(env.TELNYX_DISPATCHER_SET ?? '2'),
     TELNYX_WEBHOOK_SECRET: env.TELNYX_WEBHOOK_SECRET,
+    TELNYX_API_KEY: env.TELNYX_API_KEY,
     TELNYX_API_BASE_URL: env.TELNYX_API_BASE_URL ?? 'https://api.telnyx.com/v2',
+    VSP_PLATFORM_INVENTORY_TENANT_ID: env.VSP_PLATFORM_INVENTORY_TENANT_ID,
     JWT_SECRET: env.JWT_SECRET,
     DEV_JWT_SECRET: env.DEV_JWT_SECRET,
     JWT_ACCESS_TTL_SEC: Number(env.JWT_ACCESS_TTL_SEC ?? '3600'),

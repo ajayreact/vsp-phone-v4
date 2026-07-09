@@ -152,11 +152,12 @@ export class AuthService {
     const uniquePermissions = [...new Set(permissionKeys)];
 
     if (!this.prisma.connected) {
+      const devPerms = this.devPermissions(userId, email);
       return {
         userId,
         tenantId,
         email,
-        permissions: uniquePermissions,
+        permissions: devPerms.length ? devPerms : uniquePermissions,
         roles: [],
       };
     }
@@ -218,6 +219,19 @@ export class AuthService {
     if (!email || !password || !userId || !tenantId) return null;
     if (dto.email.toLowerCase() !== email || dto.password !== password) return null;
     return { userId, tenantId, email: dto.email };
+  }
+
+  private devPermissions(userId: string, email: string): string[] {
+    const dev = this.tryDevLogin({ email, password: this.config.get<string>('DEV_AUTH_PASSWORD') || '' });
+    if (!dev || dev.userId !== userId) return [];
+    return [
+      'platform:super_admin',
+      'tenant:admin',
+      'provisioning:admin',
+      'recordings:read',
+      'presence:read',
+      'presence:write',
+    ];
   }
 
   /** scrypt$N$r$saltB64$hashB64 (5 segments when split on $) */

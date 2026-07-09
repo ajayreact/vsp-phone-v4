@@ -1,13 +1,32 @@
 import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../telecom/prisma/prisma.service';
+
+const DEV_FALLBACK_PERMISSIONS = [
+  'platform:super_admin',
+  'tenant:admin',
+  'provisioning:admin',
+  'recordings:read',
+  'presence:read',
+  'presence:write',
+];
 
 /** Phase 16 — RBAC permission lookup from frozen Prisma schema. */
 @Injectable()
 export class PermissionsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly config: ConfigService,
+  ) {}
 
   async userHasPermission(userId: string, permissionKey: string): Promise<boolean> {
-    if (!this.prisma.connected) return false;
+    if (!this.prisma.connected) {
+      const devUserId = (this.config.get<string>('DEV_AUTH_USER_ID') || '').trim();
+      if (devUserId && userId === devUserId) {
+        return DEV_FALLBACK_PERMISSIONS.includes(permissionKey);
+      }
+      return false;
+    }
     const count = await this.prisma.rolePermission.count({
       where: {
         deletedAt: null,
@@ -22,7 +41,11 @@ export class PermissionsService {
   }
 
   async userPermissions(userId: string): Promise<string[]> {
-    if (!this.prisma.connected) return [];
+    if (!this.prisma.connected) {
+      const devUserId = (this.config.get<string>('DEV_AUTH_USER_ID') || '').trim();
+      if (devUserId && userId === devUserId) return [...DEV_FALLBACK_PERMISSIONS];
+      return [];
+    }
     const rows = await this.prisma.rolePermission.findMany({
       where: {
         deletedAt: null,

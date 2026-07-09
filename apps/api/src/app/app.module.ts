@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { AuthModule } from '../modules/auth/auth.module';
 import { CarrierModule } from '../modules/carrier';
+import { CarrierAdminModule } from '../modules/carrier-admin/carrier-admin.module';
 import { PresenceModule } from '../modules/presence';
 import { EnterpriseObservabilityModule } from '../modules/enterprise-observability';
 import { EnterpriseSecurityModule } from '../modules/enterprise-security';
@@ -33,6 +34,7 @@ import { HealthController } from './health.controller';
     AuthModule,
     TelecomModule,
     CarrierModule,
+    CarrierAdminModule,
     ProvisioningModule,
     RecordingModule,
     PresenceModule,

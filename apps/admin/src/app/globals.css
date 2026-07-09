@@ -117,3 +117,21 @@ button:not(:disabled) {
 ::-webkit-scrollbar-track {
   background: transparent;
 }
+
+/* Enterprise glass surfaces */
+.glass-panel {
+  background: color-mix(in srgb, var(--card) 82%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.dark .glass-panel {
+  background: color-mix(in srgb, var(--card) 72%, transparent);
+}
+
+.gradient-mesh {
+  background:
+    radial-gradient(ellipse 80% 50% at 20% -10%, color-mix(in srgb, var(--primary) 12%, transparent), transparent),
+    radial-gradient(ellipse 60% 40% at 90% 0%, color-mix(in srgb, var(--success) 8%, transparent), transparent),
+    var(--bg);
+}

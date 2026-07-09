@@ -7,79 +7,74 @@ import {
   ArrowUpRight,
   Building2,
   Cable,
-  Phone,
   PhoneCall,
   PhoneIncoming,
-  Radio,
   RefreshCw,
   Smartphone,
   Users,
 } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
-import { fetchOpsKpis, type OpsKpis } from '../../lib/api/ops';
-import {
-  mockBillingSummary,
-  mockLiveCalls,
-  mockSipTrunks,
-  mockTelnyxNumbers,
-  summarizeTelnyxInventory,
-} from '../../lib/mock/telecom';
 import { useAuth } from '../../lib/auth/AuthProvider';
-import { displayNameFromSession } from '../../lib/rbac/permissions';
+import { useInfraHealth, useLiveCalls, useOpsDashboard } from '../../lib/hooks/queries/use-telecom';
 import { MetricCard } from '../data/MetricCard';
+import { QueryState } from '../feedback/QueryState';
 import { PageContainer, PageHeader } from '../layout/PageHeader';
 import { Button } from '../ui/Button';
 import { Card, CardBody, CardHeader } from '../ui/Card';
 import { LiveIndicator } from '../ui/LiveIndicator';
 import { StatusBadge } from '../ui/Badge';
+import { Skeleton } from '../ui/Skeleton';
 
 const fade = { initial: { opacity: 0, y: 12 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.2 } };
 
+function KpiSkeleton() {
+  return (
+    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      {Array.from({ length: 8 }).map((_, i) => (
+        <Skeleton key={i} className="h-28 rounded-2xl" />
+      ))}
+    </div>
+  );
+}
+
+function healthToBadge(status: string): 'healthy' | 'warning' | 'error' {
+  if (status === 'up') return 'healthy';
+  if (status === 'degraded') return 'warning';
+  return 'error';
+}
+
 export function OpsCenterDashboard() {
   const { session } = useAuth();
-  const [kpis, setKpis] = useState<OpsKpis | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
+  const tenantId = session?.tenantId;
+  const dashboard = useOpsDashboard(tenantId);
+  const health = useInfraHealth();
+  const liveCalls = useLiveCalls(tenantId);
 
-  const telnyxSummary = summarizeTelnyxInventory(mockTelnyxNumbers);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    const data = await fetchOpsKpis(session?.tenantId);
-    setKpis(data);
-    setLastRefresh(new Date());
-    setLoading(false);
-  }, [session?.tenantId]);
-
-  useEffect(() => {
-    load();
-    const interval = setInterval(load, 30_000);
-    return () => clearInterval(interval);
-  }, [load]);
-
-  const displayName = session
-    ? displayNameFromSession(session.email, session.profile)
-    : 'Operator';
-
-  const activeCalls = kpis?.source === 'live' ? kpis.activeCalls : mockLiveCalls.length;
-  const registered = kpis?.source === 'live' ? kpis.registeredDevices : 128;
-  const tenants = kpis?.source === 'live' ? kpis.onlineTenants : 4;
-  const queues = kpis?.source === 'live' ? kpis.activeQueues : 2;
+  const snap = dashboard.data;
+  const infra = health.data ?? snap?.infrastructure;
 
   return (
     <PageContainer>
       <motion.div {...fade}>
         <PageHeader
-          title="Operations Center"
-          description="Real-time PBX platform monitoring — carrier inventory, live calls, registrations, and infrastructure."
+          title="Telecom Operations Dashboard"
+          description="Live platform telemetry — calls, registrations, carrier health, and infrastructure."
           actions={
             <div className="flex flex-wrap items-center gap-2">
               <LiveIndicator
-                label={kpis?.source === 'live' ? 'Live telemetry' : 'Mock data'}
-                status={kpis?.source === 'live' ? 'online' : 'degraded'}
+                label={dashboard.isFetching ? 'Syncing…' : 'Telemetry active'}
+                status={dashboard.isError ? 'degraded' : 'online'}
               />
-              <Button variant="outline" size="sm" onClick={load} disabled={loading}>
-                <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  void dashboard.refetch();
+                  void health.refetch();
+                  void liveCalls.refetch();
+                }}
+                disabled={dashboard.isFetching}
+              >
+                <RefreshCw className={`h-4 w-4 ${dashboard.isFetching ? 'animate-spin' : ''}`} />
                 Refresh
               </Button>
               <Link href="/telnyx-numbers">
@@ -92,293 +87,168 @@ export function OpsCenterDashboard() {
           }
         />
 
-        <p className="-mt-4 mb-6 text-xs text-muted-foreground">
-          Welcome back, {displayName.split(' ')[0]} · Last updated {lastRefresh.toLocaleTimeString()}
-        </p>
-
-        {/* Live operations KPIs */}
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <MetricCard
-            label="Active Calls"
-            value={loading ? '—' : activeCalls}
-            hint="Across all tenants"
-            change={activeCalls > 0 ? `${activeCalls} in progress` : 'No active calls'}
-            changeType={activeCalls > 0 ? 'up' : undefined}
-            icon={PhoneIncoming}
-          />
-          <MetricCard
-            label="SIP Registrations"
-            value={loading ? '—' : registered}
-            hint="Devices online"
-            icon={Smartphone}
-          />
-          <MetricCard
-            label="Active Tenants"
-            value={loading ? '—' : tenants}
-            hint="Platform-wide"
-            icon={Building2}
-          />
-          <MetricCard
-            label="Queue Sessions"
-            value={loading ? '—' : queues}
-            hint="Calls in queue"
-            icon={Users}
-          />
-        </div>
-
-        {/* Carrier & inventory KPIs */}
-        <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <MetricCard
-            label="Telnyx Inventory"
-            value={telnyxSummary.total}
-            hint={`${telnyxSummary.available} available`}
-            change={`$${telnyxSummary.monthlySpend.toFixed(0)}/mo`}
-            icon={PhoneCall}
-          />
-          <MetricCard
-            label="Assigned Numbers"
-            value={telnyxSummary.assigned}
-            hint={`${telnyxSummary.pending} pending/porting`}
-            icon={Phone}
-          />
-          <MetricCard
-            label="SIP Trunks"
-            value={mockSipTrunks.length}
-            hint={`${mockSipTrunks[0]?.inUse ?? 0}/${mockSipTrunks[0]?.channels ?? 0} channels in use`}
-            icon={Cable}
-          />
-          <MetricCard
-            label="Telnyx Carrier"
-            value={
-              kpis?.telnyxStatus === 'up'
-                ? 'Healthy'
-                : kpis?.telnyxStatus === 'degraded'
-                  ? 'Degraded'
-                  : kpis?.telnyxStatus === 'down'
-                    ? 'Down'
-                    : 'Checking'
-            }
-            hint={kpis?.source === 'live' ? 'Live probe' : 'Awaiting BFF token'}
-            icon={Activity}
-          />
-        </div>
+        <QueryState
+          isLoading={dashboard.isLoading}
+          isError={dashboard.isError}
+          error={dashboard.error}
+          onRetry={() => void dashboard.refetch()}
+          skeleton={<KpiSkeleton />}
+        >
+          {snap ? (
+            <>
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                <MetricCard label="Live Calls" value={snap.activeCalls} icon={PhoneIncoming} />
+                <MetricCard label="Concurrent Calls" value={snap.concurrentCalls ?? snap.activeCalls} icon={PhoneIncoming} />
+                <MetricCard label="Registered Extensions" value={snap.registeredExtensions ?? 0} icon={Users} />
+                <MetricCard label="Registered Devices" value={snap.registeredDevices} icon={Smartphone} />
+              </div>
+              <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                <MetricCard label="Available DIDs" value={snap.availableDids ?? snap.unassignedDids ?? 0} icon={PhoneCall} />
+                <MetricCard label="Assigned DIDs" value={snap.assignedDids ?? 0} icon={PhoneCall} />
+                <MetricCard label="Telnyx Inventory" value={snap.telnyxInventory ?? 0} icon={Cable} />
+                <MetricCard label="SIP Registrations" value={snap.sipRegistrations ?? snap.registeredDevices} icon={Activity} />
+              </div>
+              <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                <MetricCard label="Active Tenants" value={snap.onlineTenants} icon={Building2} />
+                <MetricCard label="Queue Waiting" value={snap.queueWaiting ?? snap.activeQueues} icon={Users} />
+                <MetricCard label="Failed Calls Today" value={snap.failedCallsToday ?? 0} icon={PhoneIncoming} />
+                <MetricCard
+                  label="Carrier Health"
+                  value={
+                    infra?.telnyx?.status === 'up'
+                      ? 'Healthy'
+                      : infra?.telnyx?.status === 'degraded'
+                        ? 'Degraded'
+                        : infra?.telnyx?.status === 'down'
+                          ? 'Down'
+                          : 'Unknown'
+                  }
+                  hint={infra?.telnyx?.latencyMs != null ? `${infra.telnyx.latencyMs}ms` : undefined}
+                  icon={Cable}
+                />
+              </div>
+              <p className="mt-3 text-xs text-muted-foreground">
+                Snapshot {new Date(snap.ts).toLocaleString()} · Tenant scope: {snap.tenantId}
+              </p>
+            </>
+          ) : null}
+        </QueryState>
 
         <div className="mt-8 grid gap-6 xl:grid-cols-3">
-          {/* Live calls */}
-          <Card className="xl:col-span-2">
+          <Card className="glass-card xl:col-span-2">
             <CardHeader
               title="Live Calls"
               action={
                 <Link href="/live-calls">
                   <Button variant="ghost" size="sm">
-                    View all
+                    NOC view
                     <ArrowUpRight className="h-4 w-4" />
                   </Button>
                 </Link>
               }
             />
             <CardBody className="pt-0">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
-                      <th className="pb-3 pr-4 font-medium">Direction</th>
-                      <th className="pb-3 pr-4 font-medium">From</th>
-                      <th className="pb-3 pr-4 font-medium">To</th>
-                      <th className="pb-3 pr-4 font-medium">Tenant</th>
-                      <th className="pb-3 pr-4 font-medium">Duration</th>
-                      <th className="pb-3 font-medium">State</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    {mockLiveCalls.map((c) => (
-                      <tr key={c.id} className="hover:bg-muted/30">
-                        <td className="py-3 pr-4">{c.direction}</td>
-                        <td className="py-3 pr-4 font-mono text-xs">{c.from}</td>
-                        <td className="py-3 pr-4">{c.to}</td>
-                        <td className="py-3 pr-4 text-muted-foreground">{c.tenant}</td>
-                        <td className="py-3 pr-4 font-mono text-xs">{c.duration}</td>
-                        <td className="py-3">
-                          <StatusBadge status={c.state === 'Active' ? 'online' : 'warning'} />
-                        </td>
+              <QueryState
+                isLoading={liveCalls.isLoading}
+                isError={liveCalls.isError}
+                error={liveCalls.error}
+                onRetry={() => void liveCalls.refetch()}
+                isEmpty={!liveCalls.data?.length}
+                empty={
+                  <p className="py-8 text-center text-sm text-muted-foreground">
+                    No active calls for the current tenant scope.
+                    {!tenantId ? ' Sign in with a tenant context to load live sessions.' : null}
+                  </p>
+                }
+                skeleton={<Skeleton className="h-48 w-full rounded-xl" />}
+              >
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
+                        <th className="pb-3 pr-4 font-medium">Caller</th>
+                        <th className="pb-3 pr-4 font-medium">Callee</th>
+                        <th className="pb-3 pr-4 font-medium">Trunk</th>
+                        <th className="pb-3 pr-4 font-medium">Codec</th>
+                        <th className="pb-3 pr-4 font-medium">MOS</th>
+                        <th className="pb-3 font-medium">Status</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </CardBody>
-          </Card>
-
-          {/* SIP trunk status */}
-          <Card>
-            <CardHeader
-              title="SIP Trunks"
-              action={
-                <Link href="/trunks">
-                  <Button variant="ghost" size="sm">
-                    Manage
-                  </Button>
-                </Link>
-              }
-            />
-            <CardBody className="space-y-3 pt-0">
-              {mockSipTrunks.map((t) => (
-                <div
-                  key={t.id}
-                  className="rounded-xl border border-border bg-muted/20 px-4 py-3"
-                >
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm font-medium">{t.name}</p>
-                    <StatusBadge status={t.status === 'healthy' ? 'healthy' : 'warning'} />
-                  </div>
-                  <p className="mt-1 font-mono text-xs text-muted-foreground">{t.host}</p>
-                  <div className="mt-2 flex justify-between text-xs text-muted-foreground">
-                    <span>{t.inUse}/{t.channels} channels</span>
-                    <span>{t.latencyMs}ms</span>
-                  </div>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {(liveCalls.data ?? []).slice(0, 8).map((c) => (
+                        <tr key={c.id} className="hover:bg-muted/30">
+                          <td className="py-3 pr-4 font-mono text-xs">{c.caller}</td>
+                          <td className="py-3 pr-4">{c.callee}</td>
+                          <td className="py-3 pr-4 text-muted-foreground">{c.trunk}</td>
+                          <td className="py-3 pr-4">{c.codec}</td>
+                          <td className="py-3 pr-4 tabular-nums">{c.mos ?? '—'}</td>
+                          <td className="py-3">
+                            <StatusBadge status={c.status.toLowerCase().includes('active') ? 'online' : 'warning'} />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
-              ))}
-              <Link href="/carriers">
-                <Button variant="outline" className="w-full" size="sm">
-                  Carrier integrations
-                </Button>
-              </Link>
-            </CardBody>
-          </Card>
-        </div>
-
-        <div className="mt-6 grid gap-6 lg:grid-cols-3">
-          {/* Telnyx number inventory preview */}
-          <Card className="lg:col-span-2">
-            <CardHeader
-              title="Telnyx Number Inventory"
-              action={
-                <Link href="/telnyx-numbers">
-                  <Button variant="ghost" size="sm">
-                    Manage inventory
-                    <ArrowUpRight className="h-4 w-4" />
-                  </Button>
-                </Link>
-              }
-            />
-            <CardBody className="pt-0">
-              <div className="grid gap-3 sm:grid-cols-4">
-                {[
-                  { label: 'Total', value: telnyxSummary.total },
-                  { label: 'Available', value: telnyxSummary.available },
-                  { label: 'Assigned', value: telnyxSummary.assigned },
-                  { label: 'Pending', value: telnyxSummary.pending },
-                ].map((s) => (
-                  <div key={s.label} className="rounded-xl border border-border bg-muted/20 px-4 py-3 text-center">
-                    <p className="text-2xl font-semibold tabular-nums">{s.value}</p>
-                    <p className="text-xs text-muted-foreground">{s.label}</p>
-                  </div>
-                ))}
-              </div>
-              <div className="mt-4 overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
-                      <th className="pb-2 pr-4 font-medium">Number</th>
-                      <th className="pb-2 pr-4 font-medium">Status</th>
-                      <th className="pb-2 font-medium">Tenant</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    {mockTelnyxNumbers.slice(0, 4).map((n) => (
-                      <tr key={n.id}>
-                        <td className="py-2.5 pr-4 font-mono text-xs">{n.number}</td>
-                        <td className="py-2.5 pr-4">
-                          <StatusBadge
-                            status={
-                              n.status === 'available'
-                                ? 'active'
-                                : n.status === 'assigned'
-                                  ? 'online'
-                                  : 'pending'
-                            }
-                          />
-                        </td>
-                        <td className="py-2.5 text-muted-foreground">{n.assignedTenant ?? '—'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              </QueryState>
             </CardBody>
           </Card>
 
-          {/* Billing snapshot */}
-          <Card>
+          <Card className="glass-card">
             <CardHeader
-              title="Billing Snapshot"
+              title="Infrastructure"
               action={
-                <Link href="/billing">
+                <Link href="/system-health">
                   <Button variant="ghost" size="sm">Details</Button>
                 </Link>
               }
             />
-            <CardBody className="space-y-4 pt-0">
-              <div>
-                <p className="text-xs text-muted-foreground">{mockBillingSummary.currentPeriod}</p>
-                <p className="mt-1 text-2xl font-semibold tabular-nums">
-                  ${mockBillingSummary.platformMrr.toLocaleString()}
-                </p>
-                <p className="text-xs text-muted-foreground">Platform MRR</p>
-              </div>
-              <div className="space-y-2 border-t border-border pt-4 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Telnyx spend</span>
-                  <span className="font-medium">${mockBillingSummary.telnyxSpend}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Usage minutes</span>
-                  <span className="font-medium">{mockBillingSummary.usageMinutes.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Overage</span>
-                  <span className="font-medium">{mockBillingSummary.overageMinutes.toLocaleString()} min</span>
-                </div>
+            <CardBody className="space-y-2 pt-0">
+              {health.isLoading ? (
+                Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-12 rounded-xl" />)
+              ) : health.isError ? (
+                <p className="text-sm text-muted-foreground">{health.error?.message}</p>
+              ) : infra ? (
+                (['api', 'kamailio', 'redis', 'postgres', 'rtpengine', 'telnyx'] as const).map((key) => {
+                  const check = infra[key];
+                  return (
+                    <div
+                      key={key}
+                      className="flex items-center justify-between rounded-xl border border-border/80 bg-muted/20 px-4 py-3"
+                    >
+                      <span className="text-sm font-medium capitalize">{key}</span>
+                      <div className="flex items-center gap-2">
+                        {check?.latencyMs != null ? (
+                          <span className="text-xs text-muted-foreground">{check.latencyMs}ms</span>
+                        ) : null}
+                        <StatusBadge status={healthToBadge(check?.status ?? 'down')} />
+                      </div>
+                    </div>
+                  );
+                })
+              ) : null}
+              <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+                <span>Redis: {snap?.redis.available ? 'Available' : 'Unavailable'}</span>
+                <span>Postgres: {snap?.postgres.connected ? 'Connected' : 'Disconnected'}</span>
               </div>
             </CardBody>
           </Card>
         </div>
 
-        {/* Infrastructure strip */}
-        <Card className="mt-6">
-          <CardHeader
-            title="Infrastructure Health"
-            action={
-              <Link href="/system-health">
-                <Button variant="ghost" size="sm">
-                  Open monitoring
-                  <Radio className="ml-1 h-4 w-4" />
-                </Button>
-              </Link>
-            }
-          />
-          <CardBody className="pt-0">
-            <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
-              {['API', 'Kamailio', 'Redis', 'PostgreSQL', 'RTPengine', 'Telnyx'].map((name) => (
-                <div
-                  key={name}
-                  className="flex items-center justify-between rounded-xl border border-border bg-muted/20 px-4 py-3"
-                >
-                  <span className="text-sm font-medium">{name}</span>
-                  <StatusBadge
-                    status={
-                      name === 'Telnyx' && kpis?.telnyxStatus === 'up'
-                        ? 'healthy'
-                        : name === 'Telnyx'
-                          ? 'warning'
-                          : 'healthy'
-                    }
-                  />
-                </div>
-              ))}
-            </div>
-          </CardBody>
-        </Card>
+        <div className="mt-6 grid gap-4 sm:grid-cols-3">
+          <Link href="/trunks" className="glass-card block rounded-2xl border border-border p-5 transition hover:border-primary/30">
+            <p className="text-sm font-semibold">SIP Trunks</p>
+            <p className="mt-1 text-xs text-muted-foreground">Registration, latency, channels</p>
+          </Link>
+          <Link href="/telnyx-numbers" className="glass-card block rounded-2xl border border-border p-5 transition hover:border-primary/30">
+            <p className="text-sm font-semibold">Telnyx Numbers</p>
+            <p className="mt-1 text-xs text-muted-foreground">Inventory & tenant assignment</p>
+          </Link>
+          <Link href="/extensions" className="glass-card block rounded-2xl border border-border p-5 transition hover:border-primary/30">
+            <p className="text-sm font-semibold">Extensions</p>
+            <p className="mt-1 text-xs text-muted-foreground">Registrations & presence</p>
+          </Link>
+        </div>
       </motion.div>
     </PageContainer>
   );

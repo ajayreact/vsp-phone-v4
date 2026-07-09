@@ -25,6 +25,9 @@ export function DataTable<T extends { id: string }>({
   emptyDescription = 'Get started by creating your first record.',
   emptyAction,
   rowActions,
+  selectable = false,
+  selectedIds = [],
+  onSelectionChange,
 }: {
   columns: Column<T>[];
   data: T[];
@@ -34,6 +37,9 @@ export function DataTable<T extends { id: string }>({
   emptyDescription?: string;
   emptyAction?: ReactNode;
   rowActions?: (row: T) => ActionItem[];
+  selectable?: boolean;
+  selectedIds?: string[];
+  onSelectionChange?: (ids: string[]) => void;
 }) {
   const [page, setPage] = useState(0);
   const [sortKey, setSortKey] = useState<string | null>(null);
@@ -67,6 +73,23 @@ export function DataTable<T extends { id: string }>({
         <table className="w-full min-w-[640px] text-sm">
           <thead className="sticky top-0 z-10 border-b border-border bg-muted/50 backdrop-blur-sm">
             <tr>
+              {selectable ? (
+                <th className="w-10 px-4 py-3">
+                  <input
+                    type="checkbox"
+                    aria-label="Select all on page"
+                    checked={rows.length > 0 && rows.every((r) => selectedIds.includes(r.id))}
+                    onChange={(e) => {
+                      if (!onSelectionChange) return;
+                      if (e.target.checked) {
+                        onSelectionChange([...new Set([...selectedIds, ...rows.map((r) => r.id)])]);
+                      } else {
+                        onSelectionChange(selectedIds.filter((id) => !rows.some((r) => r.id === id)));
+                      }
+                    }}
+                  />
+                </th>
+              ) : null}
               {columns.map((col) => (
                 <th
                   key={col.key}
@@ -105,6 +128,23 @@ export function DataTable<T extends { id: string }>({
                 key={row.id}
                 className="transition-colors hover:bg-muted/40"
               >
+                {selectable ? (
+                  <td className="px-4 py-3.5">
+                    <input
+                      type="checkbox"
+                      aria-label={`Select ${row.id}`}
+                      checked={selectedIds.includes(row.id)}
+                      onChange={(e) => {
+                        if (!onSelectionChange) return;
+                        onSelectionChange(
+                          e.target.checked
+                            ? [...selectedIds, row.id]
+                            : selectedIds.filter((id) => id !== row.id),
+                        );
+                      }}
+                    />
+                  </td>
+                ) : null}
                 {columns.map((col) => (
                   <td key={col.key} className={cn('px-4 py-3.5', col.className)}>
                     {col.cell(row)}
