@@ -27,6 +27,17 @@
         }
       }
     },
+    "serve": {
+      "continuous": true,
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "apps/admin",
+        "command": "next dev -H 0.0.0.0 -p 3001",
+        "env": {
+          "PORT": "3001"
+        }
+      }
+    },
     "start": {
       "executor": "nx:run-commands",
       "options": {

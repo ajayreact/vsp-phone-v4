@@ -1,7 +1,7 @@
 ﻿'use client';
 
-import { ModulePage } from '../../../components/modules/ModulePage';
+import { EnterpriseModulePage } from '../../../components/modules/EnterpriseModulePage';
 
 export default function ProvisioningPage() {
-  return <ModulePage moduleId='provisioning' />;
+  return <EnterpriseModulePage moduleId='provisioning' />;
 }

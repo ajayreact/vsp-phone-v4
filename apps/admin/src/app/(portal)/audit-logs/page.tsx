@@ -1,7 +1,7 @@
 ﻿'use client';
 
-import { ModulePage } from '../../../components/modules/ModulePage';
+import { EnterpriseModulePage } from '../../../components/modules/EnterpriseModulePage';
 
-export default function AuditLogsPage() {
-  return <ModulePage moduleId='audit-logs' />;
+export default function AuditlogsPage() {
+  return <EnterpriseModulePage moduleId='audit-logs' />;
 }

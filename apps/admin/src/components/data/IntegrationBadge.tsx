@@ -14,5 +14,5 @@ const TONES: Record<ApiIntegrationStatus, 'success' | 'primary' | 'warning'> = {
 };
 
 export function IntegrationBadge({ status }: { status: ApiIntegrationStatus }) {
-  return <Badge tone={TONES[status]}>{LABELS[status]}</Badge>;
+  return <Badge variant={TONES[status]}>{LABELS[status]}</Badge>;
 }

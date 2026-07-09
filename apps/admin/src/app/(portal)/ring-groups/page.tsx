@@ -1,7 +1,7 @@
 ﻿'use client';
 
-import { ModulePage } from '../../../components/modules/ModulePage';
+import { EnterpriseModulePage } from '../../../components/modules/EnterpriseModulePage';
 
-export default function RingGroupsPage() {
-  return <ModulePage moduleId='ring-groups' />;
+export default function RinggroupsPage() {
+  return <EnterpriseModulePage moduleId='ring-groups' />;
 }

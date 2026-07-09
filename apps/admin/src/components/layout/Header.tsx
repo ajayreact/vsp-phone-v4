@@ -2,12 +2,16 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   Bell,
   Headphones,
   LogOut,
   Moon,
+  Plus,
   Search,
+  Settings,
   Sun,
   User,
 } from 'lucide-react';
@@ -17,7 +21,6 @@ import { useTheme } from '../../lib/theme/ThemeProvider';
 import { Avatar } from '../ui/Skeleton';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
-import { useState } from 'react';
 
 export function Header() {
   const { session, logout } = useAuth();
@@ -36,77 +39,121 @@ export function Header() {
   };
 
   return (
-    <header className="flex h-14 items-center gap-4 border-b border-border bg-card px-4 sm:px-6">
-      <div className="hidden min-w-0 flex-1 items-center gap-2 md:flex">
-        <div className="relative w-full max-w-md">
+    <header className="sticky top-0 z-40 flex h-16 items-center gap-4 border-b border-border bg-card/80 px-4 backdrop-blur-md sm:px-6">
+      <div className="hidden min-w-0 flex-1 items-center gap-3 md:flex">
+        <div className="relative w-full max-w-xl">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input className="pl-9" placeholder="Search extensions, users, DIDs…" />
+          <Input
+            className="h-10 border-transparent bg-muted/60 pl-9 shadow-none focus-visible:bg-card"
+            placeholder="Search extensions, users, DIDs, devices…"
+          />
+          <kbd className="pointer-events-none absolute right-3 top-1/2 hidden -translate-y-1/2 rounded border border-border bg-card px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground sm:inline">
+            ⌘K
+          </kbd>
         </div>
       </div>
-      <div className="ml-auto flex items-center gap-2">
+
+      <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
         {session?.tenant ? (
-          <span className="hidden rounded-md border border-border px-2.5 py-1 text-xs font-medium sm:inline">
+          <span className="hidden rounded-full border border-border bg-muted/50 px-3 py-1 text-xs font-medium lg:inline">
             {session.tenant.name}
           </span>
         ) : null}
+
+        <Button variant="default" size="sm" className="hidden sm:inline-flex shadow-sm">
+          <Plus className="h-4 w-4" />
+          Quick Create
+        </Button>
+
         <Link href="/softphone">
-          <Button variant="ghost" size="sm" title="Browser Softphone">
+          <Button variant="outline" size="sm" title="Browser Softphone">
             <Headphones className="h-4 w-4" />
             <span className="hidden sm:inline">Softphone</span>
           </Button>
         </Link>
+
         <div className="relative">
           <Button
             variant="ghost"
-            size="sm"
+            size="icon"
+            className="relative"
             onClick={() => setNotifOpen((v) => !v)}
             aria-label="Notifications"
           >
             <Bell className="h-4 w-4" />
+            <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-primary ring-2 ring-card" />
           </Button>
-          {notifOpen ? (
-            <div className="absolute right-0 z-50 mt-2 w-72 rounded-lg border border-border bg-card p-3 shadow-none">
-              <p className="text-sm font-medium">Notifications</p>
-              <p className="mt-2 text-sm text-muted-foreground">No new notifications.</p>
-            </div>
-          ) : null}
+          <AnimatePresence>
+            {notifOpen ? (
+              <motion.div
+                initial={{ opacity: 0, y: 4, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 4, scale: 0.98 }}
+                transition={{ duration: 0.15 }}
+                className="absolute right-0 z-50 mt-2 w-80 rounded-2xl border border-border bg-card p-4 shadow-[var(--shadow-elevated)]"
+              >
+                <p className="text-sm font-semibold">Notifications</p>
+                <p className="mt-3 text-sm text-muted-foreground">You&apos;re all caught up.</p>
+              </motion.div>
+            ) : null}
+          </AnimatePresence>
         </div>
-        <Button variant="ghost" size="sm" onClick={toggleTheme} aria-label="Toggle theme">
+
+        <Button variant="ghost" size="icon" onClick={toggleTheme} aria-label="Toggle theme">
           {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
         </Button>
+
         <div className="relative">
           <button
             type="button"
             onClick={() => setMenuOpen((v) => !v)}
-            className="flex items-center gap-2 rounded-md px-2 py-1 hover:bg-muted"
+            className="flex items-center gap-2 rounded-xl py-1 pl-1 pr-2 transition-colors hover:bg-muted/60"
           >
-            <Avatar name={displayName} />
-            <span className="hidden text-sm font-medium sm:inline">{displayName}</span>
+            <Avatar name={displayName} size="sm" />
+            <span className="hidden max-w-[120px] truncate text-sm font-medium sm:inline">
+              {displayName}
+            </span>
           </button>
-          {menuOpen ? (
-            <div className="absolute right-0 z-50 mt-2 w-56 rounded-lg border border-border bg-card py-1">
-              <div className="border-b border-border px-3 py-2">
-                <p className="text-sm font-medium">{displayName}</p>
-                <p className="text-xs text-muted-foreground">{session?.email}</p>
-              </div>
-              <Link
-                href="/settings"
-                className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted"
-                onClick={() => setMenuOpen(false)}
+          <AnimatePresence>
+            {menuOpen ? (
+              <motion.div
+                initial={{ opacity: 0, y: 4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 4 }}
+                transition={{ duration: 0.15 }}
+                className="absolute right-0 z-50 mt-2 w-56 overflow-hidden rounded-2xl border border-border bg-card shadow-[var(--shadow-elevated)]"
               >
-                <User className="h-4 w-4" />
-                Account settings
-              </Link>
-              <button
-                type="button"
-                className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-muted"
-                onClick={handleLogout}
-              >
-                <LogOut className="h-4 w-4" />
-                Sign out
-              </button>
-            </div>
-          ) : null}
+                <div className="border-b border-border px-4 py-3">
+                  <p className="truncate text-sm font-semibold">{displayName}</p>
+                  <p className="truncate text-xs text-muted-foreground">{session?.email}</p>
+                </div>
+                <Link
+                  href="/settings"
+                  className="flex items-center gap-2 px-4 py-2.5 text-sm transition-colors hover:bg-muted/60"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  <User className="h-4 w-4 text-muted-foreground" />
+                  Profile
+                </Link>
+                <Link
+                  href="/settings"
+                  className="flex items-center gap-2 px-4 py-2.5 text-sm transition-colors hover:bg-muted/60"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  <Settings className="h-4 w-4 text-muted-foreground" />
+                  Settings
+                </Link>
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-destructive transition-colors hover:bg-muted/60"
+                  onClick={handleLogout}
+                >
+                  <LogOut className="h-4 w-4" />
+                  Sign out
+                </button>
+              </motion.div>
+            ) : null}
+          </AnimatePresence>
         </div>
       </div>
     </header>
