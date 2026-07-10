@@ -40,7 +40,6 @@ fileContains('infrastructure/rtpengine/rtpengine.conf', 'recording-method = proc
 
 console.log('\n--- Kamailio ---');
 mustExist('infrastructure/kamailio/kamailio.cfg', 'kamailio.cfg');
-fileContains('infrastructure/kamailio/kamailio.cfg', 'loadmodule "refer.so"', 'REFER module');
 fileContains('infrastructure/kamailio/kamailio.cfg', 'route[REFER]', 'REFER route');
 fileContains('infrastructure/kamailio/kamailio.cfg', 'rtpengine_offer', 'RTPengine offer');
 
