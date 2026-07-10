@@ -5,6 +5,7 @@ import {
   Headphones,
   LayoutDashboard,
   ListOrdered,
+  Megaphone,
   Mic,
   Network,
   Phone,
@@ -16,6 +17,7 @@ import {
   Smartphone,
   Users,
   Voicemail,
+  Volume2,
   Workflow,
 } from 'lucide-react';
 import type { ModuleDefinition } from '../../types/navigation';
@@ -183,6 +185,18 @@ export const TENANT_MODULES: ModuleDefinition[] = [
     description: 'Call queue configuration, agents, and strategies.',
     breadcrumb: ['Call Routing', 'Queues'],
     apiEndpoints: ['/v1/tenant/queues'],
+  },
+  {
+    id: 'audio-library',
+    label: 'Audio Library',
+    href: '/audio-library',
+    group: 'routing',
+    icon: Volume2,
+    permission: PERMISSIONS.TENANT_IVR_READ,
+    integration: 'live',
+    description: 'Music on hold playlists, announcements, prompts, and audio versioning.',
+    breadcrumb: ['Call Routing', 'Audio Library'],
+    apiEndpoints: ['/v1/tenant/audio'],
   },
   {
     id: 'ivr',

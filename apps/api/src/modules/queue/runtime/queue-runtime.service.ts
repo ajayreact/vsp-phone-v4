@@ -84,8 +84,8 @@ export class QueueRuntimeService {
     };
     this.events.emit(QUEUE_DOMAIN_EVENTS.JOINED, domain);
 
-    const mohUri = this.moh.mohUriForQueue(params.queueId);
-    const announcements = this.prompts.announcementUris(['welcome', 'queue_position']);
+    const mohUri = await this.moh.mohUriForQueue(params.tenantId, params.queueId, queue.mohPlaylistId);
+    const announcements = await this.prompts.tenantAnnouncementUris(params.tenantId, ['welcome', 'queue_position']);
     const recording = await this.recordingPolicy.evaluateRouteRecording({
       tenantId: params.tenantId,
       toLineId: undefined,

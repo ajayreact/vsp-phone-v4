@@ -1,22 +1,32 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { AudioMediaResolverService } from './audio-media-resolver.service';
 
 /** Phase 13 — Music on Hold URIs (RTPengine anchors caller ↔ media app). */
 @Injectable()
 export class MusicOnHoldService {
   private readonly defaultMoh: string;
 
-  constructor(config: ConfigService) {
+  constructor(
+    private readonly resolver: AudioMediaResolverService,
+    config: ConfigService,
+  ) {
     this.defaultMoh =
       config.get<string>('MOH_DEFAULT_URI') || 'sip:moh-default@media.vsp.internal';
   }
 
-  mohUriForQueue(queueId?: string): string {
+  async mohUriForQueue(tenantId: string, queueId?: string, mohPlaylistId?: string | null): Promise<string> {
+    if (mohPlaylistId) {
+      return this.resolver.resolveMohUri(tenantId, mohPlaylistId);
+    }
     const perQueue = process.env[`MOH_QUEUE_${queueId?.replace(/-/g, '_').toUpperCase()}_URI`];
-    return perQueue || this.defaultMoh;
+    if (perQueue) return perQueue;
+    return this.resolver.resolveMohUri(tenantId, null);
   }
 
-  holdUri(): string {
-    return this.defaultMoh;
+  async holdUri(tenantId: string, mohPlaylistId?: string | null): Promise<string> {
+    return mohPlaylistId
+      ? this.resolver.resolveMohUri(tenantId, mohPlaylistId)
+      : this.defaultMoh;
   }
 }

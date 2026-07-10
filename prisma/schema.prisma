@@ -288,6 +288,51 @@ enum AudioAssetCategory {
   @@map("audio_asset_category")
 }
 
+enum MohPlayMode {
+  SEQUENTIAL
+  SHUFFLE
+  RANDOM
+  PRIORITY
+
+  @@map("moh_play_mode")
+}
+
+enum MohScope {
+  GLOBAL
+  TENANT
+  QUEUE
+  RING_GROUP
+  IVR
+  CONFERENCE
+
+  @@map("moh_scope")
+}
+
+enum PagingGroupKind {
+  PAGING
+  INTERCOM
+
+  @@map("paging_group_kind")
+}
+
+enum PagingType {
+  MULTICAST
+  SIP
+  ZONE
+  DEPARTMENT
+  EMERGENCY
+  PRIORITY
+
+  @@map("paging_type")
+}
+
+enum IntercomMode {
+  ONE_WAY
+  TWO_WAY
+
+  @@map("intercom_mode")
+}
+
 enum DialPlanRuleType {
   NORMALIZATION
   PREFIX
@@ -596,7 +641,9 @@ model Tenant {
   directoryIntegrations    DirectoryIntegration[]
   mohPlaylists             MohPlaylist[]
   mohTracks              MohTrack[]
+  mohPlaylistVersions    MohPlaylistVersion[]
   announcements          Announcement[]
+  announcementVersions   AnnouncementVersion[]
   pagingGroups           PagingGroup[]
   pagingGroupMembers     PagingGroupMember[]
   voicemailGreetings     VoicemailGreeting[]
@@ -1146,6 +1193,7 @@ model Line {
   recordings             Recording[]
   telephonySettings      LineTelephonySettings?
   pagingGroupMembers     PagingGroupMember[]
+  intercomTargets        PagingGroup[]
   outboundRoutes         OutboundRoute[]
   contacts               Contact[]
   contactRecents         ContactRecent[]
@@ -2865,19 +2913,28 @@ model DirectoryIntegration {
 }
 
 model MohPlaylist {
-  id        String    @id @db.Uuid
-  tenantId  String    @map("tenant_id") @db.Uuid
-  name      String
-  isDefault Boolean   @default(false) @map("is_default")
-  version   Int       @default(1)
-  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+  id            String      @id @db.Uuid
+  tenantId      String      @map("tenant_id") @db.Uuid
+  name          String
+  isDefault     Boolean     @default(false) @map("is_default")
+  playMode      MohPlayMode @default(SEQUENTIAL) @map("play_mode")
+  language      String      @default("en")
+  streamingUrl  String?     @map("streaming_url")
+  priority      Int         @default(100)
+  scope         MohScope    @default(TENANT)
+  scheduledFrom DateTime?   @map("scheduled_from") @db.Timestamptz(6)
+  scheduledTo   DateTime?   @map("scheduled_to") @db.Timestamptz(6)
+  version       Int         @default(1)
+  createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt     DateTime?   @map("deleted_at") @db.Timestamptz(6)
 
-  tenant Tenant     @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  tracks MohTrack[]
+  tenant   Tenant               @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  tracks   MohTrack[]
+  versions MohPlaylistVersion[]
 
   @@index([tenantId])
+  @@index([tenantId, scope])
   @@map("moh_playlists")
 }
 
@@ -2888,6 +2945,8 @@ model MohTrack {
   name           String
   mediaObjectKey String    @map("media_object_key")
   durationSec    Int?      @map("duration_sec")
+  sortOrder      Int       @default(0) @map("sort_order")
+  trackPriority  Int       @default(0) @map("track_priority")
   version        Int       @default(1)
   createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -2897,32 +2956,75 @@ model MohTrack {
   playlist MohPlaylist? @relation(fields: [playlistId], references: [id], onDelete: Restrict)
 
   @@index([tenantId])
+  @@index([playlistId, sortOrder])
   @@map("moh_tracks")
 }
 
+model MohPlaylistVersion {
+  id         String   @id @db.Uuid
+  tenantId   String   @map("tenant_id") @db.Uuid
+  playlistId String   @map("playlist_id") @db.Uuid
+  version    Int
+  snapshot   Json     @db.JsonB
+  changeNotes String? @map("change_notes")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy  String?  @map("created_by") @db.Uuid
+
+  tenant   Tenant      @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  playlist MohPlaylist @relation(fields: [playlistId], references: [id], onDelete: Restrict)
+
+  @@unique([playlistId, version])
+  @@index([tenantId, playlistId])
+  @@map("moh_playlist_versions")
+}
+
 model Announcement {
-  id             String    @id @db.Uuid
-  tenantId       String    @map("tenant_id") @db.Uuid
+  id             String             @id @db.Uuid
+  tenantId       String             @map("tenant_id") @db.Uuid
   name           String
   description    String?
   category       AudioAssetCategory @default(PROMPT)
-  language       String    @default("en")
-  mediaObjectKey String?   @map("media_object_key")
-  ttsText        String?   @map("tts_text")
-  ttsVoice       String?   @map("tts_voice")
-  version        Int       @default(1)
-  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
-  createdBy      String?   @map("created_by") @db.Uuid
-  updatedBy      String?   @map("updated_by") @db.Uuid
+  language       String             @default("en")
+  mediaObjectKey String?            @map("media_object_key")
+  ttsText        String?            @map("tts_text")
+  ttsVoice       String?            @map("tts_voice")
+  isEmergency    Boolean            @default(false) @map("is_emergency")
+  tags           Json?              @db.JsonB
+  version        Int                @default(1)
+  createdAt      DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime?          @map("deleted_at") @db.Timestamptz(6)
+  createdBy      String?            @map("created_by") @db.Uuid
+  updatedBy      String?            @map("updated_by") @db.Uuid
 
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  ivrs   IVR[]
+  tenant   Tenant                @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  ivrs     IVR[]
+  versions AnnouncementVersion[]
 
   @@index([tenantId])
   @@index([tenantId, category])
+  @@index([tenantId, isEmergency])
   @@map("announcements")
+}
+
+model AnnouncementVersion {
+  id             String   @id @db.Uuid
+  tenantId       String   @map("tenant_id") @db.Uuid
+  announcementId String   @map("announcement_id") @db.Uuid
+  version        Int
+  name           String
+  mediaObjectKey String?  @map("media_object_key")
+  ttsText        String?  @map("tts_text")
+  changeNotes    String?  @map("change_notes")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy      String?  @map("created_by") @db.Uuid
+
+  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  announcement Announcement @relation(fields: [announcementId], references: [id], onDelete: Restrict)
+
+  @@unique([announcementId, version])
+  @@index([tenantId, announcementId])
+  @@map("announcement_versions")
 }
 
 model IvrFlowVersion {
@@ -2989,20 +3091,34 @@ model DialPlanRule {
 }
 
 model PagingGroup {
-  id        String    @id @db.Uuid
-  tenantId  String    @map("tenant_id") @db.Uuid
-  name      String
-  code      String
-  version   Int       @default(1)
-  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+  id               String          @id @db.Uuid
+  tenantId         String          @map("tenant_id") @db.Uuid
+  name             String
+  code             String
+  kind             PagingGroupKind @default(PAGING)
+  pagingType       PagingType?     @map("paging_type")
+  zone             String?
+  department       String?
+  priorityLevel    Int             @default(100) @map("priority_level")
+  multicastAddress String?         @map("multicast_address")
+  intercomMode     IntercomMode?   @map("intercom_mode")
+  autoAnswer       Boolean         @default(true) @map("auto_answer")
+  whisperEnabled   Boolean         @default(false) @map("whisper_enabled")
+  pushToTalk       Boolean         @default(false) @map("push_to_talk")
+  targetLineId     String?         @map("target_line_id") @db.Uuid
+  metadata         Json?           @db.JsonB
+  version          Int             @default(1)
+  createdAt        DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt        DateTime?       @map("deleted_at") @db.Timestamptz(6)
 
-  tenant  Tenant              @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  members PagingGroupMember[]
+  tenant     Tenant              @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  targetLine Line?               @relation(fields: [targetLineId], references: [id], onDelete: Restrict)
+  members    PagingGroupMember[]
 
   @@unique([tenantId, code])
   @@index([tenantId])
+  @@index([tenantId, kind])
   @@map("paging_groups")
 }
 

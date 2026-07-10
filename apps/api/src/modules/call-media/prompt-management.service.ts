@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { AudioMediaResolverService } from './audio-media-resolver.service';
 
 export interface PromptRef {
   id: string;
@@ -7,12 +8,15 @@ export interface PromptRef {
   label: string;
 }
 
-/** Phase 13 — prompt catalog (ops-managed URIs; playback via media app). */
+/** Phase 13 — prompt catalog with tenant audio library fallback. */
 @Injectable()
 export class PromptManagementService {
   private readonly baseUri: string;
 
-  constructor(config: ConfigService) {
+  constructor(
+    private readonly resolver: AudioMediaResolverService,
+    config: ConfigService,
+  ) {
     this.baseUri = (config.get<string>('PROMPT_BASE_URI') || 'sip:prompts@vsp.internal').replace(/\/$/, '');
   }
 
@@ -33,5 +37,16 @@ export class PromptManagementService {
 
   announcementUris(ids: string[]): string[] {
     return ids.map((id) => this.resolve(id)?.uri).filter(Boolean) as string[];
+  }
+
+  async tenantAnnouncementUris(tenantId: string, ids: string[]): Promise<string[]> {
+    const resolved = await this.resolver.resolveAnnouncementUris(tenantId, ids);
+    if (resolved.length) return resolved;
+    return this.announcementUris(ids);
+  }
+
+  async categoryAnnouncements(tenantId: string, category: string, language?: string): Promise<string[]> {
+    const tenantUris = await this.resolver.resolveAnnouncementByCategory(tenantId, category, language);
+    return tenantUris.length ? tenantUris : [];
   }
 }

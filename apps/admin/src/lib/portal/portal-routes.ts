@@ -34,6 +34,7 @@ export const PORTAL_ROUTE_PREFIXES: Record<PortalType, string[]> = {
   tenant: [
     '/dashboard',
     '/supervisor',
+    '/reception',
     '/organization',
     '/users',
     '/extensions',
@@ -45,6 +46,7 @@ export const PORTAL_ROUTE_PREFIXES: Record<PortalType, string[]> = {
     '/ring-groups',
     '/queues',
     '/ivr',
+    '/audio-library',
     '/voicemail',
     '/conferences',
     '/cdr',

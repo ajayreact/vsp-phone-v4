@@ -65,7 +65,7 @@ export class ParkRuntimeService {
       parkedByLineId: params.parkedByLineId,
     });
 
-    const mohUri = this.moh.holdUri();
+    const mohUri = await this.moh.holdUri(session.tenantId);
     const actions: RouteActionDto[] = [
       {
         type: 'APP_MEDIA',

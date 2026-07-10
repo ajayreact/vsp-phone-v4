@@ -11,7 +11,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { AudioAssetCategory } from '@prisma/client';
+import { AudioAssetCategory, MohScope } from '@prisma/client';
 import type { Request } from 'express';
 import { getJwtUser, JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { PERMISSIONS } from '../../enterprise-security/auth/permissions.constants';
@@ -25,7 +25,10 @@ import {
   CreateMohPlaylistDto,
   CreateMohTrackDto,
   PresignAudioUploadDto,
+  ReplaceAnnouncementDto,
+  ReorderMohTracksDto,
   UpdateAnnouncementDto,
+  UpdateMohPlaylistDto,
 } from '../dto/tenant-audio-library.dto';
 import { TenantAudioLibraryService } from '../services/tenant-audio-library.service';
 
@@ -36,11 +39,22 @@ import { TenantAudioLibraryService } from '../services/tenant-audio-library.serv
 export class TenantAudioLibraryController {
   constructor(private readonly audio: TenantAudioLibraryService) {}
 
+  @Get('reports')
+  @RequirePermission(PERMISSIONS.TENANT_IVR_READ)
+  reports(@Req() req: Request) {
+    const user = getJwtUser(req);
+    return this.audio.getAudioReports(user.tenantId);
+  }
+
   @Get('announcements')
   @RequirePermission(PERMISSIONS.TENANT_IVR_READ)
-  async listAnnouncements(@Req() req: Request, @Query('category') category?: AudioAssetCategory) {
+  async listAnnouncements(
+    @Req() req: Request,
+    @Query('category') category?: AudioAssetCategory,
+    @Query('language') language?: string,
+  ) {
     const user = getJwtUser(req);
-    const data = await this.audio.listAnnouncements(user.tenantId, category);
+    const data = await this.audio.listAnnouncements(user.tenantId, category, language);
     return { data };
   }
 
@@ -56,6 +70,14 @@ export class TenantAudioLibraryController {
   preview(@Param('id') id: string, @Req() req: Request) {
     const user = getJwtUser(req);
     return this.audio.getPreviewUrl(user.tenantId, id);
+  }
+
+  @Get('announcements/:id/versions')
+  @RequirePermission(PERMISSIONS.TENANT_IVR_READ)
+  async announcementVersions(@Param('id') id: string, @Req() req: Request) {
+    const user = getJwtUser(req);
+    const data = await this.audio.listAnnouncementVersions(user.tenantId, id);
+    return { data };
   }
 
   @Post('announcements')
@@ -79,6 +101,17 @@ export class TenantAudioLibraryController {
     return this.audio.updateAnnouncement(user.tenantId, user.sub, id, dto);
   }
 
+  @Post('announcements/:id/replace')
+  @RequirePermission(PERMISSIONS.TENANT_IVR_WRITE)
+  replaceAnnouncement(
+    @Param('id') id: string,
+    @Body() dto: ReplaceAnnouncementDto,
+    @Req() req: Request,
+  ) {
+    const user = getJwtUser(req);
+    return this.audio.replaceAnnouncement(user.tenantId, user.sub, id, dto);
+  }
+
   @Delete('announcements/:id')
   @RequireAnyPermission(PERMISSIONS.TENANT_IVR_WRITE, PERMISSIONS.TENANT_ADMIN)
   removeAnnouncement(@Param('id') id: string, @Req() req: Request) {
@@ -88,9 +121,35 @@ export class TenantAudioLibraryController {
 
   @Get('moh/playlists')
   @RequirePermission(PERMISSIONS.TENANT_IVR_READ)
-  async listMoh(@Req() req: Request) {
+  async listMoh(
+    @Req() req: Request,
+    @Query('scope') scope?: MohScope,
+    @Query('language') language?: string,
+  ) {
     const user = getJwtUser(req);
-    const data = await this.audio.listMohPlaylists(user.tenantId);
+    const data = await this.audio.listMohPlaylists(user.tenantId, scope, language);
+    return { data };
+  }
+
+  @Get('moh/assignments')
+  @RequirePermission(PERMISSIONS.TENANT_IVR_READ)
+  mohAssignments(@Req() req: Request) {
+    const user = getJwtUser(req);
+    return this.audio.getMohAssignments(user.tenantId);
+  }
+
+  @Get('moh/playlists/:id')
+  @RequirePermission(PERMISSIONS.TENANT_IVR_READ)
+  getMohPlaylist(@Param('id') id: string, @Req() req: Request) {
+    const user = getJwtUser(req);
+    return this.audio.getMohPlaylist(user.tenantId, id);
+  }
+
+  @Get('moh/playlists/:id/versions')
+  @RequirePermission(PERMISSIONS.TENANT_IVR_READ)
+  async mohVersions(@Param('id') id: string, @Req() req: Request) {
+    const user = getJwtUser(req);
+    const data = await this.audio.listMohPlaylistVersions(user.tenantId, id);
     return { data };
   }
 
@@ -101,11 +160,39 @@ export class TenantAudioLibraryController {
     return this.audio.createMohPlaylist(user.tenantId, user.sub, dto);
   }
 
+  @Patch('moh/playlists/:id')
+  @RequirePermission(PERMISSIONS.TENANT_IVR_WRITE)
+  updateMohPlaylist(@Param('id') id: string, @Body() dto: UpdateMohPlaylistDto, @Req() req: Request) {
+    const user = getJwtUser(req);
+    return this.audio.updateMohPlaylist(user.tenantId, user.sub, id, dto);
+  }
+
+  @Delete('moh/playlists/:id')
+  @RequireAnyPermission(PERMISSIONS.TENANT_IVR_WRITE, PERMISSIONS.TENANT_ADMIN)
+  removeMohPlaylist(@Param('id') id: string, @Req() req: Request) {
+    const user = getJwtUser(req);
+    return this.audio.removeMohPlaylist(user.tenantId, user.sub, id);
+  }
+
   @Post('moh/tracks')
   @RequirePermission(PERMISSIONS.TENANT_IVR_WRITE)
   createMohTrack(@Body() dto: CreateMohTrackDto, @Req() req: Request) {
     const user = getJwtUser(req);
     return this.audio.createMohTrack(user.tenantId, user.sub, dto);
+  }
+
+  @Post('moh/playlists/:id/reorder')
+  @RequirePermission(PERMISSIONS.TENANT_IVR_WRITE)
+  reorderMohTracks(@Param('id') id: string, @Body() dto: ReorderMohTracksDto, @Req() req: Request) {
+    const user = getJwtUser(req);
+    return this.audio.reorderMohTracks(user.tenantId, user.sub, id, dto);
+  }
+
+  @Get('moh/tracks/:id/preview')
+  @RequirePermission(PERMISSIONS.TENANT_IVR_READ)
+  previewMohTrack(@Param('id') id: string, @Req() req: Request) {
+    const user = getJwtUser(req);
+    return this.audio.getMohTrackPreview(user.tenantId, id);
   }
 
   @Delete('moh/tracks/:id')

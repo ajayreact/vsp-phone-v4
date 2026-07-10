@@ -147,9 +147,24 @@ export const ivrRoutingRepository = {
   },
 
   // Audio library
-  getAnnouncements(category?: string): Promise<{ data: Record<string, unknown>[] }> {
-    const q = category ? `?category=${category}` : '';
-    return httpGet(`/v1/tenant/audio/announcements${q}`);
+  getAnnouncements(category?: string, language?: string): Promise<{ data: Record<string, unknown>[] }> {
+    const q = new URLSearchParams();
+    if (category) q.set('category', category);
+    if (language) q.set('language', language);
+    const qs = q.toString();
+    return httpGet(`/v1/tenant/audio/announcements${qs ? `?${qs}` : ''}`);
+  },
+
+  getAnnouncement(id: string): Promise<Record<string, unknown>> {
+    return httpGet(`/v1/tenant/audio/announcements/${id}`);
+  },
+
+  getAnnouncementPreview(id: string): Promise<{ url: string | null }> {
+    return httpGet(`/v1/tenant/audio/announcements/${id}/preview`);
+  },
+
+  getAnnouncementVersions(id: string): Promise<{ data: Record<string, unknown>[] }> {
+    return httpGet(`/v1/tenant/audio/announcements/${id}/versions`);
   },
 
   createAnnouncement(payload: Record<string, unknown>): Promise<Record<string, unknown>> {
@@ -160,6 +175,10 @@ export const ivrRoutingRepository = {
     return httpPatch(`/v1/tenant/audio/announcements/${id}`, payload);
   },
 
+  replaceAnnouncement(id: string, payload: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return httpPost(`/v1/tenant/audio/announcements/${id}/replace`, payload);
+  },
+
   deleteAnnouncement(id: string): Promise<Record<string, unknown>> {
     return httpDelete(`/v1/tenant/audio/announcements/${id}`);
   },
@@ -168,8 +187,56 @@ export const ivrRoutingRepository = {
     return httpPost('/v1/tenant/audio/upload/presign', payload);
   },
 
-  getMohPlaylists(): Promise<{ data: Record<string, unknown>[] }> {
-    return httpGet('/v1/tenant/audio/moh/playlists');
+  getAudioReports(): Promise<Record<string, unknown>> {
+    return httpGet('/v1/tenant/audio/reports');
+  },
+
+  getMohPlaylists(scope?: string, language?: string): Promise<{ data: Record<string, unknown>[] }> {
+    const q = new URLSearchParams();
+    if (scope) q.set('scope', scope);
+    if (language) q.set('language', language);
+    const qs = q.toString();
+    return httpGet(`/v1/tenant/audio/moh/playlists${qs ? `?${qs}` : ''}`);
+  },
+
+  getMohPlaylist(id: string): Promise<Record<string, unknown>> {
+    return httpGet(`/v1/tenant/audio/moh/playlists/${id}`);
+  },
+
+  getMohAssignments(): Promise<Record<string, unknown>> {
+    return httpGet('/v1/tenant/audio/moh/assignments');
+  },
+
+  getMohPlaylistVersions(id: string): Promise<{ data: Record<string, unknown>[] }> {
+    return httpGet(`/v1/tenant/audio/moh/playlists/${id}/versions`);
+  },
+
+  createMohPlaylist(payload: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return httpPost('/v1/tenant/audio/moh/playlists', payload);
+  },
+
+  updateMohPlaylist(id: string, payload: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return httpPatch(`/v1/tenant/audio/moh/playlists/${id}`, payload);
+  },
+
+  deleteMohPlaylist(id: string): Promise<Record<string, unknown>> {
+    return httpDelete(`/v1/tenant/audio/moh/playlists/${id}`);
+  },
+
+  createMohTrack(payload: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return httpPost('/v1/tenant/audio/moh/tracks', payload);
+  },
+
+  reorderMohTracks(playlistId: string, trackIds: string[]): Promise<Record<string, unknown>> {
+    return httpPost(`/v1/tenant/audio/moh/playlists/${playlistId}/reorder`, { trackIds });
+  },
+
+  getMohTrackPreview(trackId: string): Promise<{ url: string | null }> {
+    return httpGet(`/v1/tenant/audio/moh/tracks/${trackId}/preview`);
+  },
+
+  deleteMohTrack(id: string): Promise<Record<string, unknown>> {
+    return httpDelete(`/v1/tenant/audio/moh/tracks/${id}`);
   },
 
   // Dial plans

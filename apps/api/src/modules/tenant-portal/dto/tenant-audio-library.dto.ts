@@ -1,5 +1,15 @@
-import { IsEnum, IsOptional, IsString } from 'class-validator';
-import { AudioAssetCategory } from '@prisma/client';
+import {
+  IsArray,
+  IsBoolean,
+  IsEnum,
+  IsInt,
+  IsISO8601,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Min,
+} from 'class-validator';
+import { AudioAssetCategory, MohPlayMode, MohScope } from '@prisma/client';
 
 export class CreateAnnouncementDto {
   @IsString()
@@ -28,6 +38,14 @@ export class CreateAnnouncementDto {
   @IsOptional()
   @IsString()
   ttsVoice?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  isEmergency?: boolean;
+
+  @IsOptional()
+  @IsArray()
+  tags?: string[];
 }
 
 export class UpdateAnnouncementDto {
@@ -58,6 +76,23 @@ export class UpdateAnnouncementDto {
   @IsOptional()
   @IsString()
   ttsVoice?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  isEmergency?: boolean;
+
+  @IsOptional()
+  @IsArray()
+  tags?: string[];
+}
+
+export class ReplaceAnnouncementDto {
+  @IsString()
+  mediaObjectKey!: string;
+
+  @IsOptional()
+  @IsString()
+  changeNotes?: string;
 }
 
 export class CreateMohPlaylistDto {
@@ -66,6 +101,77 @@ export class CreateMohPlaylistDto {
 
   @IsOptional()
   isDefault?: boolean;
+
+  @IsOptional()
+  @IsEnum(MohPlayMode)
+  playMode?: MohPlayMode;
+
+  @IsOptional()
+  @IsString()
+  language?: string;
+
+  @IsOptional()
+  @IsString()
+  streamingUrl?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  priority?: number;
+
+  @IsOptional()
+  @IsEnum(MohScope)
+  scope?: MohScope;
+
+  @IsOptional()
+  @IsISO8601()
+  scheduledFrom?: string;
+
+  @IsOptional()
+  @IsISO8601()
+  scheduledTo?: string;
+}
+
+export class UpdateMohPlaylistDto {
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @IsOptional()
+  isDefault?: boolean;
+
+  @IsOptional()
+  @IsEnum(MohPlayMode)
+  playMode?: MohPlayMode;
+
+  @IsOptional()
+  @IsString()
+  language?: string;
+
+  @IsOptional()
+  @IsString()
+  streamingUrl?: string | null;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  priority?: number;
+
+  @IsOptional()
+  @IsEnum(MohScope)
+  scope?: MohScope;
+
+  @IsOptional()
+  @IsISO8601()
+  scheduledFrom?: string | null;
+
+  @IsOptional()
+  @IsISO8601()
+  scheduledTo?: string | null;
+
+  @IsOptional()
+  @IsString()
+  changeNotes?: string;
 }
 
 export class CreateMohTrackDto {
@@ -73,7 +179,7 @@ export class CreateMohTrackDto {
   name!: string;
 
   @IsOptional()
-  @IsString()
+  @IsUUID()
   playlistId?: string;
 
   @IsString()
@@ -81,6 +187,20 @@ export class CreateMohTrackDto {
 
   @IsOptional()
   durationSec?: number;
+
+  @IsOptional()
+  @IsInt()
+  sortOrder?: number;
+
+  @IsOptional()
+  @IsInt()
+  trackPriority?: number;
+}
+
+export class ReorderMohTracksDto {
+  @IsArray()
+  @IsUUID(undefined, { each: true })
+  trackIds!: string[];
 }
 
 export class PresignAudioUploadDto {
