@@ -17,6 +17,7 @@ import { ProvisioningModule } from '../modules/provisioning';
 import { RecordingModule } from '../modules/recording';
 import { TelecomModule } from '../modules/telecom';
 import { TenantPortalModule } from '../modules/tenant-portal/tenant-portal.module';
+import { SupervisorConsoleModule } from '../modules/supervisor-console/supervisor-console.module';
 import { validateEnv } from './env.validation';
 import { HealthController } from './health.controller';
 
@@ -44,6 +45,7 @@ import { HealthController } from './health.controller';
     PresenceModule,
     EnterpriseObservabilityModule,
     OpsCenterModule,
+    SupervisorConsoleModule,
     TenantPortalModule,
   ],
   controllers: [HealthController],

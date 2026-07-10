@@ -4,8 +4,9 @@ import { motion } from 'framer-motion';
 import { Headphones, Mic, PhoneOff, RefreshCw, Share2 } from 'lucide-react';
 import { useAuth, usePermissions } from '../../lib/auth/AuthProvider';
 import { useLiveCalls } from '../../lib/hooks/queries/use-telecom';
+import { useSupervisorCallActions } from '../../lib/hooks/queries/use-supervisor';
 import { getModuleById } from '../../lib/navigation';
-import { hasPermission } from '../../lib/rbac/permissions';
+import { hasPermission, PERMISSIONS } from '../../lib/rbac/permissions';
 import type { LiveCallRecord } from '../../types/telecom';
 import { DataTable, type Column } from '../data/DataTable';
 import { EmptyState } from '../data/EmptyState';
@@ -38,6 +39,12 @@ export function LiveCallsContent() {
   const permissions = usePermissions();
   const { session } = useAuth();
   const query = useLiveCalls(session?.tenantId);
+  const callActions = useSupervisorCallActions();
+  const canSupervise = hasPermission(permissions, [
+    PERMISSIONS.SUPERVISOR_CALLS_SUPERVISE,
+    PERMISSIONS.OPS_LIVE_CALLS_SUPERVISE,
+  ]);
+  const platformUuid = (row: LiveCallRecord) => row.platformUuid || row.id;
 
   if (!hasPermission(permissions, module.permission)) {
     return (
@@ -88,12 +95,37 @@ export function LiveCallsContent() {
             columns={columns}
             data={query.data ?? []}
             pageSize={25}
-            rowActions={() => [
-              { id: 'listen', label: 'Listen', icon: <Headphones className="h-3.5 w-3.5" /> },
-              { id: 'whisper', label: 'Whisper', icon: <Mic className="h-3.5 w-3.5" /> },
-              { id: 'barge', label: 'Barge', icon: <Share2 className="h-3.5 w-3.5" /> },
-              { id: 'hangup', label: 'Hangup', destructive: true, icon: <PhoneOff className="h-3.5 w-3.5" /> },
-            ]}
+            rowActions={
+              canSupervise
+                ? (row) => [
+                    {
+                      id: 'listen',
+                      label: 'Listen',
+                      icon: <Headphones className="h-3.5 w-3.5" />,
+                      onSelect: () => void callActions.mutateAsync({ action: 'listen', platformUuid: platformUuid(row) }),
+                    },
+                    {
+                      id: 'whisper',
+                      label: 'Whisper',
+                      icon: <Mic className="h-3.5 w-3.5" />,
+                      onSelect: () => void callActions.mutateAsync({ action: 'whisper', platformUuid: platformUuid(row) }),
+                    },
+                    {
+                      id: 'barge',
+                      label: 'Barge',
+                      icon: <Share2 className="h-3.5 w-3.5" />,
+                      onSelect: () => void callActions.mutateAsync({ action: 'barge', platformUuid: platformUuid(row) }),
+                    },
+                    {
+                      id: 'hangup',
+                      label: 'Hangup',
+                      destructive: true,
+                      icon: <PhoneOff className="h-3.5 w-3.5" />,
+                      onSelect: () => void callActions.mutateAsync({ action: 'hangup', platformUuid: platformUuid(row) }),
+                    },
+                  ]
+                : undefined
+            }
           />
         </QueryState>
       </motion.div>

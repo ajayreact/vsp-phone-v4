@@ -343,6 +343,8 @@ model Tenant {
   numberFavorites        NumberFavorite[]
   numberSavedSearches    NumberSavedSearch[]
   numberNotifications    NumberNotification[]
+  recordingAnnotations   RecordingAnnotation[]
+  coachingNotes          CoachingNote[]
   ringGroups             RingGroup[]
   ringGroupMembers       RingGroupMember[]
   timeConditions         TimeCondition[]
@@ -2054,4 +2056,46 @@ model Department {
 
   @@index([tenantId])
   @@map("departments")
+}
+
+enum RecordingAnnotationType {
+  FLAG
+  COMMENT
+  BOOKMARK
+
+  @@map("recording_annotation_type")
+}
+
+model RecordingAnnotation {
+  id          String                  @id @db.Uuid
+  tenantId    String                  @map("tenant_id") @db.Uuid
+  recordingId String                  @map("recording_id") @db.Uuid
+  userId      String                  @map("user_id") @db.Uuid
+  type        RecordingAnnotationType
+  body        String?
+  createdAt   DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, recordingId])
+  @@map("recording_annotations")
+}
+
+model CoachingNote {
+  id               String   @id @db.Uuid
+  tenantId         String   @map("tenant_id") @db.Uuid
+  callSessionId    String   @map("call_session_id") @db.Uuid
+  agentLineId      String?  @map("agent_line_id") @db.Uuid
+  supervisorUserId String   @map("supervisor_user_id") @db.Uuid
+  qualityScore     Int?
+  agentScore       Int?
+  notes            String?
+  whisperUsed      Boolean  @default(false) @map("whisper_used")
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, callSessionId])
+  @@index([tenantId, agentLineId])
+  @@map("coaching_notes")
 }

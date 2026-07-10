@@ -76,4 +76,17 @@ export const queryKeys = {
   billing: {
     summary: () => ['billing', 'summary'] as const,
   },
+  supervisor: {
+    dashboard: (tenantId?: string) => ['supervisor', 'dashboard', tenantId ?? 'tenant'] as const,
+    wallboard: (tenantId?: string) => ['supervisor', 'wallboard', tenantId ?? 'tenant'] as const,
+    agents: (tenantId?: string) => ['supervisor', 'agents', tenantId ?? 'tenant'] as const,
+    queues: (tenantId?: string) => ['supervisor', 'queues', tenantId ?? 'tenant'] as const,
+    liveCalls: (tenantId?: string) => ['supervisor', 'live-calls', tenantId ?? 'tenant'] as const,
+    timeline: (platformUuid: string, tenantId?: string) =>
+      ['supervisor', 'timeline', platformUuid, tenantId ?? 'tenant'] as const,
+    recordings: (params?: Record<string, string | number | undefined>) =>
+      ['supervisor', 'recordings', params ?? {}] as const,
+    reports: (tenantId?: string) => ['supervisor', 'reports', tenantId ?? 'tenant'] as const,
+    coaching: (callSessionId?: string) => ['supervisor', 'coaching', callSessionId ?? 'all'] as const,
+  },
 } as const;

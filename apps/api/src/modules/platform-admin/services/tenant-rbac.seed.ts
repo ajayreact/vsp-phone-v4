@@ -3,6 +3,20 @@ import type { PrismaClient } from '@prisma/client';
 import { PERMISSIONS } from '../../enterprise-security/auth/permissions.constants';
 import { newPublicId } from '../../tenant-portal/utils/tenant.util';
 
+const SUPERVISOR_PERMISSION_KEYS = [
+  PERMISSIONS.SUPERVISOR_DASHBOARD_READ,
+  PERMISSIONS.SUPERVISOR_AGENTS_READ,
+  PERMISSIONS.SUPERVISOR_AGENTS_WRITE,
+  PERMISSIONS.SUPERVISOR_QUEUES_READ,
+  PERMISSIONS.SUPERVISOR_QUEUES_WRITE,
+  PERMISSIONS.SUPERVISOR_CALLS_READ,
+  PERMISSIONS.SUPERVISOR_CALLS_SUPERVISE,
+  PERMISSIONS.SUPERVISOR_RECORDINGS_READ,
+  PERMISSIONS.SUPERVISOR_RECORDINGS_WRITE,
+  PERMISSIONS.SUPERVISOR_REPORTS_READ,
+  PERMISSIONS.SUPERVISOR_WALLBOARD_READ,
+] as const;
+
 const DEFAULT_TENANT_PERMISSIONS = [
   PERMISSIONS.TENANT_ADMIN,
   PERMISSIONS.TENANT_USER,
@@ -31,14 +45,124 @@ const DEFAULT_TENANT_PERMISSIONS = [
   PERMISSIONS.TENANT_SETTINGS_READ,
   PERMISSIONS.TENANT_SETTINGS_WRITE,
   PERMISSIONS.TENANT_NUMBERS_REQUEST,
+  ...SUPERVISOR_PERMISSION_KEYS,
 ];
+
+const ROLE_DEFINITIONS: Array<{ name: string; description: string; keys: string[] }> = [
+  {
+    name: 'Supervisor',
+    description: 'Full contact center supervisor — monitor, coach, and control agents and queues',
+    keys: [
+      ...SUPERVISOR_PERMISSION_KEYS,
+      PERMISSIONS.TENANT_QUEUES_READ,
+      PERMISSIONS.RECORDINGS_READ,
+      PERMISSIONS.TENANT_REPORTS_READ,
+    ],
+  },
+  {
+    name: 'Queue Supervisor',
+    description: 'Queue-focused supervisor with call supervision',
+    keys: [
+      PERMISSIONS.SUPERVISOR_DASHBOARD_READ,
+      PERMISSIONS.SUPERVISOR_WALLBOARD_READ,
+      PERMISSIONS.SUPERVISOR_QUEUES_READ,
+      PERMISSIONS.SUPERVISOR_QUEUES_WRITE,
+      PERMISSIONS.SUPERVISOR_AGENTS_READ,
+      PERMISSIONS.SUPERVISOR_CALLS_READ,
+      PERMISSIONS.SUPERVISOR_CALLS_SUPERVISE,
+    ],
+  },
+  {
+    name: 'Manager',
+    description: 'Read-only management view of contact center KPIs and reports',
+    keys: [
+      PERMISSIONS.SUPERVISOR_DASHBOARD_READ,
+      PERMISSIONS.SUPERVISOR_WALLBOARD_READ,
+      PERMISSIONS.SUPERVISOR_AGENTS_READ,
+      PERMISSIONS.SUPERVISOR_QUEUES_READ,
+      PERMISSIONS.SUPERVISOR_CALLS_READ,
+      PERMISSIONS.SUPERVISOR_RECORDINGS_READ,
+      PERMISSIONS.SUPERVISOR_REPORTS_READ,
+      PERMISSIONS.TENANT_REPORTS_READ,
+    ],
+  },
+  {
+    name: 'Read Only',
+    description: 'View supervisor dashboards without control actions',
+    keys: [
+      PERMISSIONS.SUPERVISOR_DASHBOARD_READ,
+      PERMISSIONS.SUPERVISOR_WALLBOARD_READ,
+      PERMISSIONS.SUPERVISOR_AGENTS_READ,
+      PERMISSIONS.SUPERVISOR_QUEUES_READ,
+      PERMISSIONS.SUPERVISOR_CALLS_READ,
+      PERMISSIONS.SUPERVISOR_RECORDINGS_READ,
+      PERMISSIONS.SUPERVISOR_REPORTS_READ,
+    ],
+  },
+  {
+    name: 'Operations',
+    description: 'Operations center role with supervisor monitoring and emergency controls',
+    keys: [
+      PERMISSIONS.SUPERVISOR_DASHBOARD_READ,
+      PERMISSIONS.SUPERVISOR_WALLBOARD_READ,
+      PERMISSIONS.SUPERVISOR_AGENTS_READ,
+      PERMISSIONS.SUPERVISOR_AGENTS_WRITE,
+      PERMISSIONS.SUPERVISOR_QUEUES_READ,
+      PERMISSIONS.SUPERVISOR_QUEUES_WRITE,
+      PERMISSIONS.SUPERVISOR_CALLS_READ,
+      PERMISSIONS.SUPERVISOR_CALLS_SUPERVISE,
+      PERMISSIONS.SUPERVISOR_REPORTS_READ,
+    ],
+  },
+];
+
+async function createRole(
+  tx: Omit<PrismaClient, '$connect' | '$disconnect' | '$on' | '$transaction' | '$extends'>,
+  tenantId: string,
+  actorId: string | undefined,
+  name: string,
+  description: string,
+  keys: string[],
+  keyToId: Map<string, string>,
+): Promise<string> {
+  const roleId = randomUUID();
+  await tx.role.create({
+    data: {
+      id: roleId,
+      publicId: newPublicId('role'),
+      tenantId,
+      name,
+      description,
+      systemRole: true,
+      createdBy: actorId,
+      updatedBy: actorId,
+    },
+  });
+
+  for (const key of keys) {
+    const permissionId = keyToId.get(key);
+    if (!permissionId) continue;
+    await tx.rolePermission.create({
+      data: {
+        id: randomUUID(),
+        tenantId,
+        roleId,
+        permissionId,
+        createdBy: actorId,
+        updatedBy: actorId,
+      },
+    });
+  }
+
+  return roleId;
+}
 
 export async function seedTenantRbac(
   tx: Omit<PrismaClient, '$connect' | '$disconnect' | '$on' | '$transaction' | '$extends'>,
   tenantId: string,
   actorId?: string,
 ): Promise<{ adminRoleId: string }> {
-  const permissionIds: string[] = [];
+  const keyToId = new Map<string, string>();
 
   for (const key of DEFAULT_TENANT_PERMISSIONS) {
     const permId = randomUUID();
@@ -53,62 +177,23 @@ export async function seedTenantRbac(
         updatedBy: actorId,
       },
     });
-    permissionIds.push(permId);
+    keyToId.set(key, permId);
   }
 
-  const adminRoleId = randomUUID();
-  await tx.role.create({
-    data: {
-      id: adminRoleId,
-      publicId: newPublicId('role'),
-      tenantId,
-      name: 'Tenant Admin',
-      description: 'Full tenant administration',
-      systemRole: true,
-      createdBy: actorId,
-      updatedBy: actorId,
-    },
-  });
+  const adminRoleId = await createRole(
+    tx,
+    tenantId,
+    actorId,
+    'Tenant Admin',
+    'Full tenant administration',
+    DEFAULT_TENANT_PERMISSIONS,
+    keyToId,
+  );
 
-  for (const permissionId of permissionIds) {
-    await tx.rolePermission.create({
-      data: {
-        id: randomUUID(),
-        tenantId,
-        roleId: adminRoleId,
-        permissionId,
-        createdBy: actorId,
-        updatedBy: actorId,
-      },
-    });
-  }
+  await createRole(tx, tenantId, actorId, 'User', 'Standard tenant user', [PERMISSIONS.TENANT_USER], keyToId);
 
-  const userRoleId = randomUUID();
-  await tx.role.create({
-    data: {
-      id: userRoleId,
-      publicId: newPublicId('role'),
-      tenantId,
-      name: 'User',
-      description: 'Standard tenant user',
-      systemRole: true,
-      createdBy: actorId,
-      updatedBy: actorId,
-    },
-  });
-
-  const userPerm = permissionIds.find((_, i) => DEFAULT_TENANT_PERMISSIONS[i] === PERMISSIONS.TENANT_USER);
-  if (userPerm) {
-    await tx.rolePermission.create({
-      data: {
-        id: randomUUID(),
-        tenantId,
-        roleId: userRoleId,
-        permissionId: userPerm,
-        createdBy: actorId,
-        updatedBy: actorId,
-      },
-    });
+  for (const role of ROLE_DEFINITIONS) {
+    await createRole(tx, tenantId, actorId, role.name, role.description, role.keys, keyToId);
   }
 
   return { adminRoleId };

@@ -41,6 +41,19 @@ export const PERMISSIONS = {
   OPS_ALERTS_READ: 'ops:alerts:read',
   OPS_ALERTS_WRITE: 'ops:alerts:write',
 
+  // Supervisor / contact center
+  SUPERVISOR_DASHBOARD_READ: 'supervisor:dashboard:read',
+  SUPERVISOR_AGENTS_READ: 'supervisor:agents:read',
+  SUPERVISOR_AGENTS_WRITE: 'supervisor:agents:write',
+  SUPERVISOR_QUEUES_READ: 'supervisor:queues:read',
+  SUPERVISOR_QUEUES_WRITE: 'supervisor:queues:write',
+  SUPERVISOR_CALLS_READ: 'supervisor:calls:read',
+  SUPERVISOR_CALLS_SUPERVISE: 'supervisor:calls:supervise',
+  SUPERVISOR_RECORDINGS_READ: 'supervisor:recordings:read',
+  SUPERVISOR_RECORDINGS_WRITE: 'supervisor:recordings:write',
+  SUPERVISOR_REPORTS_READ: 'supervisor:reports:read',
+  SUPERVISOR_WALLBOARD_READ: 'supervisor:wallboard:read',
+
   // Tenant plane
   TENANT_DASHBOARD_READ: 'tenant:dashboard:read',
   TENANT_USERS_READ: 'tenant:users:read',
