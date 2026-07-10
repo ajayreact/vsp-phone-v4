@@ -91,7 +91,7 @@ export const TENANT_MODULES: ModuleDefinition[] = [
     integration: 'live',
     description: 'Desk phones, registrations, firmware, and MAC inventory.',
     breadcrumb: ['PBX', 'Devices'],
-    apiEndpoints: ['/v1/tenant/devices'],
+    apiEndpoints: ['/v1/tenant/devices', '/v1/tenant/provisioning'],
   },
   {
     id: 'sip-accounts',
@@ -103,7 +103,7 @@ export const TENANT_MODULES: ModuleDefinition[] = [
     integration: 'live',
     description: 'SIP endpoint credentials and live registration status.',
     breadcrumb: ['PBX', 'SIP Registrations'],
-    apiEndpoints: ['/v1/tenant/devices'],
+    apiEndpoints: ['/v1/tenant/devices', '/v1/tenant/provisioning'],
   },
   {
     id: 'provisioning',
@@ -115,7 +115,7 @@ export const TENANT_MODULES: ModuleDefinition[] = [
     integration: 'live',
     description: 'Zero-touch provisioning, templates, and firmware rollout.',
     breadcrumb: ['PBX', 'Provisioning'],
-    apiEndpoints: ['/v1/provisioning/devices/enroll'],
+    apiEndpoints: ['/v1/tenant/provisioning'],
   },
   {
     id: 'dids',

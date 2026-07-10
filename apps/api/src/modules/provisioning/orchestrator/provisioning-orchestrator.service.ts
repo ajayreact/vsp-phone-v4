@@ -251,6 +251,7 @@ export class ProvisioningOrchestratorService {
       mac,
       deviceName: device.name,
       modelFamily: meta.modelFamily || 'grp261x',
+      manufacturer: device.manufacturer ?? undefined,
       sipEndpointId: device.sipEndpoint.id,
       authUsername: device.sipEndpoint.authUsername,
       aor: device.sipEndpoint.aor,
@@ -260,7 +261,9 @@ export class ProvisioningOrchestratorService {
       firmwareChannel: (meta.firmwareChannel as FirmwareChannel) || 'stable',
       timezone: device.line.tenant.settings?.timezone ?? 'America/New_York',
       language: device.line.tenant.settings?.defaultLanguage ?? 'en',
-      siteCode: meta.siteId || undefined,
+      siteCode: meta.siteId || device.siteId || undefined,
+      transport: device.transport ?? undefined,
+      srtpEnabled: device.srtpEnabled,
     };
   }
 }

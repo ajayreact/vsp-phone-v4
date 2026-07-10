@@ -8,8 +8,10 @@ import { ConfigService } from '@nestjs/config';
 import {
   DeviceStatus,
   DeviceType,
+  ProvisioningStatus,
   SIPEndpointStatus,
   TenantStatus,
+  type DeviceManufacturer,
 } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import type { JwtPayload } from '../../auth/jwt.util';
@@ -24,9 +26,19 @@ export interface EnrollDeskPhoneInput {
   mac: string;
   name: string;
   lineId: string;
+  manufacturer?: DeviceManufacturer;
+  model?: string;
   modelFamily?: string;
   siteId?: string;
+  departmentId?: string;
+  provisioningTemplateId?: string;
   firmwareChannel?: FirmwareChannel;
+  serialNumber?: string;
+  assetTag?: string;
+  location?: string;
+  transport?: string;
+  tlsEnabled?: boolean;
+  srtpEnabled?: boolean;
 }
 
 export interface EnrollDeskPhoneResult {
@@ -85,8 +97,16 @@ export class DeviceEnrollmentService {
     const realm = `${line.tenant.slug}.sip.${this.platformDomain}`;
     const aor = `sip:${line.extension.extension}@${realm}`;
     const authUsername = line.extension.extension;
-    const modelFamily = (input.modelFamily ?? 'grp261x').toLowerCase();
+    const modelFamily = (input.modelFamily ?? this.defaultModelFamily(input.manufacturer)).toLowerCase();
     const firmwareChannel = input.firmwareChannel ?? 'stable';
+    const manufacturer = input.manufacturer ?? this.inferManufacturer(modelFamily);
+
+    if (input.provisioningTemplateId) {
+      const template = await this.prisma.provisioningTemplate.findFirst({
+        where: { id: input.provisioningTemplateId, tenantId: user.tenantId, deletedAt: null },
+      });
+      if (!template) throw new NotFoundException('Provisioning template not found');
+    }
 
     const deskSecret = this.vault.issueDeskSip({
       sipEndpointId,
@@ -120,6 +140,19 @@ export class DeviceEnrollmentService {
           deviceType: DeviceType.DESK_PHONE,
           status: DeviceStatus.PROVISIONING,
           macAddress: mac,
+          manufacturer,
+          model: input.model,
+          siteId: input.siteId,
+          departmentId: input.departmentId,
+          provisioningTemplateId: input.provisioningTemplateId,
+          serialNumber: input.serialNumber,
+          assetTag: input.assetTag,
+          location: input.location,
+          firmwareChannel,
+          transport: input.transport ?? 'UDP',
+          tlsEnabled: input.tlsEnabled ?? false,
+          srtpEnabled: input.srtpEnabled ?? false,
+          provisioningStatus: ProvisioningStatus.PROVISIONING,
           createdBy: user.sub,
         },
       });
@@ -146,6 +179,7 @@ export class DeviceEnrollmentService {
       mac,
       deviceName: input.name,
       modelFamily,
+      manufacturer,
       sipEndpointId,
       authUsername,
       aor,
@@ -156,6 +190,15 @@ export class DeviceEnrollmentService {
       timezone,
       language,
       siteCode: input.siteId,
+    });
+
+    await this.prisma.device.update({
+      where: { id: deviceId },
+      data: {
+        provisioningStatus: ProvisioningStatus.PROVISIONED,
+        lastProvisionedAt: new Date(),
+        firmwareVersion: rendered.firmwareVersion,
+      },
     });
 
     await this.persistDeviceMeta(user.tenantId, deviceId, {
@@ -280,5 +323,33 @@ export class DeviceEnrollmentService {
       ts: new Date().toISOString(),
     };
     await this.redis.lpush(this.redis.artifactHistoryKey(tenantId, deviceId), JSON.stringify(history));
+  }
+
+  private defaultModelFamily(manufacturer?: DeviceManufacturer): string {
+    switch (manufacturer) {
+      case 'YEALINK':
+        return 't46u';
+      case 'FANVIL':
+        return 'x4u';
+      case 'POLY':
+        return 'vvx450';
+      case 'CISCO':
+        return 'cp8841';
+      case 'SNOM':
+        return 'd735';
+      default:
+        return 'grp261x';
+    }
+  }
+
+  private inferManufacturer(modelFamily: string): DeviceManufacturer {
+    const hint = modelFamily.toLowerCase();
+    if (/grp|gxp|ht8|wp8/.test(hint)) return 'GRANDSTREAM';
+    if (/t[2345]|cp9|w5/.test(hint)) return 'YEALINK';
+    if (/x[0-9]|fanvil/.test(hint)) return 'FANVIL';
+    if (/vvx|poly|soundstation/.test(hint)) return 'POLY';
+    if (/cp-|spa|cisco/.test(hint)) return 'CISCO';
+    if (/snom|d7|d3/.test(hint)) return 'SNOM';
+    return 'GRANDSTREAM';
   }
 }

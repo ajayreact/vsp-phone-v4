@@ -3,10 +3,12 @@ import { AuthModule } from '../auth/auth.module';
 import { CarrierAdminModule } from '../carrier-admin/carrier-admin.module';
 import { EnterpriseObservabilityCoreModule } from '../enterprise-observability/enterprise-observability-core.module';
 import { EnterpriseSecurityCoreModule } from '../enterprise-security/enterprise-security-core.module';
+import { ProvisioningCoreModule } from '../provisioning/provisioning-core.module';
 import { TelecomInfrastructureModule } from '../telecom/telecom-infrastructure.module';
 import { TenantCdrController } from './controllers/tenant-cdr.controller';
 import { TenantDashboardController } from './controllers/tenant-dashboard.controller';
 import { TenantDevicesController } from './controllers/tenant-devices.controller';
+import { TenantProvisioningController } from './controllers/tenant-provisioning.controller';
 import { TenantDidsController } from './controllers/tenant-dids.controller';
 import { TenantExtensionsController } from './controllers/tenant-extensions.controller';
 import { TenantLinesController } from './controllers/tenant-lines.controller';
@@ -23,6 +25,8 @@ import { TenantUsersController } from './controllers/tenant-users.controller';
 import { TenantVoicemailController } from './controllers/tenant-voicemail.controller';
 import { TenantCdrService } from './services/tenant-cdr.service';
 import { TenantDevicesService } from './services/tenant-devices.service';
+import { TenantDeviceProvisioningService } from './services/tenant-device-provisioning.service';
+import { TenantProvisioningTemplatesService } from './services/tenant-provisioning-templates.service';
 import { TenantDidsService } from './services/tenant-dids.service';
 import { TenantExtensionsService } from './services/tenant-extensions.service';
 import { TenantLinesService } from './services/tenant-lines.service';
@@ -42,6 +46,7 @@ import { TenantVoicemailService } from './services/tenant-voicemail.service';
     AuthModule,
     CarrierAdminModule,
     EnterpriseObservabilityCoreModule,
+    ProvisioningCoreModule,
   ],
   controllers: [
     TenantLinesController,
@@ -51,6 +56,7 @@ import { TenantVoicemailService } from './services/tenant-voicemail.service';
     TenantIvrController,
     TenantRingGroupsController,
     TenantDevicesController,
+    TenantProvisioningController,
     TenantRecordingsController,
     TenantCdrController,
     TenantVoicemailController,
@@ -67,6 +73,8 @@ import { TenantVoicemailService } from './services/tenant-voicemail.service';
     TenantIvrService,
     TenantRingGroupsService,
     TenantDevicesService,
+    TenantDeviceProvisioningService,
+    TenantProvisioningTemplatesService,
     TenantRecordingsService,
     TenantCdrService,
     TenantVoicemailService,

@@ -25,11 +25,75 @@ export class ProvEdgeController {
 
   @Get('gs/:mac/cfg.xml')
   @UseGuards(ProvMacAuthGuard)
-  async downloadConfig(
+  async downloadGrandstreamConfig(
     @Param('mac') mac: string,
     @Req() req: Request,
     @Res() res: Response,
   ): Promise<void> {
+    await this.sendConfig(mac, req, res);
+  }
+
+  @Get('yealink/:mac/cfg.xml')
+  @UseGuards(ProvMacAuthGuard)
+  async downloadYealinkConfig(
+    @Param('mac') mac: string,
+    @Req() req: Request,
+    @Res() res: Response,
+  ): Promise<void> {
+    await this.sendConfig(mac, req, res);
+  }
+
+  @Get('fanvil/:mac/cfg.xml')
+  @UseGuards(ProvMacAuthGuard)
+  async downloadFanvilConfig(
+    @Param('mac') mac: string,
+    @Req() req: Request,
+    @Res() res: Response,
+  ): Promise<void> {
+    await this.sendConfig(mac, req, res);
+  }
+
+  @Get('poly/:mac/cfg.xml')
+  @UseGuards(ProvMacAuthGuard)
+  async downloadPolyConfig(
+    @Param('mac') mac: string,
+    @Req() req: Request,
+    @Res() res: Response,
+  ): Promise<void> {
+    await this.sendConfig(mac, req, res);
+  }
+
+  @Get('cisco/:mac/cfg.xml')
+  @UseGuards(ProvMacAuthGuard)
+  async downloadCiscoConfig(
+    @Param('mac') mac: string,
+    @Req() req: Request,
+    @Res() res: Response,
+  ): Promise<void> {
+    await this.sendConfig(mac, req, res);
+  }
+
+  @Get('snom/:mac/cfg.xml')
+  @UseGuards(ProvMacAuthGuard)
+  async downloadSnomConfig(
+    @Param('mac') mac: string,
+    @Req() req: Request,
+    @Res() res: Response,
+  ): Promise<void> {
+    await this.sendConfig(mac, req, res);
+  }
+
+  @Get('sip/:mac/cfg.xml')
+  @UseGuards(ProvMacAuthGuard)
+  async downloadGenericConfig(
+    @Param('mac') mac: string,
+    @Req() req: Request,
+    @Res() res: Response,
+  ): Promise<void> {
+    await this.sendConfig(mac, req, res);
+  }
+
+  private async sendConfig(mac: string, req: Request, res: Response): Promise<void> {
     const xml = await this.orchestrator.serveConfig(mac, {
       srcIp: req.ip,
       userAgent: req.headers['user-agent'],

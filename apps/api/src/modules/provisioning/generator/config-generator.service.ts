@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import type { DeviceManufacturer } from '@prisma/client';
 import type { FirmwareChannel } from '../firmware/firmware-catalog.service';
 import { FirmwareCatalogService } from '../firmware/firmware-catalog.service';
 import { ArtifactStoreService } from '../store/artifact-store.service';
@@ -12,6 +13,7 @@ export interface DeviceRenderInput {
   mac: string;
   deviceName: string;
   modelFamily: string;
+  manufacturer?: DeviceManufacturer;
   sipEndpointId: string;
   authUsername: string;
   aor: string;
@@ -22,6 +24,8 @@ export interface DeviceRenderInput {
   timezone: string;
   language: string;
   siteCode?: string;
+  transport?: string;
+  srtpEnabled?: boolean;
 }
 
 /** Phase 11 — versioned Grandstream configuration generation. */
@@ -42,6 +46,7 @@ export class ConfigGeneratorService {
     templateVersion: string;
     configVersion: number;
     provUrl: string;
+    firmwareVersion: string;
   }> {
     const sipPassword = this.vault.resolveDeskSipPassword(input.sipEndpointId);
     if (!sipPassword) {
@@ -54,9 +59,12 @@ export class ConfigGeneratorService {
     const templateVersion = this.template.platformTemplateVersion;
     const release = this.firmware.resolve(input.modelFamily, input.firmwareChannel);
     const provBase = this.template.provBaseUrl();
+    const manufacturer = input.manufacturer ?? 'GRANDSTREAM';
+    const vendorPath = this.template.vendorPath(manufacturer);
     const firmwareUrl = release
       ? this.firmware.firmwareUrl(provBase, release)
-      : `${provBase}/fw/${input.modelFamily}/stable/grp261x-fw.bin`;
+      : `${provBase}/fw/${input.modelFamily}/stable/${input.modelFamily}-fw.bin`;
+    const firmwareVersion = release?.version ?? 'unknown';
 
     const artifactHash = this.store.computeArtifactHash({
       mac: input.mac,
@@ -66,12 +74,16 @@ export class ConfigGeneratorService {
       authUsername: input.authUsername,
       firmwareChannel: input.firmwareChannel,
       siteCode: input.siteCode ?? '',
+      manufacturer: String(manufacturer),
     });
+
+    const provServerUrl = `${provBase}/${vendorPath}/${input.mac}/cfg.xml`;
 
     const xml = this.template.render({
       mac: input.mac,
       deviceName: input.deviceName,
       modelFamily: input.modelFamily,
+      manufacturer,
       configVersion: input.configVersion,
       templateVersion,
       adminPassword,
@@ -84,8 +96,10 @@ export class ConfigGeneratorService {
       timezone: input.timezone,
       language: input.language,
       firmwareUrl,
-      provServerUrl: `${provBase}/gs/${input.mac}/cfg.xml`,
+      provServerUrl,
       tlsValidate: String(this.config.get('PROV_TLS_VALIDATE') ?? 'true').toLowerCase() !== 'false',
+      transport: input.transport,
+      srtpEnabled: input.srtpEnabled,
     });
 
     const objectKey = this.store.objectKey(input.tenantId, input.mac, artifactHash);
@@ -102,7 +116,8 @@ export class ConfigGeneratorService {
       objectKey,
       templateVersion,
       configVersion: input.configVersion,
-      provUrl: `${provBase}/gs/${input.mac}/cfg.xml`,
+      provUrl: provServerUrl,
+      firmwareVersion,
     };
   }
 

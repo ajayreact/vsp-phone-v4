@@ -24,6 +24,12 @@ export class FirmwareCatalogService {
       { modelFamily: 'grp261x', version: prev, filename: 'grp261x-fw.bin', channel: 'n-1' },
       { modelFamily: 'grp261x', version: emergency, filename: 'grp261x-fw.bin', channel: 'emergency' },
       { modelFamily: 'gxp21xx', version: stable, filename: 'gxp21xx-fw.bin', channel: 'stable' },
+      { modelFamily: 't46u', version: stable, filename: 't46u-fw.bin', channel: 'stable' },
+      { modelFamily: 't54w', version: stable, filename: 't54w-fw.bin', channel: 'stable' },
+      { modelFamily: 'x4u', version: stable, filename: 'x4u-fw.bin', channel: 'stable' },
+      { modelFamily: 'vvx450', version: stable, filename: 'vvx450-fw.bin', channel: 'stable' },
+      { modelFamily: 'cp8841', version: stable, filename: 'cp8841-fw.bin', channel: 'stable' },
+      { modelFamily: 'd735', version: stable, filename: 'd735-fw.bin', channel: 'stable' },
     ];
   }
 
