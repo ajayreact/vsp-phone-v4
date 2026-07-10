@@ -10,7 +10,10 @@ import { TenantDevicesController } from './controllers/tenant-devices.controller
 import { TenantDidsController } from './controllers/tenant-dids.controller';
 import { TenantExtensionsController } from './controllers/tenant-extensions.controller';
 import { TenantIvrController } from './controllers/tenant-ivr.controller';
-import { TenantNumberRequestsController } from './controllers/tenant-number-requests.controller';
+import {
+  TenantMarketplaceController,
+  TenantNumberRequestsController,
+} from './controllers/tenant-marketplace.controller';
 import { TenantQueuesController } from './controllers/tenant-queues.controller';
 import { TenantRecordingsController } from './controllers/tenant-recordings.controller';
 import { TenantRingGroupsController } from './controllers/tenant-ring-groups.controller';
@@ -22,6 +25,7 @@ import { TenantDevicesService } from './services/tenant-devices.service';
 import { TenantDidsService } from './services/tenant-dids.service';
 import { TenantExtensionsService } from './services/tenant-extensions.service';
 import { TenantIvrService } from './services/tenant-ivr.service';
+import { TenantMarketplaceService } from './services/tenant-marketplace.service';
 import { TenantNumberRequestsService } from './services/tenant-number-requests.service';
 import { TenantQueuesService } from './services/tenant-queues.service';
 import { TenantRecordingsService } from './services/tenant-recordings.service';
@@ -49,6 +53,7 @@ import { TenantVoicemailService } from './services/tenant-voicemail.service';
     TenantVoicemailController,
     TenantRoutingController,
     TenantDidsController,
+    TenantMarketplaceController,
     TenantNumberRequestsController,
     TenantDashboardController,
   ],
@@ -63,6 +68,7 @@ import { TenantVoicemailService } from './services/tenant-voicemail.service';
     TenantVoicemailService,
     TenantRoutingService,
     TenantDidsService,
+    TenantMarketplaceService,
     TenantNumberRequestsService,
   ],
 })

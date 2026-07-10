@@ -41,6 +41,16 @@ export const queryKeys = {
     recordings: () => ['tenant', 'recordings'] as const,
     numberRequests: () => ['tenant', 'number-requests'] as const,
   },
+  marketplace: {
+    dashboard: () => ['marketplace', 'dashboard'] as const,
+    inventory: (filters?: Record<string, string>) => ['marketplace', 'inventory', filters ?? {}] as const,
+    favorites: () => ['marketplace', 'favorites'] as const,
+    savedSearches: () => ['marketplace', 'saved-searches'] as const,
+    notifications: (unreadOnly?: boolean) => ['marketplace', 'notifications', unreadOnly ?? false] as const,
+    requests: (status?: string) => ['marketplace', 'requests', status ?? 'all'] as const,
+    platformRequests: (status?: string) => ['marketplace', 'platform-requests', status ?? 'all'] as const,
+    reports: () => ['marketplace', 'reports'] as const,
+  },
   telnyx: {
     dashboard: () => ['telnyx', 'dashboard'] as const,
     syncStatus: () => ['telnyx', 'sync-status'] as const,

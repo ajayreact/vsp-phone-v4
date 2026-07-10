@@ -339,6 +339,10 @@ model Tenant {
   invoices               Invoice[]
   apiKeys                ApiKey[]
   numberRequests         NumberRequest[]
+  numberReservations     NumberReservation[]
+  numberFavorites        NumberFavorite[]
+  numberSavedSearches    NumberSavedSearch[]
+  numberNotifications    NumberNotification[]
   ringGroups             RingGroup[]
   ringGroupMembers       RingGroupMember[]
   timeConditions         TimeCondition[]
@@ -1697,6 +1701,9 @@ enum NumberRequestStatus {
   APPROVED
   REJECTED
   CANCELLED
+  EXPIRED
+  PURCHASED
+  ASSIGNED
 
   @@map("number_request_status")
 }
@@ -1846,35 +1853,97 @@ model ApiKey {
 }
 
 model NumberReservation {
-  id           String                  @id @db.Uuid
-  phoneNumber  String                  @map("phone_number")
-  telnyxId     String?                 @map("telnyx_id")
-  countryCode  String                  @map("country_code")
-  status       NumberReservationStatus @default(ACTIVE)
-  expiresAt    DateTime                @map("expires_at") @db.Timestamptz(6)
-  reservedBy   String?                 @map("reserved_by") @db.Uuid
-  createdAt    DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  id              String                  @id @db.Uuid
+  tenantId        String?                 @map("tenant_id") @db.Uuid
+  numberRequestId String?                 @map("number_request_id") @db.Uuid
+  phoneNumber     String                  @map("phone_number")
+  telnyxId        String?                 @map("telnyx_id")
+  countryCode     String                  @map("country_code")
+  status          NumberReservationStatus @default(ACTIVE)
+  expiresAt       DateTime                @map("expires_at") @db.Timestamptz(6)
+  reservedBy      String?                 @map("reserved_by") @db.Uuid
+  createdAt       DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  tenant        Tenant?        @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  numberRequest NumberRequest? @relation(fields: [numberRequestId], references: [id], onDelete: SetNull)
 
   @@index([status])
   @@index([phoneNumber])
+  @@index([tenantId])
   @@map("number_reservations")
 }
 
 model NumberRequest {
-  id          String              @id @db.Uuid
-  tenantId    String              @map("tenant_id") @db.Uuid
-  phoneNumber String              @map("phone_number")
-  status      NumberRequestStatus @default(PENDING)
-  requestedBy String              @map("requested_by") @db.Uuid
-  reviewedBy  String?             @map("reviewed_by") @db.Uuid
-  notes       String?
-  createdAt   DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt   DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id                 String              @id @db.Uuid
+  tenantId           String              @map("tenant_id") @db.Uuid
+  phoneNumber        String              @map("phone_number")
+  status             NumberRequestStatus @default(PENDING)
+  requestedBy        String              @map("requested_by") @db.Uuid
+  reviewedBy         String?             @map("reviewed_by") @db.Uuid
+  reservationId      String?             @map("reservation_id") @db.Uuid
+  businessReason     String?             @map("business_reason")
+  priority           String              @default("normal")
+  requestedFeatures  String[]            @default([]) @map("requested_features")
+  internalNotes      String?             @map("internal_notes")
+  duplicateOfId      String?             @map("duplicate_of_id") @db.Uuid
+  bulkRequestId      String?             @map("bulk_request_id") @db.Uuid
+  notes              String?
+  reservationExpiresAt DateTime?         @map("reservation_expires_at") @db.Timestamptz(6)
+  createdAt          DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant       Tenant              @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  reservations NumberReservation[]
+
+  @@index([tenantId, status])
+  @@index([status])
+  @@map("number_requests")
+}
+
+model NumberFavorite {
+  id          String   @id @db.Uuid
+  tenantId    String   @map("tenant_id") @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  phoneNumber String   @map("phone_number")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
 
-  @@index([tenantId, status])
-  @@map("number_requests")
+  @@unique([tenantId, userId, phoneNumber])
+  @@index([tenantId, userId])
+  @@map("number_favorites")
+}
+
+model NumberSavedSearch {
+  id        String   @id @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  name      String
+  filters   Json     @db.JsonB
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, userId])
+  @@map("number_saved_searches")
+}
+
+model NumberNotification {
+  id        String   @id @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  userId    String?  @map("user_id") @db.Uuid
+  type      String
+  title     String
+  body      String
+  read      Boolean  @default(false)
+  metadata  Json?    @db.JsonB
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, read])
+  @@index([tenantId, userId])
+  @@map("number_notifications")
 }
 
 model RingGroup {

@@ -11,6 +11,9 @@ import { TrunksAdminController } from './controllers/trunks.controller';
 import { UsersAdminController } from './controllers/users.controller';
 import { ExtensionsAdminService } from './services/extensions-admin.service';
 import { LiveCallsAdminService } from './services/live-calls-admin.service';
+import { MarketplaceReservationSchedulerService } from './services/marketplace-reservation-scheduler.service';
+import { NumberNotificationsService } from './services/number-notifications.service';
+import { TelnyxMarketplaceReportsService } from './services/telnyx-marketplace-reports.service';
 import { TelnyxNumberRequestsService } from './services/telnyx-number-requests.service';
 import { TelnyxNumbersService } from './services/telnyx-numbers.service';
 import { TrunksAdminService } from './services/trunks-admin.service';
@@ -36,6 +39,9 @@ import { TelnyxApiClient } from './telnyx-api.client';
     TelnyxApiClient,
     TelnyxNumbersService,
     TelnyxNumberRequestsService,
+    TelnyxMarketplaceReportsService,
+    NumberNotificationsService,
+    MarketplaceReservationSchedulerService,
     TrunksAdminService,
     ExtensionsAdminService,
     LiveCallsAdminService,
@@ -44,6 +50,8 @@ import { TelnyxApiClient } from './telnyx-api.client';
   exports: [
     TelnyxNumbersService,
     TelnyxNumberRequestsService,
+    TelnyxMarketplaceReportsService,
+    NumberNotificationsService,
     TrunksAdminService,
     ExtensionsAdminService,
     LiveCallsAdminService,

@@ -2,14 +2,11 @@
 
 import { motion } from 'framer-motion';
 import {
-  Check,
   Download,
   History,
   RefreshCw,
   Search,
   ShoppingCart,
-  Users,
-  X,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
@@ -17,12 +14,10 @@ import { useMemo, useState } from 'react';
 import { usePlatformTenants } from '../../../lib/hooks/queries/use-platform';
 import {
   useActivateTelnyxNumber,
-  useApproveTelnyxRequest,
   useAssignTelnyxNumber,
   useBulkAssignTelnyxNumbers,
   useBulkReleaseTelnyxNumbers,
   usePurchaseTelnyxNumber,
-  useRejectTelnyxRequest,
   useReleaseTelnyxNumber,
   useReserveTelnyxNumber,
   useSearchAvailableNumbers,
@@ -50,6 +45,7 @@ import { Button } from '../../ui/Button';
 import { Card, CardBody } from '../../ui/Card';
 import { Input } from '../../ui/Input';
 import { SlideOver } from '../../ui/SlideOver';
+import { MarketplaceApprovalQueue } from '../marketplace/MarketplaceApprovalQueue';
 import { Skeleton } from '../../ui/Skeleton';
 
 const TABS = [
@@ -171,7 +167,7 @@ export function TelnyxMissionControl() {
         ) : null}
 
         {tab === 'search' ? <SearchPurchaseTab onPurchased={() => setTab('inventory')} /> : null}
-        {tab === 'requests' ? <RequestsTab query={requestsQuery} /> : null}
+        {tab === 'requests' ? <MarketplaceApprovalQueue /> : null}
         {tab === 'sync' ? <SyncTab status={syncStatus} onSync={() => void triggerSync.mutate()} syncing={triggerSync.isPending} /> : null}
       </motion.div>
 
@@ -444,45 +440,6 @@ function SearchPurchaseTab({ onPurchased }: { onPurchased: () => void }) {
         ) : null}
       </div>
     </div>
-  );
-}
-
-function RequestsTab({ query }: { query: ReturnType<typeof useTelnyxNumberRequests> }) {
-  const approve = useApproveTelnyxRequest();
-  const reject = useRejectTelnyxRequest();
-
-  return (
-    <QueryState
-      isLoading={query.isLoading}
-      isError={query.isError}
-      error={query.error}
-      onRetry={() => void query.refetch()}
-      isEmpty={!query.data?.length}
-      empty={<EmptyState title="No pending requests" description="Tenant number requests will appear here for approval." icon={Users} />}
-      skeleton={<Skeleton className="h-48 w-full rounded-2xl" />}
-    >
-      <div className="space-y-3">
-        {(query.data ?? []).map((r) => (
-          <Card key={r.id} className="glass-card">
-            <CardBody className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <p className="font-mono font-medium">{r.phoneNumber}</p>
-                <p className="text-sm text-muted-foreground">{r.tenantName} · {r.requesterEmail ?? r.requestedBy}</p>
-                <p className="text-xs text-muted-foreground">{new Date(r.createdAt).toLocaleString()}</p>
-              </div>
-              <div className="flex gap-2">
-                <Button size="sm" variant="outline" onClick={() => approve.mutate({ id: r.id })} disabled={approve.isPending}>
-                  <Check className="h-4 w-4" /> Approve
-                </Button>
-                <Button size="sm" variant="outline" onClick={() => reject.mutate({ id: r.id })} disabled={reject.isPending}>
-                  <X className="h-4 w-4" /> Reject
-                </Button>
-              </div>
-            </CardBody>
-          </Card>
-        ))}
-      </div>
-    </QueryState>
   );
 }
 

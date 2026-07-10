@@ -30,10 +30,12 @@ import {
   ListTelnyxNumbersQueryDto,
   PurchaseTelnyxNumberDto,
   ReserveTelnyxNumberDto,
+  BulkReviewNumberRequestsDto,
   ReviewNumberRequestDto,
   SearchAvailableNumbersQueryDto,
   UpdateTelnyxNumberDto,
 } from '../dto/telnyx-numbers.dto';
+import { TelnyxMarketplaceReportsService } from '../services/telnyx-marketplace-reports.service';
 import { TelnyxNumberRequestsService } from '../services/telnyx-number-requests.service';
 import { TelnyxNumbersService } from '../services/telnyx-numbers.service';
 
@@ -48,6 +50,7 @@ export class TelnyxNumbersController {
   constructor(
     private readonly numbers: TelnyxNumbersService,
     private readonly requests: TelnyxNumberRequestsService,
+    private readonly reports: TelnyxMarketplaceReportsService,
   ) {}
 
   @Get('dashboard')
@@ -141,6 +144,13 @@ export class TelnyxNumbersController {
     return this.numbers.bulkEmergencyUpdate(dto, getJwtUser(req).sub).then((data) => ({ data }));
   }
 
+  @Get('reports/marketplace')
+  @RequireAnyPermission(...READ)
+  @ApiOperation({ summary: 'Platform number marketplace reports' })
+  marketplaceReports() {
+    return this.reports.getPlatformReports().then((data) => ({ data }));
+  }
+
   @Get('requests')
   @RequireAnyPermission(...WRITE)
   @ApiOperation({ summary: 'Tenant number request approval queue' })
@@ -148,18 +158,46 @@ export class TelnyxNumbersController {
     return this.requests.listPlatform(status).then((data) => ({ data }));
   }
 
+  @Post('requests/bulk/approve')
+  @RequireAnyPermission(...WRITE)
+  @ApiOperation({ summary: 'Bulk approve tenant number requests' })
+  bulkApproveRequests(@Body() dto: BulkReviewNumberRequestsDto, @Req() req: Request) {
+    return this.requests.bulkApprove(dto.ids, getJwtUser(req).sub, dto);
+  }
+
+  @Post('requests/bulk/reject')
+  @RequireAnyPermission(...WRITE)
+  @ApiOperation({ summary: 'Bulk reject tenant number requests' })
+  bulkRejectRequests(@Body() dto: BulkReviewNumberRequestsDto, @Req() req: Request) {
+    return this.requests.bulkReject(dto.ids, getJwtUser(req).sub, dto.notes);
+  }
+
+  @Get('requests/:id/history')
+  @RequireAnyPermission(...WRITE)
+  @ApiOperation({ summary: 'Number request approval history' })
+  requestHistory(@Param('id') id: string) {
+    return this.requests.getHistory(id).then((data) => ({ data }));
+  }
+
+  @Get('requests/:id')
+  @RequireAnyPermission(...WRITE)
+  @ApiOperation({ summary: 'Get tenant number request detail' })
+  getRequest(@Param('id') id: string) {
+    return this.requests.getPlatform(id).then((data) => ({ data }));
+  }
+
   @Post('requests/:id/approve')
   @RequireAnyPermission(...WRITE)
   @ApiOperation({ summary: 'Approve tenant number request' })
   approveRequest(@Param('id') id: string, @Body() dto: ReviewNumberRequestDto, @Req() req: Request) {
-    return this.requests.approve(id, getJwtUser(req).sub, dto.notes);
+    return this.requests.approve(id, getJwtUser(req).sub, dto);
   }
 
   @Post('requests/:id/reject')
   @RequireAnyPermission(...WRITE)
   @ApiOperation({ summary: 'Reject tenant number request' })
   rejectRequest(@Param('id') id: string, @Body() dto: ReviewNumberRequestDto, @Req() req: Request) {
-    return this.requests.reject(id, getJwtUser(req).sub, dto.notes);
+    return this.requests.reject(id, getJwtUser(req).sub, dto.notes, dto.internalNotes);
   }
 
   @Get()

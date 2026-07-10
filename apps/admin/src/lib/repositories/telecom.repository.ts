@@ -144,12 +144,12 @@ export const telnyxNumbersRepository = {
     return httpGet<ApiListResponse<TelnyxNumberRequest>>(`${BASE}/requests${q}`).then(normalizeList);
   },
 
-  approveRequest(id: string, notes?: string): Promise<unknown> {
-    return httpPost(`${BASE}/requests/${id}/approve`, { notes });
+  approveRequest(id: string, payload?: { notes?: string; internalNotes?: string; action?: 'assign' | 'purchase_then_assign' }): Promise<unknown> {
+    return httpPost(`${BASE}/requests/${id}/approve`, payload ?? {});
   },
 
-  rejectRequest(id: string, notes?: string): Promise<unknown> {
-    return httpPost(`${BASE}/requests/${id}/reject`, { notes });
+  rejectRequest(id: string, payload?: { notes?: string; internalNotes?: string }): Promise<unknown> {
+    return httpPost(`${BASE}/requests/${id}/reject`, payload ?? {});
   },
 };
 

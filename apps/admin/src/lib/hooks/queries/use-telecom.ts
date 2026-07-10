@@ -185,7 +185,8 @@ export function useTelnyxNumberRequests(status?: string) {
 export function useApproveTelnyxRequest() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, notes }: { id: string; notes?: string }) => telnyxNumbersService.approveRequest(id, notes),
+    mutationFn: (payload: { id: string; notes?: string; internalNotes?: string; action?: 'assign' | 'purchase_then_assign' }) =>
+      telnyxNumbersService.approveRequest(payload.id, payload),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['telnyx'] }),
   });
 }
@@ -193,7 +194,8 @@ export function useApproveTelnyxRequest() {
 export function useRejectTelnyxRequest() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, notes }: { id: string; notes?: string }) => telnyxNumbersService.rejectRequest(id, notes),
+    mutationFn: (payload: { id: string; notes?: string; internalNotes?: string }) =>
+      telnyxNumbersService.rejectRequest(payload.id, payload),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['telnyx'] }),
   });
 }

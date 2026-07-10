@@ -3,6 +3,7 @@ import { Type } from 'class-transformer';
 import {
   IsArray,
   IsBoolean,
+  IsIn,
   IsInt,
   IsOptional,
   IsString,
@@ -394,6 +395,38 @@ export class ReviewNumberRequestDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  internalNotes?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsIn(['assign', 'purchase_then_assign'])
+  action?: 'assign' | 'purchase_then_assign';
+}
+
+export class BulkReviewNumberRequestsDto {
+  @ApiProperty({ type: [String] })
+  @IsArray()
+  @IsString({ each: true })
+  ids!: string[];
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  notes?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  internalNotes?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsIn(['assign', 'purchase_then_assign'])
+  action?: 'assign' | 'purchase_then_assign';
 }
 
 export class TelnyxNumberResponseDto {
