@@ -1,7 +1,5 @@
-﻿'use client';
-
-import { EnterpriseModulePage } from '../../../components/modules/EnterpriseModulePage';
+﻿import { ConferencesContent } from '../../../components/modules/ConferencesContent';
 
 export default function ConferencesPage() {
-  return <EnterpriseModulePage moduleId='conferences' />;
+  return <ConferencesContent />;
 }

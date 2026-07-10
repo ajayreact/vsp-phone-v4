@@ -1,7 +1,5 @@
-﻿'use client';
-
-import { EnterpriseModulePage } from '../../../components/modules/EnterpriseModulePage';
+﻿import { PostgresqlContent } from '../../../components/modules/PostgresqlContent';
 
 export default function PostgresqlPage() {
-  return <EnterpriseModulePage moduleId='postgresql' />;
+  return <PostgresqlContent />;
 }

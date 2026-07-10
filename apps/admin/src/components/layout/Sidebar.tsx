@@ -8,7 +8,8 @@ import {
   NAV_GROUP_LABELS,
   NAV_GROUP_ORDER,
   filterNavByPermissions,
-} from '../../lib/navigation/config';
+} from '../../lib/navigation';
+import { detectPortal, getPortalLabel } from '../../lib/portal/detect-portal';
 import type { NavGroup } from '../../types/navigation';
 import { cn } from '../../lib/utils/cn';
 import { usePermissions } from '../../lib/auth/AuthProvider';
@@ -23,7 +24,8 @@ export function Sidebar({
 }) {
   const pathname = usePathname();
   const permissions = usePermissions();
-  const items = filterNavByPermissions(permissions);
+  const portal = detectPortal();
+  const items = filterNavByPermissions(permissions, portal);
 
   const groups = items.reduce<Partial<Record<NavGroup, typeof items>>>((acc, item) => {
     if (!acc[item.group]) acc[item.group] = [];
@@ -47,7 +49,7 @@ export function Sidebar({
         {!collapsed ? (
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold tracking-tight">VSP Phone</p>
-            <p className="truncate text-[11px] text-muted-foreground">Operations Center</p>
+            <p className="truncate text-[11px] text-muted-foreground">{getPortalLabel(portal)}</p>
           </div>
         ) : null}
       </div>

@@ -1,7 +1,5 @@
-﻿'use client';
-
-import { EnterpriseModulePage } from '../../../components/modules/EnterpriseModulePage';
+﻿import { CarriersContent } from '../../../components/modules/CarriersContent';
 
 export default function CarriersPage() {
-  return <EnterpriseModulePage moduleId='carriers' />;
+  return <CarriersContent />;
 }

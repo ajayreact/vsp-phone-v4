@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { Headphones, Mic, PhoneOff, RefreshCw, Share2 } from 'lucide-react';
 import { useAuth, usePermissions } from '../../lib/auth/AuthProvider';
 import { useLiveCalls } from '../../lib/hooks/queries/use-telecom';
-import { getModuleById } from '../../lib/navigation/config';
+import { getModuleById } from '../../lib/navigation';
 import { hasPermission } from '../../lib/rbac/permissions';
 import type { LiveCallRecord } from '../../types/telecom';
 import { DataTable, type Column } from '../data/DataTable';

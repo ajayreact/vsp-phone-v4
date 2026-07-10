@@ -1,7 +1,5 @@
-﻿'use client';
-
-import { EnterpriseModulePage } from '../../../components/modules/EnterpriseModulePage';
+﻿import { RtpengineContent } from '../../../components/modules/RtpengineContent';
 
 export default function RtpenginePage() {
-  return <EnterpriseModulePage moduleId='rtpengine' />;
+  return <RtpengineContent />;
 }

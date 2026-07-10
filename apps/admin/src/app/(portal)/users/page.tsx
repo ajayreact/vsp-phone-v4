@@ -1,7 +1,5 @@
-﻿'use client';
-
-import { EnterpriseModulePage } from '../../../components/modules/EnterpriseModulePage';
+﻿import { UsersContent } from '../../../components/modules/UsersContent';
 
 export default function UsersPage() {
-  return <EnterpriseModulePage moduleId='users' />;
+  return <UsersContent />;
 }

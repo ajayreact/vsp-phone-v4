@@ -1,11 +1,46 @@
 export const queryKeys = {
+  platform: {
+    dashboard: () => ['platform', 'dashboard'] as const,
+    tenants: (filters?: Record<string, string>) => ['platform', 'tenants', filters ?? {}] as const,
+    tenant: (id: string) => ['platform', 'tenants', id] as const,
+    billing: () => ['platform', 'billing', 'summary'] as const,
+    carriers: () => ['platform', 'carriers'] as const,
+    roles: (tenantId?: string) => ['platform', 'roles', tenantId ?? 'all'] as const,
+    permissions: (tenantId?: string) => ['platform', 'permissions', tenantId ?? 'all'] as const,
+    audit: (params?: Record<string, string>) => ['platform', 'audit', params ?? {}] as const,
+    users: (search?: string) => ['platform', 'users', search ?? ''] as const,
+  },
   ops: {
     dashboard: (tenantId?: string) => ['ops', 'dashboard', tenantId ?? 'global'] as const,
     health: () => ['ops', 'health'] as const,
+    kamailio: () => ['ops', 'kamailio'] as const,
+    rtpengine: () => ['ops', 'rtpengine'] as const,
+    redis: () => ['ops', 'redis'] as const,
+    postgres: () => ['ops', 'postgres'] as const,
+    carriersHealth: () => ['ops', 'carriers-health'] as const,
+    audit: (params?: Record<string, string>) => ['ops', 'audit', params ?? {}] as const,
+    sipRegistrations: (params?: Record<string, string>) => ['ops', 'sip-registrations', params ?? {}] as const,
+    trace: (params?: Record<string, string>) => ['ops', 'trace', params ?? {}] as const,
+  },
+  tenant: {
+    dashboard: () => ['tenant', 'dashboard'] as const,
+    users: (search?: string) => ['tenant', 'users', search ?? ''] as const,
+    devices: (search?: string) => ['tenant', 'devices', search ?? ''] as const,
+    extensions: (search?: string) => ['tenant', 'extensions', search ?? ''] as const,
+    dids: (search?: string) => ['tenant', 'dids', search ?? ''] as const,
+    queues: () => ['tenant', 'queues'] as const,
+    ivrs: () => ['tenant', 'ivrs'] as const,
+    ringGroups: () => ['tenant', 'ring-groups'] as const,
+    voicemail: () => ['tenant', 'voicemail'] as const,
+    routing: () => ['tenant', 'routing'] as const,
+    cdr: (params?: Record<string, string>) => ['tenant', 'cdr', params ?? {}] as const,
+    recordings: () => ['tenant', 'recordings'] as const,
+    numberRequests: () => ['tenant', 'number-requests'] as const,
   },
   telnyx: {
     numbers: (filters?: Record<string, string>) => ['telnyx', 'numbers', filters ?? {}] as const,
     number: (id: string) => ['telnyx', 'numbers', id] as const,
+    searchAvailable: (filters?: Record<string, string>) => ['telnyx', 'search-available', filters ?? {}] as const,
   },
   trunks: {
     all: () => ['trunks', 'list'] as const,
@@ -16,8 +51,6 @@ export const queryKeys = {
   extensions: {
     list: (filters?: Record<string, string>) => ['extensions', filters ?? {}] as const,
   },
-  resource: (moduleId: string, params?: Record<string, string>) =>
-    ['resource', moduleId, params ?? {}] as const,
   tenants: {
     all: () => ['tenants', 'list'] as const,
   },

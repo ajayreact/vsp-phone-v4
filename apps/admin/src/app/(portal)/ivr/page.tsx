@@ -1,7 +1,5 @@
-﻿'use client';
-
-import { EnterpriseModulePage } from '../../../components/modules/EnterpriseModulePage';
+﻿import { IvrContent } from '../../../components/modules/IvrContent';
 
 export default function IvrPage() {
-  return <EnterpriseModulePage moduleId='ivr' />;
+  return <IvrContent />;
 }

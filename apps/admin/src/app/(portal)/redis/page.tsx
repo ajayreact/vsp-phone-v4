@@ -1,7 +1,5 @@
-﻿'use client';
-
-import { EnterpriseModulePage } from '../../../components/modules/EnterpriseModulePage';
+﻿import { RedisContent } from '../../../components/modules/RedisContent';
 
 export default function RedisPage() {
-  return <EnterpriseModulePage moduleId='redis' />;
+  return <RedisContent />;
 }

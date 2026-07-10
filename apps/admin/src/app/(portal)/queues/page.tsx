@@ -1,7 +1,5 @@
-﻿'use client';
-
-import { EnterpriseModulePage } from '../../../components/modules/EnterpriseModulePage';
+﻿import { QueuesContent } from '../../../components/modules/QueuesContent';
 
 export default function QueuesPage() {
-  return <EnterpriseModulePage moduleId='queues' />;
+  return <QueuesContent />;
 }

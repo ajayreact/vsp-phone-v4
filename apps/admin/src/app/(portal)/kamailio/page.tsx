@@ -1,7 +1,5 @@
-﻿'use client';
-
-import { EnterpriseModulePage } from '../../../components/modules/EnterpriseModulePage';
+﻿import { KamailioContent } from '../../../components/modules/KamailioContent';
 
 export default function KamailioPage() {
-  return <EnterpriseModulePage moduleId='kamailio' />;
+  return <KamailioContent />;
 }

@@ -1,7 +1,5 @@
-﻿'use client';
+﻿import { SipAccountsContent } from '../../../components/modules/SipAccountsContent';
 
-import { EnterpriseModulePage } from '../../../components/modules/EnterpriseModulePage';
-
-export default function SipaccountsPage() {
-  return <EnterpriseModulePage moduleId='sip-accounts' />;
+export default function SipAccountsPage() {
+  return <SipAccountsContent />;
 }

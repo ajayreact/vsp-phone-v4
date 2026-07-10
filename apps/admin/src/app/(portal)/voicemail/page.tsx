@@ -1,7 +1,5 @@
-﻿'use client';
-
-import { EnterpriseModulePage } from '../../../components/modules/EnterpriseModulePage';
+﻿import { VoicemailContent } from '../../../components/modules/VoicemailContent';
 
 export default function VoicemailPage() {
-  return <EnterpriseModulePage moduleId='voicemail' />;
+  return <VoicemailContent />;
 }

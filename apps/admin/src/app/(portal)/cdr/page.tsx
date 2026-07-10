@@ -1,7 +1,5 @@
-﻿'use client';
-
-import { EnterpriseModulePage } from '../../../components/modules/EnterpriseModulePage';
+﻿import { CdrContent } from '../../../components/modules/CdrContent';
 
 export default function CdrPage() {
-  return <EnterpriseModulePage moduleId='cdr' />;
+  return <CdrContent />;
 }

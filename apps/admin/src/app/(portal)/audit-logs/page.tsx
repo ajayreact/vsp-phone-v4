@@ -1,7 +1,5 @@
-﻿'use client';
+﻿import { AuditLogsContent } from '../../../components/modules/AuditLogsContent';
 
-import { EnterpriseModulePage } from '../../../components/modules/EnterpriseModulePage';
-
-export default function AuditlogsPage() {
-  return <EnterpriseModulePage moduleId='audit-logs' />;
+export default function AuditLogsPage() {
+  return <AuditLogsContent />;
 }

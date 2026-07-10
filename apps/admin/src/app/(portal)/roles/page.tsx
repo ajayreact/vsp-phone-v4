@@ -1,7 +1,5 @@
-﻿'use client';
-
-import { EnterpriseModulePage } from '../../../components/modules/EnterpriseModulePage';
+﻿import { RolesContent } from '../../../components/modules/RolesContent';
 
 export default function RolesPage() {
-  return <EnterpriseModulePage moduleId='roles' />;
+  return <RolesContent />;
 }

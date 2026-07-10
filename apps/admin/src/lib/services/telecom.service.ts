@@ -3,7 +3,6 @@ import {
   extensionsRepository,
   liveCallsRepository,
   opsRepository,
-  resourceRepository,
   telnyxNumbersRepository,
   tenantsRepository,
   trunksRepository,
@@ -11,12 +10,14 @@ import {
 import type { AssignTelnyxNumberPayload } from '../../types/telecom';
 
 export const opsService = {
-  getDashboard: opsRepository.getDashboardSnapshot,
-  getHealth: opsRepository.getHealthDetail,
+  getDashboard: opsRepository.getDashboard,
+  getHealth: opsRepository.getHealth,
 };
 
 export const telnyxNumbersService = {
   list: telnyxNumbersRepository.list,
+  searchAvailable: telnyxNumbersRepository.searchAvailable,
+  reserve: telnyxNumbersRepository.reserve,
   assign: (id: string, payload: AssignTelnyxNumberPayload) => telnyxNumbersRepository.assign(id, payload),
   release: telnyxNumbersRepository.release,
   purchase: telnyxNumbersRepository.purchase,
@@ -36,10 +37,6 @@ export const liveCallsService = {
 
 export const extensionsService = {
   list: extensionsRepository.list,
-};
-
-export const resourceService = {
-  list: resourceRepository.list,
 };
 
 export const tenantsService = {

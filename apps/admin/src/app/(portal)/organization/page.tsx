@@ -1,7 +1,5 @@
-﻿'use client';
-
-import { EnterpriseModulePage } from '../../../components/modules/EnterpriseModulePage';
+﻿import { OrganizationContent } from '../../../components/modules/OrganizationContent';
 
 export default function OrganizationPage() {
-  return <EnterpriseModulePage moduleId='organization' />;
+  return <OrganizationContent />;
 }

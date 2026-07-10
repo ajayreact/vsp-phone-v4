@@ -1,7 +1,5 @@
-﻿'use client';
-
-import { EnterpriseModulePage } from '../../../components/modules/EnterpriseModulePage';
+﻿import { PermissionsContent } from '../../../components/modules/PermissionsContent';
 
 export default function PermissionsPage() {
-  return <EnterpriseModulePage moduleId='permissions' />;
+  return <PermissionsContent />;
 }

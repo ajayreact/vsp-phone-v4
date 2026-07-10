@@ -1,37 +1,64 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { CreditCard } from 'lucide-react';
-import { getModuleById } from '../../lib/navigation/config';
-import { hasPermission } from '../../lib/rbac/permissions';
-import { usePermissions } from '../../lib/auth/AuthProvider';
-import { EmptyState } from '../data/EmptyState';
-import { PermissionDenied } from '../data/PermissionDenied';
+import { CreditCard, RefreshCw } from 'lucide-react';
+import { usePlatformBilling } from '../../lib/hooks/queries/use-platform';
+import { ModuleAccessGate } from './shared/ModuleShell';
+import { MetricCard } from '../data/MetricCard';
+import { QueryState } from '../feedback/QueryState';
 import { PageContainer, PageHeader } from '../layout/PageHeader';
+import { Button } from '../ui/Button';
+import { Skeleton } from '../ui/Skeleton';
 
-/** Billing module is intentionally deferred until core telecom ops are live. */
+function formatCents(cents: number, currency: string): string {
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(cents / 100);
+}
+
 export function BillingContent() {
-  const module = getModuleById('billing')!;
-  const permissions = usePermissions();
-
-  if (!hasPermission(permissions, module.permission)) {
-    return (
-      <PageContainer>
-        <PermissionDenied module={module.label} />
-      </PageContainer>
-    );
-  }
+  const query = usePlatformBilling();
 
   return (
-    <PageContainer>
-      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.18 }}>
-        <PageHeader title="Billing & Usage" description="Platform billing and carrier usage metrics." />
-        <EmptyState
-          title="Billing module deferred"
-          description="Billing and usage reporting will be enabled after the telecom operations center modules are production-ready."
-          icon={CreditCard}
-        />
-      </motion.div>
-    </PageContainer>
+    <ModuleAccessGate moduleId="billing">
+      {({ module }) => (
+        <PageContainer>
+          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.18 }}>
+            <PageHeader
+              title={module.label}
+              description={module.description}
+              actions={
+                <Button variant="outline" size="sm" onClick={() => void query.refetch()} disabled={query.isFetching}>
+                  <RefreshCw className={`h-4 w-4 ${query.isFetching ? 'animate-spin' : ''}`} />
+                  Refresh
+                </Button>
+              }
+            />
+            <QueryState
+              isLoading={query.isLoading}
+              isError={query.isError}
+              error={query.error}
+              onRetry={() => void query.refetch()}
+              skeleton={
+                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <Skeleton key={i} className="h-28 rounded-2xl" />
+                  ))}
+                </div>
+              }
+            >
+              {query.data ? (
+                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                  <MetricCard label="MRR" value={formatCents(query.data.mrrCents, query.data.currency)} icon={CreditCard} />
+                  <MetricCard label="Carrier Cost" value={formatCents(query.data.carrierCostCents, query.data.currency)} icon={CreditCard} />
+                  <MetricCard label="Gross Margin" value={formatCents(query.data.grossMarginCents, query.data.currency)} icon={CreditCard} />
+                  <MetricCard label="Active Subscriptions" value={query.data.activeSubscriptions} icon={CreditCard} />
+                  <MetricCard label="Total Invoices" value={query.data.totalInvoices} icon={CreditCard} />
+                  <MetricCard label="Unpaid Invoices" value={query.data.unpaidInvoices} icon={CreditCard} />
+                </div>
+              ) : null}
+            </QueryState>
+          </motion.div>
+        </PageContainer>
+      )}
+    </ModuleAccessGate>
   );
 }

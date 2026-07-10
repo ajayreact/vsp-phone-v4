@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 import { PermissionGate } from '../auth/PermissionGate';
 import { usePermissions } from '../../lib/auth/AuthProvider';
 import { hasPermission } from '../../lib/rbac/permissions';
-import { getModuleById } from '../../lib/navigation/config';
+import { getModuleById } from '../../lib/navigation';
 import type { ModuleDefinition } from '../../types/navigation';
 import { IntegrationBadge } from '../data/IntegrationBadge';
 import { PermissionDenied } from '../data/PermissionDenied';

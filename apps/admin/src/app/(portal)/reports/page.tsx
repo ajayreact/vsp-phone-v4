@@ -1,7 +1,5 @@
-﻿'use client';
-
-import { EnterpriseModulePage } from '../../../components/modules/EnterpriseModulePage';
+﻿import { ReportsContent } from '../../../components/modules/ReportsContent';
 
 export default function ReportsPage() {
-  return <EnterpriseModulePage moduleId='reports' />;
+  return <ReportsContent />;
 }

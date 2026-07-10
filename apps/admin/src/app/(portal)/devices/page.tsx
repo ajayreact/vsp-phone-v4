@@ -1,7 +1,5 @@
-﻿'use client';
-
-import { EnterpriseModulePage } from '../../../components/modules/EnterpriseModulePage';
+﻿import { DevicesContent } from '../../../components/modules/DevicesContent';
 
 export default function DevicesPage() {
-  return <EnterpriseModulePage moduleId='devices' />;
+  return <DevicesContent />;
 }

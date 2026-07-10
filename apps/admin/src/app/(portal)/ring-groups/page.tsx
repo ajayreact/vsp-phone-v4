@@ -1,7 +1,5 @@
-﻿'use client';
+﻿import { RingGroupsContent } from '../../../components/modules/RingGroupsContent';
 
-import { EnterpriseModulePage } from '../../../components/modules/EnterpriseModulePage';
-
-export default function RinggroupsPage() {
-  return <EnterpriseModulePage moduleId='ring-groups' />;
+export default function RingGroupsPage() {
+  return <RingGroupsContent />;
 }

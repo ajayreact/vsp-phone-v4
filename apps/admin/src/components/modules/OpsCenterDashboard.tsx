@@ -14,7 +14,8 @@ import {
   Users,
 } from 'lucide-react';
 import { useAuth } from '../../lib/auth/AuthProvider';
-import { useInfraHealth, useLiveCalls, useOpsDashboard } from '../../lib/hooks/queries/use-telecom';
+import { useLiveCalls, useOpsDashboard } from '../../lib/hooks/queries/use-telecom';
+import { useOpsHealth } from '../../lib/hooks/queries/use-ops';
 import { MetricCard } from '../data/MetricCard';
 import { QueryState } from '../feedback/QueryState';
 import { PageContainer, PageHeader } from '../layout/PageHeader';
@@ -46,11 +47,11 @@ export function OpsCenterDashboard() {
   const { session } = useAuth();
   const tenantId = session?.tenantId;
   const dashboard = useOpsDashboard(tenantId);
-  const health = useInfraHealth();
+  const health = useOpsHealth();
   const liveCalls = useLiveCalls(tenantId);
 
   const snap = dashboard.data;
-  const infra = health.data ?? snap?.infrastructure;
+  const infra = health.data?.components ?? snap?.infrastructure;
 
   return (
     <PageContainer>

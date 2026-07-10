@@ -1,5 +1,5 @@
-import { OpsCenterDashboard } from '../../../components/modules/OpsCenterDashboard';
+import { PortalDashboard } from '../../../components/modules/PortalDashboard';
 
 export default function DashboardPage() {
-  return <OpsCenterDashboard />;
+  return <PortalDashboard />;
 }

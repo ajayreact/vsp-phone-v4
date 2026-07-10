@@ -12,7 +12,7 @@ import {
   useReleaseTelnyxNumber,
   useTelnyxNumbers,
 } from '../../lib/hooks/queries/use-telecom';
-import { getModuleById } from '../../lib/navigation/config';
+import { getModuleById } from '../../lib/navigation';
 import type { TelnyxNumberRecord } from '../../types/telecom';
 import { DataTable, type Column } from '../data/DataTable';
 import { FilterBar } from '../data/FilterBar';

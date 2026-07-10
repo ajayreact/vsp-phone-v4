@@ -1,34 +1,20 @@
 import type {
   ApiListResponse,
   AssignTelnyxNumberPayload,
-  BillingSummaryRecord,
   BulkAssignPayload,
   ExtensionRecord,
   LiveCallRecord,
-  OpsDashboardSnapshot,
   PurchaseTelnyxNumberPayload,
   SipTrunkRecord,
   TelnyxNumberRecord,
-  TenantRecord,
 } from '../../types/telecom';
-import { ApiError } from '../api/client';
-import { bffGet, httpDelete, httpGet, httpPatch, httpPost } from '../api/http-client';
+import { httpDelete, httpGet, httpPatch, httpPost } from '../api/http-client';
+import { normalizeList } from './api-utils';
+import { opsRepository } from './ops.repository';
+import { platformRepository } from './platform.repository';
 
-function normalizeList<T>(payload: ApiListResponse<T> | T[]): T[] {
-  if (Array.isArray(payload)) return payload;
-  return payload.data ?? [];
-}
-
-export const opsRepository = {
-  getDashboardSnapshot(tenantId?: string): Promise<OpsDashboardSnapshot> {
-    const q = tenantId ? `?tenantId=${encodeURIComponent(tenantId)}` : '';
-    return bffGet<OpsDashboardSnapshot>(`/api/bff/observability/dashboard${q}`);
-  },
-
-  getHealthDetail(): Promise<OpsDashboardSnapshot['infrastructure']> {
-    return bffGet<OpsDashboardSnapshot['infrastructure']>('/api/bff/observability/health');
-  },
-};
+export { opsRepository, platformRepository };
+export { tenantRepository } from './tenant.repository';
 
 export const telnyxNumbersRepository = {
   async list(params?: { search?: string; status?: string; region?: string }): Promise<TelnyxNumberRecord[]> {
@@ -39,6 +25,28 @@ export const telnyxNumbersRepository = {
     const q = searchParams.toString();
     const res = await httpGet<ApiListResponse<TelnyxNumberRecord>>(`/v1/carriers/telnyx/numbers${q ? `?${q}` : ''}`);
     return normalizeList(res);
+  },
+
+  async searchAvailable(params?: {
+    countryCode?: string;
+    areaCode?: string;
+    contains?: string;
+    limit?: number;
+  }): Promise<Record<string, unknown>[]> {
+    const searchParams = new URLSearchParams();
+    if (params?.countryCode) searchParams.set('countryCode', params.countryCode);
+    if (params?.areaCode) searchParams.set('areaCode', params.areaCode);
+    if (params?.contains) searchParams.set('contains', params.contains);
+    if (params?.limit) searchParams.set('limit', String(params.limit));
+    const q = searchParams.toString();
+    const res = await httpGet<ApiListResponse<Record<string, unknown>>>(
+      `/v1/carriers/telnyx/numbers/search/available${q ? `?${q}` : ''}`,
+    );
+    return normalizeList(res);
+  },
+
+  reserve(payload: { phoneNumber: string; countryCode?: string }): Promise<Record<string, unknown>> {
+    return httpPost<Record<string, unknown>>('/v1/carriers/telnyx/numbers/reserve', payload);
   },
 
   assign(id: string, payload: AssignTelnyxNumberPayload): Promise<TelnyxNumberRecord> {
@@ -53,7 +61,10 @@ export const telnyxNumbersRepository = {
     return httpPost<TelnyxNumberRecord>('/v1/carriers/telnyx/numbers/purchase', payload);
   },
 
-  update(id: string, payload: Partial<PurchaseTelnyxNumberPayload & { smsEnabled?: boolean; emergencyEnabled?: boolean }>): Promise<TelnyxNumberRecord> {
+  update(
+    id: string,
+    payload: Partial<PurchaseTelnyxNumberPayload & { smsEnabled?: boolean; emergencyEnabled?: boolean }>,
+  ): Promise<TelnyxNumberRecord> {
     return httpPatch<TelnyxNumberRecord>(`/v1/carriers/telnyx/numbers/${id}`, payload);
   },
 
@@ -97,31 +108,12 @@ export const extensionsRepository = {
   },
 };
 
-const MODULE_COLLECTION_PATH: Record<string, string> = {
-  users: '/v1/users',
-  devices: '/v1/provisioning/devices',
-  'call-recordings': '/v1/recordings',
-};
-
-export const billingRepository = {
-  async getSummary(): Promise<BillingSummaryRecord> {
-    throw new ApiError('Billing module is not enabled in this release.', 501);
-  },
-};
-
+/** @deprecated Use platformRepository.listTenants */
 export const tenantsRepository = {
-  async list(): Promise<TenantRecord[]> {
-    throw new ApiError('Tenants API is not enabled in this release.', 501);
-  },
+  list: platformRepository.listTenants,
 };
 
-export const resourceRepository = {
-  async list(moduleId: string): Promise<Record<string, unknown>[]> {
-    const path = MODULE_COLLECTION_PATH[moduleId];
-    if (!path) {
-      throw new ApiError(`Module "${moduleId}" is not enabled in this release.`, 501);
-    }
-    const res = await httpGet<ApiListResponse<Record<string, unknown>> | Record<string, unknown>[]>(path);
-    return normalizeList(res);
-  },
+/** @deprecated Use platformRepository.getBillingSummary */
+export const billingRepository = {
+  getSummary: platformRepository.getBillingSummary,
 };

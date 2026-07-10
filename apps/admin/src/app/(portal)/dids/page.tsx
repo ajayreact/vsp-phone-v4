@@ -1,7 +1,5 @@
-﻿'use client';
-
-import { EnterpriseModulePage } from '../../../components/modules/EnterpriseModulePage';
+﻿import { DidsContent } from '../../../components/modules/DidsContent';
 
 export default function DidsPage() {
-  return <EnterpriseModulePage moduleId='dids' />;
+  return <DidsContent />;
 }

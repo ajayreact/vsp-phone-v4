@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { Plus, RefreshCw } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useExtensions } from '../../lib/hooks/queries/use-telecom';
-import { getModuleById } from '../../lib/navigation/config';
+import { getModuleById } from '../../lib/navigation';
 import { hasPermission } from '../../lib/rbac/permissions';
 import { usePermissions } from '../../lib/auth/AuthProvider';
 import type { ExtensionRecord } from '../../types/telecom';

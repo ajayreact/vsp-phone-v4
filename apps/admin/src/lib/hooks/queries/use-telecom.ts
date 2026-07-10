@@ -3,37 +3,58 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '../../query/query-keys';
 import {
-  billingService,
   extensionsService,
   liveCallsService,
-  opsService,
-  resourceService,
   telnyxNumbersService,
   tenantsService,
   trunksService,
 } from '../../services/telecom.service';
+import { usePlatformBilling } from './use-platform';
 import type { AssignTelnyxNumberPayload } from '../../../types/telecom';
 
-export function useOpsDashboard(tenantId?: string) {
-  return useQuery({
-    queryKey: queryKeys.ops.dashboard(tenantId),
-    queryFn: () => opsService.getDashboard(tenantId),
-    refetchInterval: 30_000,
-  });
-}
-
-export function useInfraHealth() {
-  return useQuery({
-    queryKey: queryKeys.ops.health(),
-    queryFn: () => opsService.getHealth(),
-    refetchInterval: 30_000,
-  });
-}
+export { useOpsDashboard, useOpsHealth, useInfraHealth } from './use-ops';
+export {
+  usePlatformDashboard,
+  usePlatformTenants,
+  usePlatformBilling,
+  usePlatformCarriers,
+  usePlatformRoles,
+  usePlatformPermissions,
+  usePlatformAudit,
+  usePlatformUsers,
+} from './use-platform';
+export {
+  useTenantDashboard,
+  useTenantUsers,
+  useTenantDevices,
+  useTenantExtensions,
+  useTenantDids,
+  useTenantQueues,
+  useTenantIvrs,
+  useTenantRingGroups,
+  useTenantVoicemail,
+  useTenantRouting,
+  useTenantCdr,
+  useTenantRecordings,
+} from './use-tenant';
 
 export function useTelnyxNumbers(filters?: { search?: string; status?: string; region?: string }) {
   return useQuery({
     queryKey: queryKeys.telnyx.numbers(filters),
     queryFn: () => telnyxNumbersService.list(filters),
+  });
+}
+
+export function useSearchAvailableNumbers(filters?: {
+  countryCode?: string;
+  areaCode?: string;
+  contains?: string;
+  limit?: number;
+}) {
+  return useQuery({
+    queryKey: queryKeys.telnyx.searchAvailable(filters as Record<string, string> | undefined),
+    queryFn: () => telnyxNumbersService.searchAvailable(filters),
+    enabled: Boolean(filters?.contains || filters?.areaCode),
   });
 }
 
@@ -103,13 +124,6 @@ export function useExtensions(search?: string) {
   });
 }
 
-export function useModuleResource(moduleId: string) {
-  return useQuery({
-    queryKey: queryKeys.resource(moduleId),
-    queryFn: () => resourceService.list(moduleId),
-  });
-}
-
 export function useTenants() {
   return useQuery({
     queryKey: queryKeys.tenants.all(),
@@ -118,8 +132,5 @@ export function useTenants() {
 }
 
 export function useBillingSummary() {
-  return useQuery({
-    queryKey: queryKeys.billing.summary(),
-    queryFn: () => billingService.getSummary(),
-  });
+  return usePlatformBilling();
 }

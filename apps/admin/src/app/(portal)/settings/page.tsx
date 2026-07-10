@@ -1,7 +1,5 @@
-﻿'use client';
-
-import { EnterpriseModulePage } from '../../../components/modules/EnterpriseModulePage';
+﻿import { SettingsContent } from '../../../components/modules/SettingsContent';
 
 export default function SettingsPage() {
-  return <EnterpriseModulePage moduleId='settings' />;
+  return <SettingsContent />;
 }
