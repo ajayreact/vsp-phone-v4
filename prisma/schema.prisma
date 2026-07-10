@@ -333,6 +333,17 @@ model Tenant {
   conferenceParticipants ConferenceParticipant[]
   voicemails             Voicemail[]
   recordings             Recording[]
+  subscriptions          Subscription[]
+  billingAccounts        BillingAccount[]
+  usageRecords           UsageRecord[]
+  invoices               Invoice[]
+  apiKeys                ApiKey[]
+  numberRequests         NumberRequest[]
+  ringGroups             RingGroup[]
+  ringGroupMembers       RingGroupMember[]
+  timeConditions         TimeCondition[]
+  holidayCalendars       HolidayCalendar[]
+  departments            Department[]
 
   @@unique([slug])
   @@index([status])
@@ -901,6 +912,8 @@ model Extension {
   creator User?  @relation("ExtensionCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
   updater User?  @relation("ExtensionUpdatedBy", fields: [updatedBy], references: [id], onDelete: Restrict)
   deleter User?  @relation("ExtensionDeletedBy", fields: [deletedBy], references: [id], onDelete: Restrict)
+
+  ringGroupMembers RingGroupMember[]
 
   @@unique([tenantId, extension])
   @@index([tenantId])
@@ -1654,4 +1667,316 @@ model Recording {
   @@index([tenantId, status])
   @@index([deletedAt])
   @@map("recordings")
+}
+
+// ---------------------------------------------------------------------------
+// Phase 2 — Platform commercial, marketplace, and extended PBX models
+// ---------------------------------------------------------------------------
+
+enum SubscriptionStatus {
+  TRIAL
+  ACTIVE
+  PAST_DUE
+  SUSPENDED
+  CANCELLED
+
+  @@map("subscription_status")
+}
+
+enum InvoiceStatus {
+  DRAFT
+  OPEN
+  PAID
+  VOID
+
+  @@map("invoice_status")
+}
+
+enum NumberRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+
+  @@map("number_request_status")
+}
+
+enum NumberReservationStatus {
+  ACTIVE
+  EXPIRED
+  CONVERTED
+  RELEASED
+
+  @@map("number_reservation_status")
+}
+
+enum ApiKeyStatus {
+  ACTIVE
+  REVOKED
+
+  @@map("api_key_status")
+}
+
+model PlatformSettings {
+  id                    String   @id @db.Uuid
+  platformName          String   @map("platform_name")
+  supportEmail          String   @map("support_email")
+  defaultTimezone       String   @map("default_timezone")
+  inventoryTenantId     String?  @map("inventory_tenant_id") @db.Uuid
+  stripeEnabled         Boolean  @default(false) @map("stripe_enabled")
+  createdAt             DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("platform_settings")
+}
+
+model Plan {
+  id           String   @id @db.Uuid
+  publicId     String   @unique @map("public_id")
+  name         String
+  description  String?
+  priceCents   Int      @map("price_cents")
+  currency     String   @default("USD")
+  seatLimit    Int      @default(0) @map("seat_limit")
+  didLimit     Int      @default(0) @map("did_limit")
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  subscriptions Subscription[]
+
+  @@map("plans")
+}
+
+model Subscription {
+  id        String             @id @db.Uuid
+  tenantId  String             @map("tenant_id") @db.Uuid
+  planId    String             @map("plan_id") @db.Uuid
+  status    SubscriptionStatus @default(TRIAL)
+  startedAt DateTime           @default(now()) @map("started_at") @db.Timestamptz(6)
+  endsAt    DateTime?          @map("ends_at") @db.Timestamptz(6)
+  createdAt DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  plan   Plan   @relation(fields: [planId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId])
+  @@index([status])
+  @@map("subscriptions")
+}
+
+model BillingAccount {
+  id              String   @id @db.Uuid
+  tenantId        String   @unique @map("tenant_id") @db.Uuid
+  mrrCents        Int      @default(0) @map("mrr_cents")
+  carrierCostCents Int     @default(0) @map("carrier_cost_cents")
+  currency        String   @default("USD")
+  stripeCustomerId String? @map("stripe_customer_id")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  invoices Invoice[]
+  usage    UsageRecord[]
+
+  @@map("billing_accounts")
+}
+
+model UsageRecord {
+  id               String   @id @db.Uuid
+  billingAccountId String   @map("billing_account_id") @db.Uuid
+  tenantId         String   @map("tenant_id") @db.Uuid
+  metric           String
+  quantity         Decimal  @db.Decimal(18, 4)
+  unitCostCents    Int      @default(0) @map("unit_cost_cents")
+  periodStart      DateTime @map("period_start") @db.Timestamptz(6)
+  periodEnd        DateTime @map("period_end") @db.Timestamptz(6)
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  billingAccount BillingAccount @relation(fields: [billingAccountId], references: [id], onDelete: Restrict)
+  tenant         Tenant         @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, periodStart])
+  @@map("usage_records")
+}
+
+model Invoice {
+  id               String        @id @db.Uuid
+  billingAccountId String        @map("billing_account_id") @db.Uuid
+  tenantId         String        @map("tenant_id") @db.Uuid
+  status           InvoiceStatus @default(DRAFT)
+  totalCents       Int           @map("total_cents")
+  currency         String        @default("USD")
+  dueAt            DateTime?     @map("due_at") @db.Timestamptz(6)
+  paidAt           DateTime?     @map("paid_at") @db.Timestamptz(6)
+  createdAt        DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  billingAccount BillingAccount @relation(fields: [billingAccountId], references: [id], onDelete: Restrict)
+  tenant         Tenant         @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId])
+  @@map("invoices")
+}
+
+model ApiKey {
+  id         String       @id @db.Uuid
+  tenantId   String?      @map("tenant_id") @db.Uuid
+  name       String
+  keyPrefix  String       @map("key_prefix")
+  keyHash    String       @map("key_hash")
+  status     ApiKeyStatus @default(ACTIVE)
+  scopes     String[]     @default([])
+  lastUsedAt DateTime?    @map("last_used_at") @db.Timestamptz(6)
+  expiresAt  DateTime?    @map("expires_at") @db.Timestamptz(6)
+  createdAt  DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy  String?      @map("created_by") @db.Uuid
+
+  tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId])
+  @@index([keyPrefix])
+  @@map("api_keys")
+}
+
+model NumberReservation {
+  id           String                  @id @db.Uuid
+  phoneNumber  String                  @map("phone_number")
+  telnyxId     String?                 @map("telnyx_id")
+  countryCode  String                  @map("country_code")
+  status       NumberReservationStatus @default(ACTIVE)
+  expiresAt    DateTime                @map("expires_at") @db.Timestamptz(6)
+  reservedBy   String?                 @map("reserved_by") @db.Uuid
+  createdAt    DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([status])
+  @@index([phoneNumber])
+  @@map("number_reservations")
+}
+
+model NumberRequest {
+  id          String              @id @db.Uuid
+  tenantId    String              @map("tenant_id") @db.Uuid
+  phoneNumber String              @map("phone_number")
+  status      NumberRequestStatus @default(PENDING)
+  requestedBy String              @map("requested_by") @db.Uuid
+  reviewedBy  String?             @map("reviewed_by") @db.Uuid
+  notes       String?
+  createdAt   DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, status])
+  @@map("number_requests")
+}
+
+model RingGroup {
+  id        String    @id @db.Uuid
+  publicId  String    @unique @map("public_id")
+  tenantId  String    @map("tenant_id") @db.Uuid
+  name      String
+  strategy  String    @default("RING_ALL")
+  timeoutSec Int      @default(30) @map("timeout_sec")
+  version   Int       @default(1)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  tenant  Tenant            @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  members RingGroupMember[]
+
+  @@index([tenantId])
+  @@index([deletedAt])
+  @@map("ring_groups")
+}
+
+model RingGroupMember {
+  id          String    @id @db.Uuid
+  tenantId    String    @map("tenant_id") @db.Uuid
+  ringGroupId String    @map("ring_group_id") @db.Uuid
+  extensionId String    @map("extension_id") @db.Uuid
+  priority    Int       @default(0)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  ringGroup RingGroup @relation(fields: [ringGroupId], references: [id], onDelete: Restrict)
+  extension Extension @relation(fields: [extensionId], references: [id], onDelete: Restrict)
+
+  @@index([ringGroupId])
+  @@map("ring_group_members")
+}
+
+model TimeCondition {
+  id        String    @id @db.Uuid
+  tenantId  String    @map("tenant_id") @db.Uuid
+  name      String
+  timezone  String
+  version   Int       @default(1)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  tenant Tenant              @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  rules  TimeConditionRule[]
+
+  @@index([tenantId])
+  @@map("time_conditions")
+}
+
+model TimeConditionRule {
+  id              String   @id @db.Uuid
+  timeConditionId String   @map("time_condition_id") @db.Uuid
+  dayOfWeek       Int      @map("day_of_week")
+  startTime       String   @map("start_time")
+  endTime         String   @map("end_time")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  timeCondition TimeCondition @relation(fields: [timeConditionId], references: [id], onDelete: Restrict)
+
+  @@index([timeConditionId])
+  @@map("time_condition_rules")
+}
+
+model HolidayCalendar {
+  id        String    @id @db.Uuid
+  tenantId  String    @map("tenant_id") @db.Uuid
+  name      String
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  holidays Holiday[]
+
+  @@index([tenantId])
+  @@map("holiday_calendars")
+}
+
+model Holiday {
+  id                String   @id @db.Uuid
+  holidayCalendarId String   @map("holiday_calendar_id") @db.Uuid
+  name              String
+  date              DateTime @db.Date
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  calendar HolidayCalendar @relation(fields: [holidayCalendarId], references: [id], onDelete: Restrict)
+
+  @@index([holidayCalendarId])
+  @@map("holidays")
+}
+
+model Department {
+  id        String    @id @db.Uuid
+  tenantId  String    @map("tenant_id") @db.Uuid
+  name      String
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId])
+  @@map("departments")
 }
