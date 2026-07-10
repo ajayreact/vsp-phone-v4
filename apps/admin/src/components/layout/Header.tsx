@@ -77,7 +77,6 @@ export function Header() {
             aria-label="Notifications"
           >
             <Bell className="h-4 w-4" />
-            <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-primary ring-2 ring-card" />
           </Button>
           <AnimatePresence>
             {notifOpen ? (

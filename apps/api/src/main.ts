@@ -84,7 +84,11 @@ async function bootstrap() {
     const corsOriginsRaw = configService.get<string>('CORS_ORIGINS');
     const defaultCorsOrigins =
       envName === 'production'
-        ? ['https://admin.vspphone.com', 'https://app.vspphone.com']
+        ? [
+            'https://admin.vspphone.com',
+            'https://app.vspphone.com',
+            'https://tenant.vspphone.com',
+          ]
         : ['http://localhost:3001', 'http://127.0.0.1:3001'];
     const corsOrigins = corsOriginsRaw
       ? corsOriginsRaw.split(',').map((o) => o.trim()).filter(Boolean)

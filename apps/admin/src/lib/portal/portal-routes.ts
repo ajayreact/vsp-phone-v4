@@ -15,6 +15,7 @@ export const PORTAL_ROUTE_PREFIXES: Record<PortalType, string[]> = {
     '/audit-logs',
     '/api-keys',
     '/settings',
+    '/softphone',
   ],
   ops: [
     '/dashboard',
@@ -30,6 +31,7 @@ export const PORTAL_ROUTE_PREFIXES: Record<PortalType, string[]> = {
     '/sip-accounts',
     '/carriers',
     '/audit-logs',
+    '/softphone',
   ],
   tenant: [
     '/dashboard',
@@ -54,6 +56,7 @@ export const PORTAL_ROUTE_PREFIXES: Record<PortalType, string[]> = {
     '/call-recordings',
     '/reports',
     '/settings',
+    '/softphone',
   ],
 };
 

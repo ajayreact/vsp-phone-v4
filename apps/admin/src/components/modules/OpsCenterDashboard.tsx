@@ -78,10 +78,10 @@ export function OpsCenterDashboard() {
                 <RefreshCw className={`h-4 w-4 ${dashboard.isFetching ? 'animate-spin' : ''}`} />
                 Refresh
               </Button>
-              <Link href="/telnyx-numbers">
+              <Link href="/carriers">
                 <Button size="sm">
                   <PhoneCall className="h-4 w-4" />
-                  Telnyx Numbers
+                  Carriers
                 </Button>
               </Link>
             </div>
@@ -241,12 +241,12 @@ export function OpsCenterDashboard() {
             <p className="text-sm font-semibold">SIP Trunks</p>
             <p className="mt-1 text-xs text-muted-foreground">Registration, latency, channels</p>
           </Link>
-          <Link href="/telnyx-numbers" className="glass-card block rounded-2xl border border-border p-5 transition hover:border-primary/30">
-            <p className="text-sm font-semibold">Telnyx Numbers</p>
-            <p className="mt-1 text-xs text-muted-foreground">Inventory & tenant assignment</p>
+          <Link href="/carriers" className="glass-card block rounded-2xl border border-border p-5 transition hover:border-primary/30">
+            <p className="text-sm font-semibold">Carriers</p>
+            <p className="mt-1 text-xs text-muted-foreground">Health, latency & interconnect</p>
           </Link>
-          <Link href="/extensions" className="glass-card block rounded-2xl border border-border p-5 transition hover:border-primary/30">
-            <p className="text-sm font-semibold">Extensions</p>
+          <Link href="/sip-accounts" className="glass-card block rounded-2xl border border-border p-5 transition hover:border-primary/30">
+            <p className="text-sm font-semibold">SIP Accounts</p>
             <p className="mt-1 text-xs text-muted-foreground">Registrations & presence</p>
           </Link>
         </div>

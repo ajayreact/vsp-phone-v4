@@ -13,6 +13,7 @@ import { detectPortal, getPortalLabel } from '../../lib/portal/detect-portal';
 import type { NavGroup } from '../../types/navigation';
 import { cn } from '../../lib/utils/cn';
 import { usePermissions } from '../../lib/auth/AuthProvider';
+import { useOpsHealth } from '../../lib/hooks/queries/use-ops';
 import { LiveIndicator } from '../ui/LiveIndicator';
 
 export function Sidebar({
@@ -26,6 +27,13 @@ export function Sidebar({
   const permissions = usePermissions();
   const portal = detectPortal();
   const items = filterNavByPermissions(permissions, portal);
+  const health = useOpsHealth();
+  const sidebarStatus =
+    portal === 'ops' && health.data?.readiness
+      ? health.data.readiness.ready
+        ? { label: 'Platform online', status: 'online' as const }
+        : { label: 'Platform degraded', status: 'degraded' as const }
+      : { label: 'Session active', status: 'online' as const };
 
   const groups = items.reduce<Partial<Record<NavGroup, typeof items>>>((acc, item) => {
     if (!acc[item.group]) acc[item.group] = [];
@@ -56,7 +64,7 @@ export function Sidebar({
 
       {!collapsed ? (
         <div className="border-b border-sidebar-border px-4 py-3">
-          <LiveIndicator label="Platform online" status="online" className="w-full justify-center" />
+          <LiveIndicator label={sidebarStatus.label} status={sidebarStatus.status} className="w-full justify-center" />
         </div>
       ) : null}
 
