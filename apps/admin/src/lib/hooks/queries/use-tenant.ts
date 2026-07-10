@@ -61,10 +61,10 @@ export function useTenantRingGroups() {
   });
 }
 
-export function useTenantVoicemail() {
+export function useTenantVoicemail(search?: string) {
   return useQuery({
-    queryKey: queryKeys.tenant.voicemail(),
-    queryFn: () => tenantRepository.listVoicemail(),
+    queryKey: queryKeys.tenant.voicemail(search),
+    queryFn: () => tenantRepository.listVoicemail(search),
   });
 }
 

@@ -40,8 +40,9 @@ export const tenantRepository = {
     return httpGet<{ data: Record<string, unknown>[] }>('/v1/tenant/ring-groups').then(normalizeList);
   },
 
-  listVoicemail(): Promise<Record<string, unknown>[]> {
-    return httpGet<{ data: Record<string, unknown>[] }>('/v1/tenant/voicemail').then(normalizeList);
+  listVoicemail(search?: string): Promise<Record<string, unknown>[]> {
+    const q = search ? `?search=${encodeURIComponent(search)}` : '';
+    return httpGet<{ data: Record<string, unknown>[] }>(`/v1/tenant/voicemail${q}`).then(normalizeList);
   },
 
   listRoutingPolicies(): Promise<Record<string, unknown>[]> {

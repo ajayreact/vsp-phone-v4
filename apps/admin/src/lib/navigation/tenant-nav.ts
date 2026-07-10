@@ -202,10 +202,11 @@ export const TENANT_MODULES: ModuleDefinition[] = [
     href: '/conferences',
     group: 'routing',
     icon: Radio,
-    permission: PERMISSIONS.TENANT_ADMIN,
+    permission: PERMISSIONS.TENANT_CONFERENCES_READ,
     integration: 'live',
     description: 'Audio conference bridges and participant management.',
     breadcrumb: ['Call Routing', 'Conferences'],
+    apiEndpoints: ['/v1/tenant/conferences'],
   },
   {
     id: 'cdr',
@@ -229,7 +230,7 @@ export const TENANT_MODULES: ModuleDefinition[] = [
     integration: 'live',
     description: 'Browse and playback call recordings.',
     breadcrumb: ['Analytics', 'Recordings'],
-    apiEndpoints: ['/v1/tenant/recordings'],
+    apiEndpoints: ['/v1/tenant/recordings', '/v1/tenant/recording-policies'],
   },
   {
     id: 'reports',

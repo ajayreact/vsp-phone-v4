@@ -23,6 +23,8 @@ import {
   TenantNumberRequestsController,
 } from './controllers/tenant-marketplace.controller';
 import { TenantQueuesController } from './controllers/tenant-queues.controller';
+import { TenantConferencesController } from './controllers/tenant-conferences.controller';
+import { TenantRecordingPoliciesController } from './controllers/tenant-recording-policies.controller';
 import { TenantRecordingsController } from './controllers/tenant-recordings.controller';
 import { TenantRingGroupsController } from './controllers/tenant-ring-groups.controller';
 import { TenantRoutingController } from './controllers/tenant-routing.controller';
@@ -45,6 +47,8 @@ import { TenantMarketplaceService } from './services/tenant-marketplace.service'
 import { TenantNumberRequestsService } from './services/tenant-number-requests.service';
 import { TenantQueuesService } from './services/tenant-queues.service';
 import { TenantQueueEventsService } from './services/tenant-queue-events.service';
+import { TenantConferencesService } from './services/tenant-conferences.service';
+import { TenantRecordingPoliciesService } from './services/tenant-recording-policies.service';
 import { TenantRecordingsService } from './services/tenant-recordings.service';
 import { TenantRingGroupsService } from './services/tenant-ring-groups.service';
 import { TenantRoutingEventsService } from './services/tenant-routing-events.service';
@@ -77,6 +81,8 @@ import { TenantVoicemailService } from './services/tenant-voicemail.service';
     TenantDevicesController,
     TenantProvisioningController,
     TenantRecordingsController,
+    TenantRecordingPoliciesController,
+    TenantConferencesController,
     TenantCdrController,
     TenantVoicemailController,
     TenantRoutingController,
@@ -102,6 +108,8 @@ import { TenantVoicemailService } from './services/tenant-voicemail.service';
     TenantDeviceProvisioningService,
     TenantProvisioningTemplatesService,
     TenantRecordingsService,
+    TenantRecordingPoliciesService,
+    TenantConferencesService,
     TenantCdrService,
     TenantVoicemailService,
     TenantRoutingService,

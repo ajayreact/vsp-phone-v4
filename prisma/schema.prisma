@@ -413,6 +413,56 @@ enum RecordingStatus {
   @@map("recording_status")
 }
 
+enum VoicemailMailboxType {
+  PERSONAL
+  SHARED
+  DEPARTMENT
+  QUEUE
+  RING_GROUP
+  CONFERENCE
+
+  @@map("voicemail_mailbox_type")
+}
+
+enum VoicemailGreetingType {
+  UNAVAILABLE
+  BUSY
+  TEMPORARY
+  NAME
+
+  @@map("voicemail_greeting_type")
+}
+
+enum RecordingPolicyMode {
+  ALWAYS
+  ON_DEMAND
+  NEVER
+  QUEUE
+  IVR
+  EXTENSION
+  SUPERVISOR
+
+  @@map("recording_policy_mode")
+}
+
+enum ConferenceType {
+  ROOM
+  PERSONAL
+  SCHEDULED
+  INSTANT
+
+  @@map("conference_type")
+}
+
+enum TranscriptStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+
+  @@map("transcript_status")
+}
+
 // ---------------------------------------------------------------------------
 // PlatformAdmin — platform-level identity (outside Tenant scope)
 // ---------------------------------------------------------------------------
@@ -539,6 +589,7 @@ model Tenant {
   pagingGroupMembers     PagingGroupMember[]
   voicemailGreetings     VoicemailGreeting[]
   voicemailMessages      VoicemailMessage[]
+  recordingTranscripts   RecordingTranscript[]
 
   @@unique([slug])
   @@index([status])
@@ -1450,11 +1501,17 @@ model CallerID {
 model RecordingPolicy {
   id               String    @id @db.Uuid
   tenantId         String    @map("tenant_id") @db.Uuid
-  lineId           String    @unique @map("line_id") @db.Uuid
+  lineId           String?   @unique @map("line_id") @db.Uuid
+  name             String?
+  policyMode       RecordingPolicyMode @default(ON_DEMAND) @map("policy_mode")
+  queueId          String?   @map("queue_id") @db.Uuid
+  ivrId            String?   @map("ivr_id") @db.Uuid
   recordingEnabled Boolean   @default(false) @map("recording_enabled")
   recordInbound    Boolean   @default(false) @map("record_inbound")
   recordOutbound   Boolean   @default(false) @map("record_outbound")
   retentionDays    Int?      @map("retention_days")
+  archiveAfterDays Int?      @map("archive_after_days")
+  legalHoldDefault Boolean   @default(false) @map("legal_hold_default")
   pauseAllowed     Boolean   @default(true) @map("pause_allowed")
   version          Int       @default(1)
   createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
@@ -1465,12 +1522,13 @@ model RecordingPolicy {
   deletedBy        String?   @map("deleted_by") @db.Uuid
 
   tenant  Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  line    Line   @relation(fields: [lineId], references: [id], onDelete: Restrict)
+  line    Line?  @relation(fields: [lineId], references: [id], onDelete: Restrict)
   creator User?  @relation("RecordingPolicyCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
   updater User?  @relation("RecordingPolicyUpdatedBy", fields: [updatedBy], references: [id], onDelete: Restrict)
   deleter User?  @relation("RecordingPolicyDeletedBy", fields: [deletedBy], references: [id], onDelete: Restrict)
 
   @@index([tenantId])
+  @@index([tenantId, policyMode])
   @@index([deletedAt])
   @@map("recording_policies")
 }
@@ -1823,9 +1881,20 @@ model Conference {
   tenantId  String           @map("tenant_id") @db.Uuid
   name      String
   code      String
+  description String?
+  conferenceType ConferenceType @default(ROOM) @map("conference_type")
   status    ConferenceStatus @default(ACTIVE)
   pin       String?
+  moderatorPin String?       @map("moderator_pin")
   recordingEnabled Boolean @default(false) @map("recording_enabled")
+  lobbyEnabled Boolean @default(false) @map("lobby_enabled")
+  waitingRoomEnabled Boolean @default(false) @map("waiting_room_enabled")
+  maxParticipants Int?      @map("max_participants")
+  lockRoom  Boolean          @default(false) @map("lock_room")
+  muteOnJoin Boolean         @default(false) @map("mute_on_join")
+  mohPlaylistId String?       @map("moh_playlist_id") @db.Uuid
+  announcementId String?     @map("announcement_id") @db.Uuid
+  scheduledAt DateTime?      @map("scheduled_at") @db.Timestamptz(6)
   moderatorLineId String? @map("moderator_line_id") @db.Uuid
   version   Int              @default(1)
   createdAt DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
@@ -1847,6 +1916,7 @@ model Conference {
   @@unique([tenantId, code])
   @@index([tenantId])
   @@index([tenantId, status])
+  @@index([tenantId, conferenceType])
   @@index([deletedAt])
   @@map("conferences")
 }
@@ -1896,9 +1966,23 @@ model Voicemail {
   id        String          @id @db.Uuid
   publicId  String          @unique @map("public_id")
   tenantId  String          @map("tenant_id") @db.Uuid
-  lineId    String          @unique @map("line_id") @db.Uuid
+  lineId    String?         @unique @map("line_id") @db.Uuid
+  name      String?
+  mailboxType VoicemailMailboxType @default(PERSONAL) @map("mailbox_type")
+  mailboxNumber String?     @map("mailbox_number")
+  queueId   String?         @map("queue_id") @db.Uuid
+  ringGroupId String?       @map("ring_group_id") @db.Uuid
+  conferenceId String?      @map("conference_id") @db.Uuid
   status    VoicemailStatus @default(ACTIVE)
   pin       String?
+  language  String          @default("en")
+  timezone  String?
+  emailNotify String?       @map("email_notify")
+  emailAttach Boolean       @default(true) @map("email_attach")
+  emailDeleteAfter Boolean @default(false) @map("email_delete_after")
+  transcriptionReady Boolean @default(false) @map("transcription_ready")
+  storageQuotaMb Int?       @map("storage_quota_mb")
+  retentionDays Int?         @map("retention_days")
   version   Int             @default(1)
   createdAt DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -1908,7 +1992,7 @@ model Voicemail {
   deletedBy String?         @map("deleted_by") @db.Uuid
 
   tenant          Tenant    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  line            Line      @relation(fields: [lineId], references: [id], onDelete: Restrict)
+  line            Line?     @relation(fields: [lineId], references: [id], onDelete: Restrict)
   creator         User?     @relation("VoicemailCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
   updater         User?     @relation("VoicemailUpdatedBy", fields: [updatedBy], references: [id], onDelete: Restrict)
   deleter         User?     @relation("VoicemailDeletedBy", fields: [deletedBy], references: [id], onDelete: Restrict)
@@ -1918,6 +2002,7 @@ model Voicemail {
 
   @@index([tenantId])
   @@index([tenantId, status])
+  @@index([tenantId, mailboxType])
   @@index([deletedAt])
   @@map("voicemails")
 }
@@ -1933,12 +2018,23 @@ model Recording {
   callSessionId   String          @map("call_session_id") @db.Uuid
   lineId          String?         @map("line_id") @db.Uuid
   conferenceId    String?         @map("conference_id") @db.Uuid
+  queueId         String?         @map("queue_id") @db.Uuid
+  ivrId           String?         @map("ivr_id") @db.Uuid
+  agentLineId     String?         @map("agent_line_id") @db.Uuid
+  callerNumber    String?         @map("caller_number")
+  calleeNumber    String?         @map("callee_number")
+  category        String?
+  tags            Json?           @db.JsonB
+  notes           String?
+  bookmarked      Boolean         @default(false)
+  legalHold       Boolean         @default(false) @map("legal_hold")
   status          RecordingStatus @default(PENDING)
   startedAt       DateTime?       @map("started_at") @db.Timestamptz(6)
   endedAt         DateTime?       @map("ended_at") @db.Timestamptz(6)
   durationSeconds Int?            @map("duration_seconds")
   mediaObjectKey  String?         @map("media_object_key")
   mediaFormat     String?         @map("media_format")
+  archivedAt      DateTime?       @map("archived_at") @db.Timestamptz(6)
   version         Int             @default(1)
   createdAt       DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt       DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -1954,12 +2050,15 @@ model Recording {
   creator     User?       @relation("RecordingCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
   updater     User?       @relation("RecordingUpdatedBy", fields: [updatedBy], references: [id], onDelete: Restrict)
   deleter     User?       @relation("RecordingDeletedBy", fields: [deletedBy], references: [id], onDelete: Restrict)
+  transcript  RecordingTranscript?
 
   @@index([tenantId])
   @@index([tenantId, callSessionId])
   @@index([tenantId, lineId])
   @@index([tenantId, conferenceId])
+  @@index([tenantId, queueId])
   @@index([tenantId, status])
+  @@index([tenantId, legalHold])
   @@index([deletedAt])
   @@map("recordings")
 }
@@ -2770,8 +2869,9 @@ model VoicemailGreeting {
   id             String    @id @db.Uuid
   tenantId       String    @map("tenant_id") @db.Uuid
   voicemailId    String    @map("voicemail_id") @db.Uuid
-  greetingType   String    @map("greeting_type")
+  greetingType   VoicemailGreetingType @map("greeting_type")
   mediaObjectKey String?   @map("media_object_key")
+  ttsText        String?   @map("tts_text")
   version        Int       @default(1)
   createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -2779,18 +2879,24 @@ model VoicemailGreeting {
   tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   voicemail Voicemail @relation(fields: [voicemailId], references: [id], onDelete: Restrict)
 
+  @@unique([voicemailId, greetingType])
   @@index([tenantId, voicemailId])
   @@map("voicemail_greetings")
 }
 
 model VoicemailMessage {
   id             String    @id @db.Uuid
+  publicId       String    @unique @map("public_id")
   tenantId       String    @map("tenant_id") @db.Uuid
   voicemailId    String    @map("voicemail_id") @db.Uuid
   callerId       String?   @map("caller_id")
+  callerName     String?   @map("caller_name")
   durationSec    Int?      @map("duration_sec")
   mediaObjectKey String?   @map("media_object_key")
   readAt         DateTime? @map("read_at") @db.Timestamptz(6)
+  flagged        Boolean   @default(false)
+  notes          String?
+  transcriptionReady Boolean @default(false) @map("transcription_ready")
   version        Int       @default(1)
   createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
@@ -2799,7 +2905,30 @@ model VoicemailMessage {
   voicemail Voicemail @relation(fields: [voicemailId], references: [id], onDelete: Restrict)
 
   @@index([tenantId, voicemailId])
+  @@index([tenantId, voicemailId, readAt])
   @@map("voicemail_messages")
+}
+
+model RecordingTranscript {
+  id              String           @id @db.Uuid
+  tenantId        String           @map("tenant_id") @db.Uuid
+  recordingId     String           @unique @map("recording_id") @db.Uuid
+  status          TranscriptStatus @default(PENDING)
+  language        String?
+  transcriptText  String?          @map("transcript_text")
+  summary         String?
+  sentiment       String?
+  keywords        Json?            @db.JsonB
+  speakerSegments Json?            @map("speaker_segments") @db.JsonB
+  createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  recording Recording @relation(fields: [recordingId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@map("recording_transcripts")
 }
 
 enum RecordingAnnotationType {
