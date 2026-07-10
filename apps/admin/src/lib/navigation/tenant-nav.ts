@@ -61,6 +61,18 @@ export const TENANT_MODULES: ModuleDefinition[] = [
     apiEndpoints: ['/v1/tenant/reception', '/v1/tenant/contacts', '/v1/tenant/blf', '/v1/tenant/presence'],
   },
   {
+    id: 'paging-intercom',
+    label: 'Paging & Intercom',
+    href: '/paging-intercom',
+    group: 'operations',
+    icon: Megaphone,
+    permission: PERMISSIONS.TENANT_PAGING_READ,
+    integration: 'live',
+    description: 'Multicast/SIP paging, zone paging, emergency broadcast, and intercom endpoints.',
+    breadcrumb: ['Operations', 'Paging & Intercom'],
+    apiEndpoints: ['/v1/tenant/paging'],
+  },
+  {
     id: 'organization',
     label: 'Organization',
     href: '/organization',

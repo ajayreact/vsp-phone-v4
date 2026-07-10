@@ -36,7 +36,9 @@ import { TenantBlfController } from './controllers/tenant-blf.controller';
 import { TenantContactsController } from './controllers/tenant-contacts.controller';
 import { TenantPresenceController } from './controllers/tenant-presence.controller';
 import { TenantReceptionController } from './controllers/tenant-reception.controller';
+import { TenantPagingController } from './controllers/tenant-paging.controller';
 import { TenantVoicemailController } from './controllers/tenant-voicemail.controller';
+import { TenantPagingService } from './services/tenant-paging.service';
 import { TenantVoicemailService } from './services/tenant-voicemail.service';
 import { TenantAudioLibraryService } from './services/tenant-audio-library.service';
 import { TenantCallRoutesService } from './services/tenant-call-routes.service';
@@ -102,6 +104,7 @@ import { TenantReceptionService } from './services/tenant-reception.service';
     TenantContactsController,
     TenantBlfController,
     TenantReceptionController,
+    TenantPagingController,
     TenantRoutingController,
     TenantDidsController,
     TenantMarketplaceController,
@@ -134,6 +137,7 @@ import { TenantReceptionService } from './services/tenant-reception.service';
     TenantBlfService,
     TenantReceptionService,
     TenantReceptionEventsService,
+    TenantPagingService,
     TenantRoutingService,
     TenantDidsService,
     TenantMarketplaceService,

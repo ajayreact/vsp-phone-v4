@@ -35,6 +35,7 @@ export const PORTAL_ROUTE_PREFIXES: Record<PortalType, string[]> = {
     '/dashboard',
     '/supervisor',
     '/reception',
+    '/paging-intercom',
     '/organization',
     '/users',
     '/extensions',

@@ -70,6 +70,8 @@ export const PERMISSIONS = {
   TENANT_RECEPTION_WRITE: 'tenant:reception:write',
   TENANT_BLF_READ: 'tenant:blf:read',
   TENANT_BLF_WRITE: 'tenant:blf:write',
+  TENANT_PAGING_READ: 'tenant:paging:read',
+  TENANT_PAGING_WRITE: 'tenant:paging:write',
   TENANT_CDR_READ: 'tenant:cdr:read',
   TENANT_REPORTS_READ: 'tenant:reports:read',
   TENANT_SETTINGS_READ: 'tenant:settings:read',
