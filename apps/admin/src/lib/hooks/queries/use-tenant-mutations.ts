@@ -56,3 +56,28 @@ export function useCreateTenantExtension() {
     onSuccess: () => invalidateTenantLists(qc, ['extensions']),
   });
 }
+
+export function useUpdateTenantExtension() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: Record<string, unknown> }) =>
+      tenantRepository.updateExtension(id, payload),
+    onSuccess: () => invalidateTenantLists(qc, ['extensions']),
+  });
+}
+
+export function useDeleteTenantExtension() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: tenantRepository.deleteExtension,
+    onSuccess: () => invalidateTenantLists(qc, ['extensions']),
+  });
+}
+
+export function useBulkImportExtensions() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: tenantRepository.bulkImportExtensions,
+    onSuccess: () => invalidateTenantLists(qc, ['extensions']),
+  });
+}

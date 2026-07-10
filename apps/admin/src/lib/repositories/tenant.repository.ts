@@ -73,6 +73,20 @@ export const tenantRepository = {
     return httpPost<Record<string, unknown>>('/v1/tenant/extensions', payload);
   },
 
+  bulkImportExtensions(rows: { extension: string; userId: string; lineName?: string; callerIdName?: string }[]): Promise<{ results: { extension: string; ok: boolean; error?: string }[] }> {
+    return httpPost('/v1/tenant/extensions/bulk-import', { rows });
+  },
+
+  async exportExtensionsCsv(): Promise<Blob> {
+    const { getAccessToken } = await import('../auth/session');
+    const { API_BASE } = await import('../api/client');
+    const res = await fetch(`${API_BASE}/v1/tenant/extensions/export`, {
+      headers: { Authorization: `Bearer ${getAccessToken()}` },
+    });
+    if (!res.ok) throw new Error(await res.text());
+    return res.blob();
+  },
+
   createQueue(payload: { name: string; code: string }): Promise<Record<string, unknown>> {
     return httpPost<Record<string, unknown>>('/v1/tenant/queues', payload);
   },

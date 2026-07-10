@@ -9,6 +9,7 @@ import { TenantDashboardController } from './controllers/tenant-dashboard.contro
 import { TenantDevicesController } from './controllers/tenant-devices.controller';
 import { TenantDidsController } from './controllers/tenant-dids.controller';
 import { TenantExtensionsController } from './controllers/tenant-extensions.controller';
+import { TenantLinesController } from './controllers/tenant-lines.controller';
 import { TenantIvrController } from './controllers/tenant-ivr.controller';
 import {
   TenantMarketplaceController,
@@ -24,6 +25,7 @@ import { TenantCdrService } from './services/tenant-cdr.service';
 import { TenantDevicesService } from './services/tenant-devices.service';
 import { TenantDidsService } from './services/tenant-dids.service';
 import { TenantExtensionsService } from './services/tenant-extensions.service';
+import { TenantLinesService } from './services/tenant-lines.service';
 import { TenantIvrService } from './services/tenant-ivr.service';
 import { TenantMarketplaceService } from './services/tenant-marketplace.service';
 import { TenantNumberRequestsService } from './services/tenant-number-requests.service';
@@ -42,6 +44,7 @@ import { TenantVoicemailService } from './services/tenant-voicemail.service';
     EnterpriseObservabilityCoreModule,
   ],
   controllers: [
+    TenantLinesController,
     TenantExtensionsController,
     TenantUsersController,
     TenantQueuesController,
@@ -58,6 +61,7 @@ import { TenantVoicemailService } from './services/tenant-voicemail.service';
     TenantDashboardController,
   ],
   providers: [
+    TenantLinesService,
     TenantExtensionsService,
     TenantQueuesService,
     TenantIvrService,
