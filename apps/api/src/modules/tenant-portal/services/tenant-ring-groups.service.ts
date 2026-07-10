@@ -1,11 +1,12 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { RingGroupStrategy } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { PrismaService } from '../../telecom/prisma/prisma.service';
 import { newPublicId, tenantScope } from '../utils/tenant.util';
 
 export type CreateRingGroupDto = {
   name: string;
-  strategy?: string;
+  strategy?: RingGroupStrategy;
   timeoutSec?: number;
 };
 
@@ -41,7 +42,7 @@ export class TenantRingGroupsService {
         publicId: newPublicId('rg'),
         tenantId,
         name: dto.name,
-        strategy: dto.strategy ?? 'RING_ALL',
+        strategy: dto.strategy ?? RingGroupStrategy.SIMULTANEOUS,
         timeoutSec: dto.timeoutSec ?? 30,
       },
     });

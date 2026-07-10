@@ -188,6 +188,8 @@ enum QueueStrategy {
 enum QueueMemberStatus {
   ACTIVE
   INACTIVE
+  PAUSED
+  WRAP_UP
 
   @@map("queue_member_status")
 }
@@ -204,6 +206,10 @@ enum IvrDestinationType {
   QUEUE
   CONFERENCE
   VOICEMAIL
+  IVR
+  RING_GROUP
+  EXTERNAL
+  WEBHOOK
 
   @@map("ivr_destination_type")
 }
@@ -230,6 +236,58 @@ enum VoicemailStatus {
   INACTIVE
 
   @@map("voicemail_status")
+}
+
+enum CallForwardType {
+  ALWAYS
+  BUSY
+  NO_ANSWER
+  UNAVAILABLE
+
+  @@map("call_forward_type")
+}
+
+enum RingGroupStrategy {
+  SEQUENTIAL
+  SIMULTANEOUS
+  ROUND_ROBIN
+  LONGEST_IDLE
+  WEIGHTED
+
+  @@map("ring_group_strategy")
+}
+
+enum DeviceManufacturer {
+  YEALINK
+  GRANDSTREAM
+  FANVIL
+  POLY
+  CISCO
+  SNOM
+  OTHER
+
+  @@map("device_manufacturer")
+}
+
+enum ContactType {
+  COMPANY
+  PERSONAL
+
+  @@map("contact_type")
+}
+
+enum RouteDestinationType {
+  LINE
+  EXTENSION
+  QUEUE
+  IVR
+  RING_GROUP
+  VOICEMAIL
+  CONFERENCE
+  EXTERNAL
+  TIME_CONDITION
+
+  @@map("route_destination_type")
 }
 
 enum RecordingStatus {
@@ -351,6 +409,18 @@ model Tenant {
   timeConditions         TimeCondition[]
   holidayCalendars       HolidayCalendar[]
   departments            Department[]
+  lineTelephonySettings  LineTelephonySettings[]
+  provisioningTemplates  ProvisioningTemplate[]
+  inboundRoutes          InboundRoute[]
+  outboundRoutes         OutboundRoute[]
+  contacts               Contact[]
+  mohPlaylists           MohPlaylist[]
+  mohTracks              MohTrack[]
+  announcements          Announcement[]
+  pagingGroups           PagingGroup[]
+  pagingGroupMembers     PagingGroupMember[]
+  voicemailGreetings     VoicemailGreeting[]
+  voicemailMessages      VoicemailMessage[]
 
   @@unique([slug])
   @@index([status])
@@ -583,6 +653,7 @@ model User {
   lines             Line[]
   devices           Device[]
   deviceAssignments DeviceAssignment[]
+  contacts          Contact[]
 
   userSites UserSite[]
   userRoles UserRole[]
@@ -889,6 +960,9 @@ model Line {
   conferenceParticipants ConferenceParticipant[]
   ivrMenuDestinations    IVRMenu[]               @relation("IVRMenuDestinationLine")
   recordings             Recording[]
+  telephonySettings      LineTelephonySettings?
+  pagingGroupMembers     PagingGroupMember[]
+  outboundRoutes         OutboundRoute[]
 
   @@index([tenantId])
   @@index([tenantId, userId])
@@ -944,6 +1018,12 @@ model Device {
   deviceType    DeviceType   @map("device_type")
   status        DeviceStatus @default(PROVISIONING)
   macAddress    String?      @map("mac_address")
+  manufacturer  DeviceManufacturer? @map("manufacturer")
+  model         String?
+  firmwareVersion String?    @map("firmware_version")
+  provisioningTemplateId String? @map("provisioning_template_id") @db.Uuid
+  lastProvisionedAt DateTime? @map("last_provisioned_at") @db.Timestamptz(6)
+  discoveryStatus String?    @map("discovery_status")
   version       Int          @default(1)
   createdAt     DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt     DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -956,6 +1036,7 @@ model Device {
   line             Line?              @relation(fields: [lineId], references: [id], onDelete: Restrict)
   user             User?              @relation(fields: [userId], references: [id], onDelete: Restrict)
   sipEndpoint      SIPEndpoint?       @relation(fields: [sipEndpointId], references: [id], onDelete: Restrict)
+  provisioningTemplate ProvisioningTemplate? @relation(fields: [provisioningTemplateId], references: [id], onDelete: Restrict)
   creator          User?              @relation("DeviceCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
   updater          User?              @relation("DeviceUpdatedBy", fields: [updatedBy], references: [id], onDelete: Restrict)
   deleter          User?              @relation("DeviceDeletedBy", fields: [deletedBy], references: [id], onDelete: Restrict)
@@ -1040,6 +1121,7 @@ model PhoneNumber {
   assignments           NumberAssignment[]
   callerIdPresentations CallerID[]
   callSessions          CallSession[]
+  inboundRoutes         InboundRoute[]
 
   @@unique([tenantId, number])
   @@index([tenantId])
@@ -1114,6 +1196,7 @@ model Carrier {
   deleter      User?         @relation("CarrierDeletedBy", fields: [deletedBy], references: [id], onDelete: Restrict)
   phoneNumbers PhoneNumber[]
   sipEndpoints SIPEndpoint[]
+  outboundRoutes OutboundRoute[]
 
   @@unique([tenantId, code])
   @@index([tenantId])
@@ -1202,6 +1285,7 @@ model CallerID {
   lineId        String    @unique @map("line_id") @db.Uuid
   phoneNumberId String?   @map("phone_number_id") @db.Uuid
   callerIdName  String?   @map("caller_id_name")
+  emergencyCallerIdName String? @map("emergency_caller_id_name")
   version       Int       @default(1)
   createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -1234,6 +1318,8 @@ model RecordingPolicy {
   recordingEnabled Boolean   @default(false) @map("recording_enabled")
   recordInbound    Boolean   @default(false) @map("record_inbound")
   recordOutbound   Boolean   @default(false) @map("record_outbound")
+  retentionDays    Int?      @map("retention_days")
+  pauseAllowed     Boolean   @default(true) @map("pause_allowed")
   version          Int       @default(1)
   createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -1393,6 +1479,12 @@ model Queue {
   code      String
   strategy  QueueStrategy @default(ROUND_ROBIN)
   status    QueueStatus   @default(ACTIVE)
+  wrapUpSec Int           @default(0) @map("wrap_up_sec")
+  slaTargetSec Int?       @map("sla_target_sec")
+  maxWaitSec Int?          @map("max_wait_sec")
+  overflowDestinationType RouteDestinationType? @map("overflow_destination_type")
+  overflowDestinationId String? @map("overflow_destination_id") @db.Uuid
+  callbackEnabled Boolean @default(false) @map("callback_enabled")
   version   Int           @default(1)
   createdAt DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -1429,6 +1521,11 @@ model QueueMember {
   lineId    String            @map("line_id") @db.Uuid
   priority  Int               @default(0)
   status    QueueMemberStatus @default(ACTIVE)
+  loggedIn  Boolean           @default(true) @map("logged_in")
+  pausedReason String?        @map("paused_reason")
+  pausedAt  DateTime?         @map("paused_at") @db.Timestamptz(6)
+  skills    Json?             @db.JsonB
+  wrapUpUntil DateTime?       @map("wrap_up_until") @db.Timestamptz(6)
   version   Int               @default(1)
   createdAt DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -1464,6 +1561,9 @@ model IVR {
   name      String
   code      String
   status    IvrStatus @default(ACTIVE)
+  greetingAnnouncementId String? @map("greeting_announcement_id") @db.Uuid
+  timeoutSec Int      @default(10) @map("timeout_sec")
+  invalidRetries Int  @default(3) @map("invalid_retries")
   version   Int       @default(1)
   createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -1476,8 +1576,10 @@ model IVR {
   creator      User?         @relation("IVRCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
   updater      User?         @relation("IVRUpdatedBy", fields: [updatedBy], references: [id], onDelete: Restrict)
   deleter      User?         @relation("IVRDeletedBy", fields: [deletedBy], references: [id], onDelete: Restrict)
+  greetingAnnouncement Announcement? @relation(fields: [greetingAnnouncementId], references: [id], onDelete: Restrict)
   menus        IVRMenu[]
   callSessions CallSession[]
+  menuDestinations IVRMenu[] @relation("IVRMenuDestinationIvr")
 
   @@unique([tenantId, code])
   @@index([tenantId])
@@ -1502,6 +1604,10 @@ model IVRMenu {
   destinationQueueId      String?            @map("destination_queue_id") @db.Uuid
   destinationConferenceId String?            @map("destination_conference_id") @db.Uuid
   destinationVoicemailId  String?            @map("destination_voicemail_id") @db.Uuid
+  destinationIvrId        String?            @map("destination_ivr_id") @db.Uuid
+  destinationRingGroupId  String?            @map("destination_ring_group_id") @db.Uuid
+  externalDestination     String?            @map("external_destination")
+  webhookUrl              String?            @map("webhook_url")
   sortOrder               Int                @default(0) @map("sort_order")
   version                 Int                @default(1)
   createdAt               DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
@@ -1517,6 +1623,8 @@ model IVRMenu {
   destinationQueue      Queue?      @relation("IVRMenuDestinationQueue", fields: [destinationQueueId], references: [id], onDelete: Restrict)
   destinationConference Conference? @relation("IVRMenuDestinationConference", fields: [destinationConferenceId], references: [id], onDelete: Restrict)
   destinationVoicemail  Voicemail?  @relation("IVRMenuDestinationVoicemail", fields: [destinationVoicemailId], references: [id], onDelete: Restrict)
+  destinationIvr        IVR?        @relation("IVRMenuDestinationIvr", fields: [destinationIvrId], references: [id], onDelete: Restrict)
+  destinationRingGroup  RingGroup?  @relation("IVRMenuDestinationRingGroup", fields: [destinationRingGroupId], references: [id], onDelete: Restrict)
   creator               User?       @relation("IVRMenuCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
   updater               User?       @relation("IVRMenuUpdatedBy", fields: [updatedBy], references: [id], onDelete: Restrict)
   deleter               User?       @relation("IVRMenuDeletedBy", fields: [deletedBy], references: [id], onDelete: Restrict)
@@ -1541,6 +1649,8 @@ model Conference {
   code      String
   status    ConferenceStatus @default(ACTIVE)
   pin       String?
+  recordingEnabled Boolean @default(false) @map("recording_enabled")
+  moderatorLineId String? @map("moderator_line_id") @db.Uuid
   version   Int              @default(1)
   createdAt DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -1627,6 +1737,8 @@ model Voicemail {
   updater         User?     @relation("VoicemailUpdatedBy", fields: [updatedBy], references: [id], onDelete: Restrict)
   deleter         User?     @relation("VoicemailDeletedBy", fields: [deletedBy], references: [id], onDelete: Restrict)
   ivrDestinations IVRMenu[] @relation("IVRMenuDestinationVoicemail")
+  greetings       VoicemailGreeting[]
+  messages        VoicemailMessage[]
 
   @@index([tenantId])
   @@index([tenantId, status])
@@ -1954,8 +2066,11 @@ model RingGroup {
   publicId  String    @unique @map("public_id")
   tenantId  String    @map("tenant_id") @db.Uuid
   name      String
-  strategy  String    @default("RING_ALL")
+  strategy  RingGroupStrategy @default(SIMULTANEOUS)
   timeoutSec Int      @default(30) @map("timeout_sec")
+  overflowDestinationType RouteDestinationType? @map("overflow_destination_type")
+  overflowDestinationId String? @map("overflow_destination_id") @db.Uuid
+  status    QueueStatus @default(ACTIVE)
   version   Int       @default(1)
   createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -1963,6 +2078,7 @@ model RingGroup {
 
   tenant  Tenant            @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   members RingGroupMember[]
+  ivrDestinations IVRMenu[] @relation("IVRMenuDestinationRingGroup")
 
   @@index([tenantId])
   @@index([deletedAt])
@@ -1998,6 +2114,7 @@ model TimeCondition {
 
   tenant Tenant              @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   rules  TimeConditionRule[]
+  inboundRoutes InboundRoute[]
 
   @@index([tenantId])
   @@map("time_conditions")
@@ -2057,6 +2174,268 @@ model Department {
 
   @@index([tenantId])
   @@map("departments")
+}
+
+// =============================================================================
+// Phase 3 — Enterprise PBX Core
+// =============================================================================
+
+model LineTelephonySettings {
+  id                     String          @id @db.Uuid
+  tenantId               String          @map("tenant_id") @db.Uuid
+  lineId                 String          @unique @map("line_id") @db.Uuid
+  pin                    String?
+  callForwardEnabled     Boolean         @default(false) @map("call_forward_enabled")
+  callForwardType        CallForwardType @default(ALWAYS) @map("call_forward_type")
+  callForwardDestination String?         @map("call_forward_destination")
+  followMeEnabled        Boolean         @default(false) @map("follow_me_enabled")
+  followMeDestinations   Json?           @map("follow_me_destinations") @db.JsonB
+  findMeEnabled          Boolean         @default(false) @map("find_me_enabled")
+  findMeDestinations     Json?           @map("find_me_destinations") @db.JsonB
+  dndEnabled             Boolean         @default(false) @map("dnd_enabled")
+  voicemailNotifyEmail   String?         @map("voicemail_notify_email")
+  version                Int             @default(1)
+  createdAt              DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt              DateTime?       @map("deleted_at") @db.Timestamptz(6)
+  createdBy              String?         @map("created_by") @db.Uuid
+  updatedBy              String?         @map("updated_by") @db.Uuid
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  line   Line   @relation(fields: [lineId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId])
+  @@map("line_telephony_settings")
+}
+
+model ProvisioningTemplate {
+  id           String              @id @db.Uuid
+  tenantId     String              @map("tenant_id") @db.Uuid
+  name         String
+  manufacturer DeviceManufacturer
+  config       Json                @db.JsonB
+  version      Int                 @default(1)
+  createdAt    DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt    DateTime?           @map("deleted_at") @db.Timestamptz(6)
+  createdBy    String?             @map("created_by") @db.Uuid
+  updatedBy    String?             @map("updated_by") @db.Uuid
+
+  tenant  Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  devices Device[]
+
+  @@index([tenantId])
+  @@map("provisioning_templates")
+}
+
+model InboundRoute {
+  id                String               @id @db.Uuid
+  tenantId          String               @map("tenant_id") @db.Uuid
+  name              String
+  phoneNumberId     String?              @map("phone_number_id") @db.Uuid
+  priority          Int                  @default(100)
+  destinationType   RouteDestinationType @map("destination_type")
+  destinationLineId String?              @map("destination_line_id") @db.Uuid
+  destinationQueueId String?             @map("destination_queue_id") @db.Uuid
+  destinationIvrId  String?              @map("destination_ivr_id") @db.Uuid
+  destinationRingGroupId String?         @map("destination_ring_group_id") @db.Uuid
+  timeConditionId   String?              @map("time_condition_id") @db.Uuid
+  externalDestination String?            @map("external_destination")
+  version           Int                  @default(1)
+  createdAt         DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt         DateTime?            @map("deleted_at") @db.Timestamptz(6)
+  createdBy         String?              @map("created_by") @db.Uuid
+  updatedBy         String?              @map("updated_by") @db.Uuid
+
+  tenant      Tenant         @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  phoneNumber PhoneNumber?   @relation(fields: [phoneNumberId], references: [id], onDelete: Restrict)
+  timeCondition TimeCondition? @relation(fields: [timeConditionId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId])
+  @@index([tenantId, phoneNumberId])
+  @@map("inbound_routes")
+}
+
+model OutboundRoute {
+  id              String    @id @db.Uuid
+  tenantId        String    @map("tenant_id") @db.Uuid
+  name            String
+  lineId          String?   @map("line_id") @db.Uuid
+  pattern         String
+  carrierId       String?   @map("carrier_id") @db.Uuid
+  priority        Int       @default(100)
+  emergencyRoute  Boolean   @default(false) @map("emergency_route")
+  internationalAllowed Boolean @default(true) @map("international_allowed")
+  normalizeE164   Boolean   @default(true) @map("normalize_e164")
+  version         Int       @default(1)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt       DateTime? @map("deleted_at") @db.Timestamptz(6)
+  createdBy       String?   @map("created_by") @db.Uuid
+  updatedBy       String?   @map("updated_by") @db.Uuid
+
+  tenant  Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  line    Line?    @relation(fields: [lineId], references: [id], onDelete: Restrict)
+  carrier Carrier? @relation(fields: [carrierId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId])
+  @@map("outbound_routes")
+}
+
+model Contact {
+  id          String      @id @db.Uuid
+  tenantId    String      @map("tenant_id") @db.Uuid
+  userId      String?     @map("user_id") @db.Uuid
+  type        ContactType @default(PERSONAL)
+  firstName   String      @map("first_name")
+  lastName    String?     @map("last_name")
+  company     String?
+  phone       String?
+  email       String?
+  extension   String?
+  department  String?
+  favorite    Boolean     @default(false)
+  speedDial   Int?        @map("speed_dial")
+  version     Int         @default(1)
+  createdAt   DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt   DateTime?   @map("deleted_at") @db.Timestamptz(6)
+  createdBy   String?     @map("created_by") @db.Uuid
+  updatedBy   String?     @map("updated_by") @db.Uuid
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  user   User?  @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId])
+  @@index([tenantId, userId])
+  @@index([tenantId, favorite])
+  @@map("contacts")
+}
+
+model MohPlaylist {
+  id        String    @id @db.Uuid
+  tenantId  String    @map("tenant_id") @db.Uuid
+  name      String
+  isDefault Boolean   @default(false) @map("is_default")
+  version   Int       @default(1)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  tenant Tenant     @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  tracks MohTrack[]
+
+  @@index([tenantId])
+  @@map("moh_playlists")
+}
+
+model MohTrack {
+  id             String    @id @db.Uuid
+  tenantId       String    @map("tenant_id") @db.Uuid
+  playlistId     String?   @map("playlist_id") @db.Uuid
+  name           String
+  mediaObjectKey String    @map("media_object_key")
+  durationSec    Int?      @map("duration_sec")
+  version        Int       @default(1)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  tenant   Tenant       @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  playlist MohPlaylist? @relation(fields: [playlistId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId])
+  @@map("moh_tracks")
+}
+
+model Announcement {
+  id             String    @id @db.Uuid
+  tenantId       String    @map("tenant_id") @db.Uuid
+  name           String
+  language       String    @default("en")
+  mediaObjectKey String    @map("media_object_key")
+  version        Int       @default(1)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  ivrs   IVR[]
+
+  @@index([tenantId])
+  @@map("announcements")
+}
+
+model PagingGroup {
+  id        String    @id @db.Uuid
+  tenantId  String    @map("tenant_id") @db.Uuid
+  name      String
+  code      String
+  version   Int       @default(1)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  tenant  Tenant              @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  members PagingGroupMember[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+  @@map("paging_groups")
+}
+
+model PagingGroupMember {
+  id            String    @id @db.Uuid
+  tenantId      String    @map("tenant_id") @db.Uuid
+  pagingGroupId String    @map("paging_group_id") @db.Uuid
+  lineId        String    @map("line_id") @db.Uuid
+  priority      Int       @default(0)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  deletedAt     DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  pagingGroup PagingGroup @relation(fields: [pagingGroupId], references: [id], onDelete: Restrict)
+  line        Line        @relation(fields: [lineId], references: [id], onDelete: Restrict)
+
+  @@index([pagingGroupId])
+  @@map("paging_group_members")
+}
+
+model VoicemailGreeting {
+  id             String    @id @db.Uuid
+  tenantId       String    @map("tenant_id") @db.Uuid
+  voicemailId    String    @map("voicemail_id") @db.Uuid
+  greetingType   String    @map("greeting_type")
+  mediaObjectKey String?   @map("media_object_key")
+  version        Int       @default(1)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  voicemail Voicemail @relation(fields: [voicemailId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, voicemailId])
+  @@map("voicemail_greetings")
+}
+
+model VoicemailMessage {
+  id             String    @id @db.Uuid
+  tenantId       String    @map("tenant_id") @db.Uuid
+  voicemailId    String    @map("voicemail_id") @db.Uuid
+  callerId       String?   @map("caller_id")
+  durationSec    Int?      @map("duration_sec")
+  mediaObjectKey String?   @map("media_object_key")
+  readAt         DateTime? @map("read_at") @db.Timestamptz(6)
+  version        Int       @default(1)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  voicemail Voicemail @relation(fields: [voicemailId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, voicemailId])
+  @@map("voicemail_messages")
 }
 
 enum RecordingAnnotationType {
