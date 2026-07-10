@@ -1,0 +1,40 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "graphTooltip": 0,
+  "panels": [
+    {
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "fieldConfig": { "defaults": { "unit": "short" } },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "id": 1,
+      "title": "API Health (up=1)",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "up{job=\"vsp-api-health\"}",
+          "legendFormat": "api"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "id": 2,
+      "title": "Telecom metrics scrape",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "up{job=\"vsp-telecom-metrics\"}",
+          "legendFormat": "telecom"
+        }
+      ]
+    }
+  ],
+  "schemaVersion": 39,
+  "tags": ["vsp", "telecom", "rc3"],
+  "time": { "from": "now-6h", "to": "now" },
+  "title": "VSP Phone v4 — Telecom Overview",
+  "uid": "vsp-telecom-rc3",
+  "version": 1
+}

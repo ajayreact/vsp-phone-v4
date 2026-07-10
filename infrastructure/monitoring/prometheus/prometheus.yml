@@ -1,0 +1,31 @@
+# VSP Phone v4 RC3 — Prometheus scrape configuration
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: vsp-api-health
+    metrics_path: /api/health
+    static_configs:
+      - targets: ['api:3000']
+        labels:
+          service: api
+
+  - job_name: vsp-api-ready
+    metrics_path: /api/ready
+    static_configs:
+      - targets: ['api:3000']
+        labels:
+          service: api
+
+  - job_name: vsp-telecom-metrics
+    metrics_path: /api/v1/telecom/metrics
+    static_configs:
+      - targets: ['api:3000']
+        labels:
+          service: telecom
+    # Internal Docker network — add bearer_token in production via secrets mount
+
+  - job_name: prometheus
+    static_configs:
+      - targets: ['localhost:9090']

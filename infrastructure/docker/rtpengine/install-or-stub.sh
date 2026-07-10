@@ -1,29 +1,55 @@
 #!/bin/sh
-# Install rtpengine-daemon when available; else Phase-4 NG-aware stub.
+# Install rtpengine-daemon when available; stub only when explicitly allowed (lab).
 set -eu
 
+REQUIRE="${RTPENGINE_REQUIRE_DAEMON:-0}"
 STUB_DIR=/usr/local/lib/vsp-rtpengine
 mkdir -p "${STUB_DIR}" /var/spool/rtpengine /var/log/rtpengine
 
-if apt-get update \
-  && apt-get install -y --no-install-recommends rtpengine-daemon 2>/dev/null; then
-  echo "[rtpengine] installed rtpengine-daemon from apt"
-  # Prefer Python bencoder CLI if packaged
-  (apt-get install -y --no-install-recommends rtpengine-utils 2>/dev/null || true)
+install_real_daemon() {
+  if apt-get install -y --no-install-recommends rtpengine-daemon 2>/dev/null; then
+    apt-get install -y --no-install-recommends rtpengine-utils 2>/dev/null || true
+    echo "real" > /etc/rtpengine/.backend
+    echo "[rtpengine] installed rtpengine-daemon"
+    return 0
+  fi
+  if apt-get install -y --no-install-recommends ngcp-rtpengine-daemon 2>/dev/null; then
+    apt-get install -y --no-install-recommends ngcp-rtpengine-utils 2>/dev/null || true
+    echo "real" > /etc/rtpengine/.backend
+    echo "[rtpengine] installed ngcp-rtpengine-daemon"
+    return 0
+  fi
+  return 1
+}
+
+try_apt_direct() {
+  apt-get update && install_real_daemon
+}
+
+try_dfx_repo() {
+  echo "[rtpengine] trying dfx.at bookworm repository"
+  curl -fsSL https://dfx.at/rtpengine/gpg.key | gpg --dearmor -o /etc/apt/trusted.gpg.d/dfx.at-rtpengine.gpg
+  echo "deb [signed-by=/etc/apt/trusted.gpg.d/dfx.at-rtpengine.gpg] https://dfx.at/rtpengine bookworm main" \
+    > /etc/apt/sources.list.d/dfx.at-rtpengine.list
+  apt-get update && install_real_daemon
+}
+
+if try_apt_direct || try_dfx_repo; then
   rm -rf /var/lib/apt/lists/*
-  # Marker
-  echo "real" > /etc/rtpengine/.backend
   exit 0
 fi
 
-echo "[rtpengine] apt package unavailable — installing Phase-4 NG control stub"
+if [ "${REQUIRE}" = "1" ] || [ "${REQUIRE}" = "true" ]; then
+  echo "[rtpengine] FATAL: RTPENGINE_REQUIRE_DAEMON=1 but rtpengine-daemon install failed"
+  exit 1
+fi
+
+echo "[rtpengine] apt package unavailable — installing lab NG control stub (no RTP forward)"
 echo "stub" > /etc/rtpengine/.backend
 
-# Minimal UDP NG responder: answers "ping" style control probes for health/Kamailio reachability.
-# NOT a full media forwarder — replace with rtpengine-daemon before call phases.
 cat >"${STUB_DIR}/ng_stub.py" <<'PY'
 #!/usr/bin/env python3
-"""Phase-4 RTPengine NG stub — control plane only."""
+"""Lab-only RTPengine NG stub — control plane ack only. NOT for production."""
 import os
 import socket
 import sys
@@ -43,29 +69,13 @@ def log(msg: str) -> None:
     except OSError:
         pass
 
-def looks_like_ping(data: bytes) -> bool:
-    low = data.lower()
-    return b"ping" in low or b"d4:ping" in low or b"offer" in low or b"answer" in low or b"delete" in low or b"query" in low
-
-def command_hint(data: bytes) -> str:
-    low = data.lower()
-    for cmd in (b"offer", b"answer", b"delete", b"ping", b"query"):
-        if cmd in low:
-            return cmd.decode("ascii")
-    return "unknown"
-
 def reply_for(data: bytes) -> bytes:
-    # Kamailio/rtpengine often use bencode; return a simple cookie-preserving pong when possible.
-    # If message starts with cookie + space (NG cookie style), echo cookie.
     try:
         text = data.decode("utf-8", "replace")
     except Exception:
         text = ""
-    cookie = ""
-    if " " in text:
-        cookie = text.split(" ", 1)[0]
-    # Minimal positive ack (not full bencode engine)
-    body = "d7:result2:oke"
+    cookie = text.split(" ", 1)[0] if " " in text else ""
+    body = "d7:result2:ok"
     if cookie:
         return f"{cookie} {body}".encode("ascii", "replace")
     return body.encode("ascii")
@@ -74,20 +84,14 @@ def main() -> None:
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     sock.bind((HOST, PORT))
-    log(f"[rtpengine-stub] NG listening udp://{HOST}:{PORT}")
-    log("[rtpengine-stub] Phase 9 control ack — offer/answer/delete logged; no RTP forward (install rtpengine-daemon for media)")
+    log(f"[rtpengine-stub] NG listening udp://{HOST}:{PORT} — lab only, no media")
     while True:
+        data, addr = sock.recvfrom(65535)
+        log(f"[rtpengine-stub] ng from {addr[0]}:{addr[1]} bytes={len(data)}")
         try:
-            data, addr = sock.recvfrom(65535)
+            sock.sendto(reply_for(data), addr)
         except Exception as exc:
-            log(f"[rtpengine-stub] recv error: {exc}")
-            continue
-        log(f"[rtpengine-stub] ng from {addr[0]}:{addr[1]} cmd={command_hint(data)} bytes={len(data)}")
-        if looks_like_ping(data) or True:
-            try:
-                sock.sendto(reply_for(data), addr)
-            except Exception as exc:
-                log(f"[rtpengine-stub] send error: {exc}")
+            log(f"[rtpengine-stub] send error: {exc}")
 
 if __name__ == "__main__":
     main()
@@ -97,27 +101,18 @@ chmod +x "${STUB_DIR}/ng_stub.py"
 cat >/usr/local/bin/rtpengine <<'EOF'
 #!/bin/sh
 set -eu
-CONF="${RTPENGINE_CONF:-/etc/rtpengine/rtpengine.conf}"
-echo "[rtpengine-stub] Phase 4 NG stub starting (config=${CONF})"
-echo "[rtpengine-stub] Recording dir prepared at /var/spool/rtpengine — no pipeline"
+echo "[rtpengine-stub] lab stub — install rtpengine-daemon for production media"
 mkdir -p /var/spool/rtpengine /var/log/rtpengine
-# Parse listen-ng port from conf if present
-if [ -f "${CONF}" ]; then
-  NG_LINE=$(grep -E '^[[:space:]]*listen-ng' "${CONF}" | head -n1 || true)
-  echo "[rtpengine-stub] ${NG_LINE:-listen-ng default 0.0.0.0:2223}"
-fi
 exec python3 /usr/local/lib/vsp-rtpengine/ng_stub.py
 EOF
 chmod +x /usr/local/bin/rtpengine
 
-# Provide a local ng-client ping helper for healthchecks
 cat >/usr/local/bin/rtpengine-ng-ping <<'EOF'
 #!/usr/bin/env python3
 import os, socket, sys, time
 host = os.environ.get("RTPENGINE_PING_HOST", "127.0.0.1")
 port = int(os.environ.get("RTPENGINE_NG_PORT", "2223"))
 cookie = f"vsp{int(time.time())}"
-# Simplistic NG ping resembling cookie + bencode ping dict
 msg = f"{cookie} d4:ping0:e".encode()
 s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 s.settimeout(2.0)

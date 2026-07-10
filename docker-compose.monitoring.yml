@@ -1,0 +1,42 @@
+# VSP Phone v4 RC3 — Prometheus + Grafana (optional overlay)
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.monitoring.yml up -d prometheus grafana
+
+services:
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    container_name: vsp-prometheus
+    restart: unless-stopped
+    volumes:
+      - ./infrastructure/monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - '${PROMETHEUS_PORT:-9090}:9090'
+    networks: [vsp_internal]
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.enable-lifecycle'
+
+  grafana:
+    image: grafana/grafana:11.4.0
+    container_name: vsp-grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: 'false'
+    volumes:
+      - grafana_data:/var/grafana
+      - ./infrastructure/monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+    ports:
+      - '${GRAFANA_PORT:-3002}:3000'
+    networks: [vsp_internal]
+    depends_on:
+      - prometheus
+
+volumes:
+  prometheus_data:
+    name: vsp_prometheus_data
+  grafana_data:
+    name: vsp_grafana_data

@@ -32,6 +32,7 @@ export type SmokeTestId =
   | 'park'
   | 'pickup'
   | 'recording'
+  | 'rtpengine_media'
   | 'presence'
   | 'blf'
   | 'telnyx_webhook'

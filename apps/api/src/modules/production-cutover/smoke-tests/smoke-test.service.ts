@@ -172,18 +172,24 @@ export class SmokeTestService {
       {
         id: 'ivr',
         name: 'IVR configuration',
-        run: async () => this.featureReady('IVR media/config present', 'TELECOM_IVR_MEDIA_URI'),
+        run: async () =>
+          this.featureReady('IVR media/config present', 'IVR_MEDIA_URI', 'TELECOM_IVR_MEDIA_URI'),
       },
       {
         id: 'queue',
         name: 'Queue configuration',
-        run: async () => this.featureReady('Queue media/config present', 'TELECOM_QUEUE_MEDIA_URI'),
+        run: async () =>
+          this.featureReady('Queue media/config present', 'QUEUE_MEDIA_URI', 'TELECOM_QUEUE_MEDIA_URI'),
       },
       {
         id: 'conference',
         name: 'Conference configuration',
         run: async () =>
-          this.featureReady('Conference bridge configured', 'TELECOM_CONFERENCE_MEDIA_URI'),
+          this.featureReady(
+            'Conference bridge configured',
+            'CONFERENCE_MEDIA_URI',
+            'TELECOM_CONFERENCE_MEDIA_URI',
+          ),
       },
       {
         id: 'park',
@@ -199,8 +205,36 @@ export class SmokeTestService {
         id: 'recording',
         name: 'Recording service',
         run: async () => {
-          const pass = Boolean(this.config.get('RECORDING_STORAGE_PATH') || this.redis.isAvailable());
-          return { pass, detail: pass ? 'Recording infrastructure available' : 'Recording not configured' };
+          const bucket = this.config.get('S3_BUCKET') || this.config.get('RECORDING_S3_BUCKET');
+          const path = this.config.get('RECORDING_STORAGE_PATH');
+          const pass = Boolean(bucket || path || this.redis.isAvailable());
+          return {
+            pass,
+            detail: pass
+              ? 'Recording storage (S3/spool) or Redis metadata available'
+              : 'Recording not configured',
+          };
+        },
+      },
+      {
+        id: 'rtpengine_media',
+        name: 'RTPengine media backend',
+        run: async () => {
+          const rtp = await this.health.checkRtpengine();
+          const requireReal =
+            String(this.config.get('RTPENGINE_REQUIRE_DAEMON') ?? '').toLowerCase() === 'true' ||
+            String(this.config.get('RTPENGINE_REQUIRE_DAEMON') ?? '') === '1' ||
+            this.config.get('VSP_ENV') === 'production';
+          const pass = rtp.status === 'up' && (!requireReal || rtp.status === 'up');
+          return {
+            pass,
+            detail:
+              pass && requireReal
+                ? 'RTPengine NG reachable (production requires real daemon at deploy time)'
+                : pass
+                  ? 'RTPengine NG reachable'
+                  : 'RTPengine unavailable',
+          };
         },
       },
       {
@@ -235,12 +269,16 @@ export class SmokeTestService {
     ];
   }
 
-  private featureReady(okDetail: string, envKey: string): Promise<{ pass: boolean; detail?: string }> {
-    const val = this.config.get(envKey);
+  private featureReady(
+    okDetail: string,
+    primaryKey: string,
+    legacyKey?: string,
+  ): Promise<{ pass: boolean; detail?: string }> {
+    const val = this.config.get(primaryKey) || (legacyKey ? this.config.get(legacyKey) : undefined);
     const pass = Boolean(val) || this.config.get('VSP_ENV') === 'development';
     return Promise.resolve({
       pass,
-      detail: pass ? okDetail : `${envKey} not configured`,
+      detail: pass ? okDetail : `${primaryKey} not configured`,
     });
   }
 

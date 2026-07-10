@@ -49,6 +49,7 @@
     "telecom:validate:phase19": "node ./scripts/telecom/validate-phase19.cjs",
     "telecom:validate:phase20": "node ./scripts/telecom/validate-phase20.cjs",
     "telecom:validate:remediation": "node ./scripts/telecom/validate-remediation.cjs",
+    "rc3:validate": "node ./scripts/rc3/validate-telecom-infrastructure.cjs",
     "telecom:openapi": "node ./scripts/telecom/export-openapi.cjs",
     "dev:ps1": "powershell -ExecutionPolicy Bypass -File ./scripts/dev.ps1"
   },

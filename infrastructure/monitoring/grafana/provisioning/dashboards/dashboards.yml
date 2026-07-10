@@ -1,0 +1,11 @@
+apiVersion: 1
+
+providers:
+  - name: VSP Phone
+    orgId: 1
+    folder: VSP Phone v4
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    options:
+      path: /etc/grafana/provisioning/dashboards/json

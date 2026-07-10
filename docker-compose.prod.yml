@@ -1,9 +1,9 @@
 # ------------------------------------------------------------------------------
-# VSP Phone v4 — production-oriented Compose overlay (Phase 1 skeleton)
+# VSP Phone v4 — production Compose overlay (RC3)
 # Usage:
 #   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
-#
-# Do not commit real production secrets. Supply env via sealed mechanism.
+# Monitoring (optional):
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.monitoring.yml up -d
 # ------------------------------------------------------------------------------
 
 services:
@@ -11,15 +11,34 @@ services:
     build:
       target: production
     volumes:
-      # Operational scripts (bootstrap) — mounted from host so rebuild is not required
       - ./scripts/platform:/app/scripts/platform:ro
       - ./prisma:/app/prisma:ro
       - ./prisma.config.ts:/app/prisma.config.ts:ro
+      - rtpengine_spool:/var/spool/rtpengine:ro
     environment:
       NODE_ENV: production
       VSP_ENV: production
       LOG_FORMAT: json
       LOG_LEVEL: info
+      SWAGGER_ENABLED: ${SWAGGER_ENABLED:-false}
+      JWT_SECRET: ${JWT_SECRET}
+      TELECOM_SERVICE_AUTH_TOKEN: ${TELECOM_SERVICE_AUTH_TOKEN}
+      TELNYX_WEBHOOK_SECRET: ${TELNYX_WEBHOOK_SECRET}
+      TELNYX_API_KEY: ${TELNYX_API_KEY:-}
+      VSP_PLATFORM_INVENTORY_TENANT_ID: ${VSP_PLATFORM_INVENTORY_TENANT_ID:-}
+      CORS_ORIGINS: ${CORS_ORIGINS:-https://admin.vspphone.com,https://app.vspphone.com,https://tenant.vspphone.com}
+      RTPENGINE_HOST: rtpengine
+      RTPENGINE_REQUIRE_DAEMON: ${RTPENGINE_REQUIRE_DAEMON:-1}
+      S3_ENDPOINT: ${S3_ENDPOINT:-http://minio:9000}
+      S3_BUCKET: ${S3_BUCKET:-vsp-recordings}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-vspminio}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:-vsp_minio_dev_password}
+      S3_FORCE_PATH_STYLE: ${S3_FORCE_PATH_STYLE:-true}
+      RECORDING_STORAGE_PATH: /var/spool/rtpengine
+      QUEUE_MEDIA_URI: ${QUEUE_MEDIA_URI:-}
+      IVR_MEDIA_URI: ${IVR_MEDIA_URI:-}
+      CONFERENCE_MEDIA_URI: ${CONFERENCE_MEDIA_URI:-}
+      VOICEMAIL_MEDIA_URI: ${VOICEMAIL_MEDIA_URI:-}
 
   admin:
     build:
@@ -29,3 +48,44 @@ services:
     environment:
       NODE_ENV: production
       VSP_ENV: production
+      TELECOM_SERVICE_AUTH_TOKEN: ${TELECOM_SERVICE_AUTH_TOKEN}
+      API_INTERNAL_URL: ${API_INTERNAL_URL:-http://api:3000/api}
+
+  rtpengine:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/Dockerfile.rtpengine
+      args:
+        RTPENGINE_REQUIRE_DAEMON: ${RTPENGINE_REQUIRE_DAEMON:-1}
+    environment:
+      RTPENGINE_REQUIRE_DAEMON: ${RTPENGINE_REQUIRE_DAEMON:-1}
+      RTPENGINE_ADVERTISE: ${RTPENGINE_ADVERTISE:-}
+      RTPENGINE_LOG_LEVEL: ${RTPENGINE_LOG_LEVEL:-5}
+    restart: always
+
+  minio:
+    profiles: []
+    restart: always
+
+  kamailio:
+    restart: always
+
+  postgres:
+    restart: always
+
+  redis:
+    restart: always
+
+  coturn:
+    profiles: ['turn']
+    image: coturn/coturn:4.6.2-r8
+    container_name: vsp-coturn
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      TURN_REALM: ${TURN_REALM:-vspphone.com}
+      TURN_USERNAME: ${WEBRTC_TURN_USERNAME:-}
+      TURN_PASSWORD: ${WEBRTC_TURN_PASSWORD:-}
+    volumes:
+      - ./infrastructure/turn/turnserver.conf:/etc/coturn/turnserver.conf:ro
+    command: ['-c', '/etc/coturn/turnserver.conf']
