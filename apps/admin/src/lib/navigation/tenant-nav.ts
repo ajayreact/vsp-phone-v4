@@ -137,9 +137,16 @@ export const TENANT_MODULES: ModuleDefinition[] = [
     icon: Route,
     permission: PERMISSIONS.TENANT_ROUTING_READ,
     integration: 'live',
-    description: 'Inbound/outbound routing rules and time-based routing.',
+    description: 'Inbound/outbound routing rules, dial plans, time conditions, and holidays.',
     breadcrumb: ['Call Routing', 'Rules'],
-    apiEndpoints: ['/v1/tenant/routing/policies'],
+    apiEndpoints: [
+      '/v1/tenant/routing/policies',
+      '/v1/tenant/routing/inbound',
+      '/v1/tenant/routing/outbound',
+      '/v1/tenant/dial-plans',
+      '/v1/tenant/time-conditions',
+      '/v1/tenant/holiday-calendars',
+    ],
   },
   {
     id: 'ring-groups',
@@ -175,7 +182,7 @@ export const TENANT_MODULES: ModuleDefinition[] = [
     integration: 'live',
     description: 'Interactive voice response menus and call flows.',
     breadcrumb: ['Call Routing', 'IVR'],
-    apiEndpoints: ['/v1/tenant/ivrs'],
+    apiEndpoints: ['/v1/tenant/ivrs', '/v1/tenant/audio/announcements'],
   },
   {
     id: 'voicemail',

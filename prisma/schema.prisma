@@ -253,6 +253,60 @@ enum IvrStatus {
   @@map("ivr_status")
 }
 
+enum IvrFlowStatus {
+  DRAFT
+  PUBLISHED
+
+  @@map("ivr_flow_status")
+}
+
+enum TimeConditionScheduleType {
+  BUSINESS_HOURS
+  AFTER_HOURS
+  LUNCH
+  WEEKENDS
+  HOLIDAYS
+  EMERGENCY
+  CUSTOM
+
+  @@map("time_condition_schedule_type")
+}
+
+enum AudioAssetCategory {
+  GREETING
+  MUSIC
+  ANNOUNCEMENT
+  PROMPT
+  TTS
+
+  @@map("audio_asset_category")
+}
+
+enum DialPlanRuleType {
+  NORMALIZATION
+  PREFIX
+  SUFFIX
+  SPEED_DIAL
+  SHORT_CODE
+  FEATURE_CODE
+  EMERGENCY
+  COUNTRY_CODE
+
+  @@map("dial_plan_rule_type")
+}
+
+enum IvrInteractionEventType {
+  ENTRY
+  MENU_SELECTION
+  TIMEOUT
+  INVALID
+  TRANSFER
+  DISCONNECT
+  FAILURE
+
+  @@map("ivr_interaction_event_type")
+}
+
 enum IvrDestinationType {
   LINE
   QUEUE
@@ -262,6 +316,7 @@ enum IvrDestinationType {
   RING_GROUP
   EXTERNAL
   WEBHOOK
+  SIP_URI
 
   @@map("ivr_destination_type")
 }
@@ -343,6 +398,7 @@ enum RouteDestinationType {
   CONFERENCE
   EXTERNAL
   TIME_CONDITION
+  SIP_URI
 
   @@map("route_destination_type")
 }
@@ -472,6 +528,9 @@ model Tenant {
   firmwareReleases       FirmwareRelease[]
   inboundRoutes          InboundRoute[]
   outboundRoutes         OutboundRoute[]
+  dialPlanRules          DialPlanRule[]
+  ivrFlowVersions        IvrFlowVersion[]
+  ivrInteractionLogs     IvrInteractionLog[]
   contacts               Contact[]
   mohPlaylists           MohPlaylist[]
   mohTracks              MohTrack[]
@@ -1198,6 +1257,7 @@ model PhoneNumber {
   callerIdPresentations CallerID[]
   callSessions          CallSession[]
   inboundRoutes         InboundRoute[]
+  ivrs                  IVR[]
 
   @@unique([tenantId, number])
   @@index([tenantId])
@@ -1653,10 +1713,27 @@ model IVR {
   tenantId  String    @map("tenant_id") @db.Uuid
   name      String
   code      String
+  description String?
+  extension String?
+  phoneNumberId String? @map("phone_number_id") @db.Uuid
+  language  String    @default("en")
   status    IvrStatus @default(ACTIVE)
+  flowStatus IvrFlowStatus @default(DRAFT) @map("flow_status")
   greetingAnnouncementId String? @map("greeting_announcement_id") @db.Uuid
   timeoutSec Int      @default(10) @map("timeout_sec")
   invalidRetries Int  @default(3) @map("invalid_retries")
+  invalidOptionDestinationType IvrDestinationType? @map("invalid_option_destination_type")
+  invalidOptionDestinationId String? @map("invalid_option_destination_id") @db.Uuid
+  recordingPolicyId String? @map("recording_policy_id") @db.Uuid
+  timeConditionId String? @map("time_condition_id") @db.Uuid
+  holidayCalendarId String? @map("holiday_calendar_id") @db.Uuid
+  failoverDestinationType RouteDestinationType? @map("failover_destination_type")
+  failoverDestinationId String? @map("failover_destination_id") @db.Uuid
+  emergencyOverrideEnabled Boolean @default(false) @map("emergency_override_enabled")
+  draftFlowJson Json? @map("draft_flow_json") @db.JsonB
+  publishedFlowJson Json? @map("published_flow_json") @db.JsonB
+  publishedVersion Int @default(0) @map("published_version")
+  publishedAt DateTime? @map("published_at") @db.Timestamptz(6)
   version   Int       @default(1)
   createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -1670,13 +1747,19 @@ model IVR {
   updater      User?         @relation("IVRUpdatedBy", fields: [updatedBy], references: [id], onDelete: Restrict)
   deleter      User?         @relation("IVRDeletedBy", fields: [deletedBy], references: [id], onDelete: Restrict)
   greetingAnnouncement Announcement? @relation(fields: [greetingAnnouncementId], references: [id], onDelete: Restrict)
+  phoneNumber  PhoneNumber?  @relation(fields: [phoneNumberId], references: [id], onDelete: Restrict)
+  timeCondition TimeCondition? @relation("IvrTimeCondition", fields: [timeConditionId], references: [id], onDelete: Restrict)
+  holidayCalendar HolidayCalendar? @relation("IvrHolidayCalendar", fields: [holidayCalendarId], references: [id], onDelete: Restrict)
   menus        IVRMenu[]
+  flowVersions IvrFlowVersion[]
+  interactionLogs IvrInteractionLog[]
   callSessions CallSession[]
   menuDestinations IVRMenu[] @relation("IVRMenuDestinationIvr")
 
   @@unique([tenantId, code])
   @@index([tenantId])
   @@index([tenantId, status])
+  @@index([tenantId, flowStatus])
   @@index([deletedAt])
   @@map("ivrs")
 }
@@ -2248,15 +2331,20 @@ model TimeCondition {
   id        String    @id @db.Uuid
   tenantId  String    @map("tenant_id") @db.Uuid
   name      String
+  description String?
+  scheduleType TimeConditionScheduleType @default(BUSINESS_HOURS) @map("schedule_type")
   timezone  String
   version   Int       @default(1)
   createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
 
   tenant Tenant              @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   rules  TimeConditionRule[]
   inboundRoutes InboundRoute[]
+  ivrs   IVR[] @relation("IvrTimeCondition")
 
   @@index([tenantId])
   @@map("time_conditions")
@@ -2280,12 +2368,19 @@ model HolidayCalendar {
   id        String    @id @db.Uuid
   tenantId  String    @map("tenant_id") @db.Uuid
   name      String
+  description String?
+  region    String?
+  version   Int       @default(1)
   createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
 
   tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   holidays Holiday[]
+  inboundRoutes InboundRoute[]
+  ivrs     IVR[] @relation("IvrHolidayCalendar")
 
   @@index([tenantId])
   @@map("holiday_calendars")
@@ -2296,6 +2391,9 @@ model Holiday {
   holidayCalendarId String   @map("holiday_calendar_id") @db.Uuid
   name              String
   date              DateTime @db.Date
+  recurring         Boolean  @default(false)
+  region            String?
+  isOverride        Boolean  @default(false) @map("is_override")
   createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
   calendar HolidayCalendar @relation(fields: [holidayCalendarId], references: [id], onDelete: Restrict)
@@ -2409,6 +2507,7 @@ model InboundRoute {
   id                String               @id @db.Uuid
   tenantId          String               @map("tenant_id") @db.Uuid
   name              String
+  description       String?
   phoneNumberId     String?              @map("phone_number_id") @db.Uuid
   priority          Int                  @default(100)
   destinationType   RouteDestinationType @map("destination_type")
@@ -2417,7 +2516,15 @@ model InboundRoute {
   destinationIvrId  String?              @map("destination_ivr_id") @db.Uuid
   destinationRingGroupId String?         @map("destination_ring_group_id") @db.Uuid
   timeConditionId   String?              @map("time_condition_id") @db.Uuid
+  holidayCalendarId String?              @map("holiday_calendar_id") @db.Uuid
+  openHoursDestinationType RouteDestinationType? @map("open_hours_destination_type")
+  openHoursDestinationId String?          @map("open_hours_destination_id") @db.Uuid
+  afterHoursDestinationType RouteDestinationType? @map("after_hours_destination_type")
+  afterHoursDestinationId String?         @map("after_hours_destination_id") @db.Uuid
+  failoverDestinationType RouteDestinationType? @map("failover_destination_type")
+  failoverDestinationId String?           @map("failover_destination_id") @db.Uuid
   externalDestination String?            @map("external_destination")
+  enabled           Boolean              @default(true)
   version           Int                  @default(1)
   createdAt         DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt         DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -2428,9 +2535,11 @@ model InboundRoute {
   tenant      Tenant         @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   phoneNumber PhoneNumber?   @relation(fields: [phoneNumberId], references: [id], onDelete: Restrict)
   timeCondition TimeCondition? @relation(fields: [timeConditionId], references: [id], onDelete: Restrict)
+  holidayCalendar HolidayCalendar? @relation(fields: [holidayCalendarId], references: [id], onDelete: Restrict)
 
   @@index([tenantId])
   @@index([tenantId, phoneNumberId])
+  @@index([tenantId, priority])
   @@map("inbound_routes")
 }
 
@@ -2438,13 +2547,20 @@ model OutboundRoute {
   id              String    @id @db.Uuid
   tenantId        String    @map("tenant_id") @db.Uuid
   name            String
+  description     String?
   lineId          String?   @map("line_id") @db.Uuid
   pattern         String
+  prefix          String?
+  suffix          String?
+  stripDigits     Int       @default(0) @map("strip_digits")
+  callerIdPolicy  String?   @map("caller_id_policy")
   carrierId       String?   @map("carrier_id") @db.Uuid
+  failoverCarrierId String? @map("failover_carrier_id") @db.Uuid
   priority        Int       @default(100)
   emergencyRoute  Boolean   @default(false) @map("emergency_route")
   internationalAllowed Boolean @default(true) @map("international_allowed")
   normalizeE164   Boolean   @default(true) @map("normalize_e164")
+  enabled         Boolean   @default(true)
   version         Int       @default(1)
   createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -2457,6 +2573,7 @@ model OutboundRoute {
   carrier Carrier? @relation(fields: [carrierId], references: [id], onDelete: Restrict)
 
   @@index([tenantId])
+  @@index([tenantId, priority])
   @@map("outbound_routes")
 }
 
@@ -2530,18 +2647,88 @@ model Announcement {
   id             String    @id @db.Uuid
   tenantId       String    @map("tenant_id") @db.Uuid
   name           String
+  description    String?
+  category       AudioAssetCategory @default(PROMPT)
   language       String    @default("en")
-  mediaObjectKey String    @map("media_object_key")
+  mediaObjectKey String?   @map("media_object_key")
+  ttsText        String?   @map("tts_text")
+  ttsVoice       String?   @map("tts_voice")
   version        Int       @default(1)
   createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+  createdBy      String?   @map("created_by") @db.Uuid
+  updatedBy      String?   @map("updated_by") @db.Uuid
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   ivrs   IVR[]
 
   @@index([tenantId])
+  @@index([tenantId, category])
   @@map("announcements")
+}
+
+model IvrFlowVersion {
+  id          String   @id @db.Uuid
+  tenantId    String   @map("tenant_id") @db.Uuid
+  ivrId       String   @map("ivr_id") @db.Uuid
+  version     Int
+  flowJson    Json     @map("flow_json") @db.JsonB
+  changeNotes String?  @map("change_notes")
+  publishedBy String?  @map("published_by") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  ivr    IVR    @relation(fields: [ivrId], references: [id], onDelete: Restrict)
+
+  @@unique([ivrId, version])
+  @@index([tenantId, ivrId])
+  @@map("ivr_flow_versions")
+}
+
+model IvrInteractionLog {
+  id            String                  @id @db.Uuid
+  tenantId      String                  @map("tenant_id") @db.Uuid
+  ivrId         String                  @map("ivr_id") @db.Uuid
+  callSessionId String?                 @map("call_session_id") @db.Uuid
+  eventType     IvrInteractionEventType @map("event_type")
+  nodeId        String?                 @map("node_id")
+  digit         String?
+  metadata      Json?                   @db.JsonB
+  createdAt     DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  ivr    IVR    @relation(fields: [ivrId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, ivrId])
+  @@index([tenantId, ivrId, createdAt])
+  @@index([tenantId, eventType])
+  @@map("ivr_interaction_logs")
+}
+
+model DialPlanRule {
+  id          String           @id @db.Uuid
+  tenantId    String           @map("tenant_id") @db.Uuid
+  name        String
+  ruleType    DialPlanRuleType @map("rule_type")
+  pattern     String
+  replacement String?
+  priority    Int              @default(100)
+  enabled     Boolean          @default(true)
+  metadata    Json?            @db.JsonB
+  version     Int              @default(1)
+  createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt   DateTime?        @map("deleted_at") @db.Timestamptz(6)
+  createdBy   String?          @map("created_by") @db.Uuid
+  updatedBy   String?          @map("updated_by") @db.Uuid
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId])
+  @@index([tenantId, ruleType])
+  @@index([tenantId, priority])
+  @@map("dial_plan_rules")
 }
 
 model PagingGroup {
