@@ -7,7 +7,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { CarrierType, PhoneNumberStatus, Prisma } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
-import { PrismaService } from '../telecom/prisma/prisma.service';
+import { PrismaService } from '../../telecom/prisma/prisma.service';
 import type {
   AssignTelnyxNumberDto,
   BulkAssignTelnyxNumbersDto,
@@ -16,8 +16,8 @@ import type {
   PurchaseTelnyxNumberDto,
   TelnyxNumberResponseDto,
   UpdateTelnyxNumberDto,
-} from './dto/telnyx-numbers.dto';
-import { TelnyxApiClient, type TelnyxPhoneNumberApi } from './telnyx-api.client';
+} from '../dto/telnyx-numbers.dto';
+import { TelnyxApiClient, type TelnyxPhoneNumberApi } from '../telnyx-api.client';
 
 type StoredTelnyxMeta = {
   telnyxId?: string;
