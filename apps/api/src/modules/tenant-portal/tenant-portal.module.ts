@@ -2,7 +2,9 @@ import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import { CarrierAdminModule } from '../carrier-admin/carrier-admin.module';
 import { EnterpriseObservabilityCoreModule } from '../enterprise-observability/enterprise-observability-core.module';
+import { EnterpriseOpsCoreModule } from '../enterprise-ops/enterprise-ops-core.module';
 import { EnterpriseSecurityCoreModule } from '../enterprise-security/enterprise-security-core.module';
+import { PresenceModule } from '../presence/module';
 import { ProvisioningCoreModule } from '../provisioning/provisioning-core.module';
 import { RecordingCoreModule } from '../recording/recording-core.module';
 import { TelecomInfrastructureModule } from '../telecom/telecom-infrastructure.module';
@@ -30,7 +32,12 @@ import { TenantRingGroupsController } from './controllers/tenant-ring-groups.con
 import { TenantRoutingController } from './controllers/tenant-routing.controller';
 import { TenantTimeConditionsController } from './controllers/tenant-time-conditions.controller';
 import { TenantUsersController } from './controllers/tenant-users.controller';
+import { TenantBlfController } from './controllers/tenant-blf.controller';
+import { TenantContactsController } from './controllers/tenant-contacts.controller';
+import { TenantPresenceController } from './controllers/tenant-presence.controller';
+import { TenantReceptionController } from './controllers/tenant-reception.controller';
 import { TenantVoicemailController } from './controllers/tenant-voicemail.controller';
+import { TenantVoicemailService } from './services/tenant-voicemail.service';
 import { TenantAudioLibraryService } from './services/tenant-audio-library.service';
 import { TenantCallRoutesService } from './services/tenant-call-routes.service';
 import { TenantCdrService } from './services/tenant-cdr.service';
@@ -54,12 +61,18 @@ import { TenantRingGroupsService } from './services/tenant-ring-groups.service';
 import { TenantRoutingEventsService } from './services/tenant-routing-events.service';
 import { TenantRoutingService } from './services/tenant-routing.service';
 import { TenantTimeConditionsService } from './services/tenant-time-conditions.service';
-import { TenantVoicemailService } from './services/tenant-voicemail.service';
+import { TenantBlfService } from './services/tenant-blf.service';
+import { TenantContactsService } from './services/tenant-contacts.service';
+import { TenantPresenceService } from './services/tenant-presence.service';
+import { TenantReceptionEventsService } from './services/tenant-reception-events.service';
+import { TenantReceptionService } from './services/tenant-reception.service';
 
 @Module({
   imports: [
     TelecomInfrastructureModule,
     EnterpriseSecurityCoreModule,
+    EnterpriseOpsCoreModule,
+    PresenceModule,
     AuthModule,
     CarrierAdminModule,
     EnterpriseObservabilityCoreModule,
@@ -85,6 +98,10 @@ import { TenantVoicemailService } from './services/tenant-voicemail.service';
     TenantConferencesController,
     TenantCdrController,
     TenantVoicemailController,
+    TenantPresenceController,
+    TenantContactsController,
+    TenantBlfController,
+    TenantReceptionController,
     TenantRoutingController,
     TenantDidsController,
     TenantMarketplaceController,
@@ -112,6 +129,11 @@ import { TenantVoicemailService } from './services/tenant-voicemail.service';
     TenantConferencesService,
     TenantCdrService,
     TenantVoicemailService,
+    TenantPresenceService,
+    TenantContactsService,
+    TenantBlfService,
+    TenantReceptionService,
+    TenantReceptionEventsService,
     TenantRoutingService,
     TenantDidsService,
     TenantMarketplaceService,

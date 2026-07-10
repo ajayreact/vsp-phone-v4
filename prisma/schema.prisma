@@ -101,9 +101,15 @@ enum PresenceStatus {
   AVAILABLE
   BUSY
   ON_CALL
+  RINGING
   AWAY
   DND
   OFFLINE
+  OUT_OF_OFFICE
+  MEETING
+  BREAK
+  LUNCH
+  VACATION
 
   @@map("presence_status")
 }
@@ -384,6 +390,8 @@ enum DeviceManufacturer {
 enum ContactType {
   COMPANY
   PERSONAL
+  SHARED
+  EXTERNAL
 
   @@map("contact_type")
 }
@@ -582,7 +590,11 @@ model Tenant {
   ivrFlowVersions        IvrFlowVersion[]
   ivrInteractionLogs     IvrInteractionLog[]
   contacts               Contact[]
-  mohPlaylists           MohPlaylist[]
+  contactRecents           ContactRecent[]
+  parkingLots              ParkingLot[]
+  blfPanels                BlfPanel[]
+  directoryIntegrations    DirectoryIntegration[]
+  mohPlaylists             MohPlaylist[]
   mohTracks              MohTrack[]
   announcements          Announcement[]
   pagingGroups           PagingGroup[]
@@ -824,6 +836,8 @@ model User {
   devices           Device[]
   deviceAssignments DeviceAssignment[]
   contacts          Contact[]
+  contactRecents    ContactRecent[]
+  blfPanels         BlfPanel[]
 
   userSites UserSite[]
   userRoles UserRole[]
@@ -1133,6 +1147,10 @@ model Line {
   telephonySettings      LineTelephonySettings?
   pagingGroupMembers     PagingGroupMember[]
   outboundRoutes         OutboundRoute[]
+  contacts               Contact[]
+  contactRecents         ContactRecent[]
+  blfPanels              BlfPanel[]
+  blfWatchedKeys         BlfPanelKey[]           @relation("BlfWatchedLine")
 
   @@index([tenantId])
   @@index([tenantId, userId])
@@ -2677,33 +2695,173 @@ model OutboundRoute {
 }
 
 model Contact {
-  id          String      @id @db.Uuid
-  tenantId    String      @map("tenant_id") @db.Uuid
-  userId      String?     @map("user_id") @db.Uuid
-  type        ContactType @default(PERSONAL)
-  firstName   String      @map("first_name")
-  lastName    String?     @map("last_name")
-  company     String?
-  phone       String?
-  email       String?
-  extension   String?
-  department  String?
-  favorite    Boolean     @default(false)
-  speedDial   Int?        @map("speed_dial")
-  version     Int         @default(1)
-  createdAt   DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt   DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt   DateTime?   @map("deleted_at") @db.Timestamptz(6)
-  createdBy   String?     @map("created_by") @db.Uuid
-  updatedBy   String?     @map("updated_by") @db.Uuid
+  id            String      @id @db.Uuid
+  publicId      String      @unique @map("public_id")
+  tenantId      String      @map("tenant_id") @db.Uuid
+  userId        String?     @map("user_id") @db.Uuid
+  lineId        String?     @map("line_id") @db.Uuid
+  type          ContactType @default(PERSONAL)
+  firstName     String      @map("first_name")
+  lastName      String?     @map("last_name")
+  company       String?
+  department    String?
+  phone         String?
+  directNumber  String?     @map("direct_number")
+  mobile        String?
+  email         String?
+  extension     String?
+  photoUrl      String?     @map("photo_url")
+  location      String?
+  notes         String?
+  favorite      Boolean     @default(false)
+  speedDial     Int?        @map("speed_dial")
+  ldapDn        String?     @map("ldap_dn")
+  azureObjectId String?     @map("azure_object_id")
+  version       Int         @default(1)
+  createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt     DateTime?   @map("deleted_at") @db.Timestamptz(6)
+  createdBy     String?     @map("created_by") @db.Uuid
+  updatedBy     String?     @map("updated_by") @db.Uuid
 
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  user   User?  @relation(fields: [userId], references: [id], onDelete: Restrict)
+  tenant  Tenant          @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  user    User?           @relation(fields: [userId], references: [id], onDelete: Restrict)
+  line    Line?           @relation(fields: [lineId], references: [id], onDelete: Restrict)
+  recents ContactRecent[]
 
   @@index([tenantId])
   @@index([tenantId, userId])
+  @@index([tenantId, type])
   @@index([tenantId, favorite])
+  @@index([tenantId, speedDial])
   @@map("contacts")
+}
+
+model ContactRecent {
+  id        String   @id @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  contactId String?  @map("contact_id") @db.Uuid
+  lineId    String?  @map("line_id") @db.Uuid
+  dialedAt  DateTime @default(now()) @map("dialed_at") @db.Timestamptz(6)
+  label     String?
+  number    String?
+
+  tenant  Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  user    User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+  contact Contact? @relation(fields: [contactId], references: [id], onDelete: Restrict)
+  line    Line?    @relation(fields: [lineId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, userId, dialedAt])
+  @@map("contact_recents")
+}
+
+model ParkingLot {
+  id                  String    @id @db.Uuid
+  publicId            String    @unique @map("public_id")
+  tenantId            String    @map("tenant_id") @db.Uuid
+  name                String
+  code                String
+  slotStart           Int       @default(1) @map("slot_start")
+  slotCount           Int       @default(20) @map("slot_count")
+  timeoutSec          Int       @default(300) @map("timeout_sec")
+  overflowDestination String?   @map("overflow_destination")
+  mohPlaylistId       String?   @map("moh_playlist_id") @db.Uuid
+  version             Int       @default(1)
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt           DateTime? @map("deleted_at") @db.Timestamptz(6)
+  createdBy           String?   @map("created_by") @db.Uuid
+  updatedBy           String?   @map("updated_by") @db.Uuid
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+  @@map("parking_lots")
+}
+
+enum BlfKeyFunction {
+  BLF
+  SPEED_DIAL
+  PARK
+  PICKUP
+  VOICEMAIL
+  DND
+
+  @@map("blf_key_function")
+}
+
+model BlfPanel {
+  id        String    @id @db.Uuid
+  publicId  String    @unique @map("public_id")
+  tenantId  String    @map("tenant_id") @db.Uuid
+  userId    String?   @map("user_id") @db.Uuid
+  lineId    String?   @map("line_id") @db.Uuid
+  name      String
+  columns   Int       @default(4)
+  version   Int       @default(1)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
+
+  tenant Tenant       @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  user   User?        @relation(fields: [userId], references: [id], onDelete: Restrict)
+  line   Line?        @relation(fields: [lineId], references: [id], onDelete: Restrict)
+  keys   BlfPanelKey[]
+
+  @@index([tenantId])
+  @@index([tenantId, userId])
+  @@map("blf_panels")
+}
+
+model BlfPanelKey {
+  id             String         @id @db.Uuid
+  panelId        String         @map("panel_id") @db.Uuid
+  position       Int
+  label          String?
+  functionType   BlfKeyFunction @default(BLF) @map("function_type")
+  watchedLineId  String?        @map("watched_line_id") @db.Uuid
+  speedDialValue String?        @map("speed_dial_value")
+  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  panel       BlfPanel @relation(fields: [panelId], references: [id], onDelete: Cascade)
+  watchedLine Line?    @relation("BlfWatchedLine", fields: [watchedLineId], references: [id], onDelete: Restrict)
+
+  @@unique([panelId, position])
+  @@index([panelId])
+  @@map("blf_panel_keys")
+}
+
+enum DirectoryProvider {
+  NONE
+  LDAP
+  AZURE_AD
+
+  @@map("directory_provider")
+}
+
+model DirectoryIntegration {
+  id        String            @id @db.Uuid
+  tenantId  String            @map("tenant_id") @db.Uuid
+  provider  DirectoryProvider   @default(NONE)
+  enabled   Boolean           @default(false)
+  config    Json?             @db.JsonB
+  version   Int               @default(1)
+  createdAt DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt DateTime?         @map("deleted_at") @db.Timestamptz(6)
+  createdBy String?           @map("created_by") @db.Uuid
+  updatedBy String?           @map("updated_by") @db.Uuid
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@unique([tenantId, provider])
+  @@index([tenantId])
+  @@map("directory_integrations")
 }
 
 model MohPlaylist {

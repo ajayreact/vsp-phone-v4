@@ -47,6 +47,18 @@ export const TENANT_MODULES: ModuleDefinition[] = [
     apiEndpoints: ['/v1/supervisor/dashboard', '/v1/supervisor/wallboard', '/v1/supervisor/agents'],
   },
   {
+    id: 'reception',
+    label: 'Reception Console',
+    href: '/reception',
+    group: 'operations',
+    icon: PhoneForwarded,
+    permission: PERMISSIONS.TENANT_RECEPTION_READ,
+    integration: 'live',
+    description: 'Enterprise operator console — directory, BLF, park, pickup, transfers, and live call control.',
+    breadcrumb: ['Operations', 'Reception Console'],
+    apiEndpoints: ['/v1/tenant/reception', '/v1/tenant/contacts', '/v1/tenant/blf', '/v1/tenant/presence'],
+  },
+  {
     id: 'organization',
     label: 'Organization',
     href: '/organization',
