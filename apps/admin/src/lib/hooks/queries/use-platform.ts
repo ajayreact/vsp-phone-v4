@@ -4,7 +4,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '../../query/query-keys';
 import {
   platformRepository,
+  type CreateApiKeyPayload,
+  type CreatePlatformRolePayload,
+  type CreatePlatformUserPayload,
   type CreateTenantPayload,
+  type OnboardTenantPayload,
+  type UpdatePlatformSettingsPayload,
   type UpdateTenantPayload,
 } from '../../repositories/platform.repository';
 
@@ -37,6 +42,17 @@ export function useCreateTenant() {
     mutationFn: (payload: CreateTenantPayload) => platformRepository.createTenant(payload),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['platform', 'tenants'] });
+    },
+  });
+}
+
+export function useOnboardTenant() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: OnboardTenantPayload) => platformRepository.onboardTenant(payload),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['platform', 'tenants'] });
+      void qc.invalidateQueries({ queryKey: ['platform', 'users'] });
     },
   });
 }
@@ -94,6 +110,16 @@ export function usePlatformRoles(tenantId?: string) {
   });
 }
 
+export function useCreatePlatformRole() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: CreatePlatformRolePayload) => platformRepository.createRole(payload),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['platform', 'roles'] });
+    },
+  });
+}
+
 export function usePlatformPermissions(tenantId?: string) {
   return useQuery({
     queryKey: queryKeys.platform.permissions(tenantId),
@@ -108,9 +134,96 @@ export function usePlatformAudit(params?: { tenantId?: string; limit?: number; a
   });
 }
 
-export function usePlatformUsers(search?: string) {
+export function usePlatformUsers(params?: { tenantId?: string; search?: string }) {
   return useQuery({
-    queryKey: queryKeys.platform.users(search),
-    queryFn: () => platformRepository.listUsers(search),
+    queryKey: queryKeys.platform.users(params?.search),
+    queryFn: () => platformRepository.listUsers(params),
+  });
+}
+
+export function useCreatePlatformUser() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: CreatePlatformUserPayload) => platformRepository.createUser(payload),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['platform', 'users'] });
+    },
+  });
+}
+
+export function usePlatformSettings() {
+  return useQuery({
+    queryKey: queryKeys.platform.settings(),
+    queryFn: () => platformRepository.getSettings(),
+  });
+}
+
+export function useUpdatePlatformSettings() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: UpdatePlatformSettingsPayload) => platformRepository.updateSettings(payload),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: queryKeys.platform.settings() });
+    },
+  });
+}
+
+export function usePlatformApiKeys(tenantId?: string) {
+  return useQuery({
+    queryKey: queryKeys.platform.apiKeys(tenantId),
+    queryFn: () => platformRepository.listApiKeys(tenantId),
+  });
+}
+
+export function useCreatePlatformApiKey() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: CreateApiKeyPayload) => platformRepository.createApiKey(payload),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['platform', 'api-keys'] });
+    },
+  });
+}
+
+export function useRevokePlatformApiKey() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => platformRepository.revokeApiKey(id),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['platform', 'api-keys'] });
+    },
+  });
+}
+
+export function usePlatformSearch(q: string, enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.platform.search(q),
+    queryFn: () => platformRepository.search(q),
+    enabled: enabled && q.trim().length >= 2,
+    staleTime: 10_000,
+  });
+}
+
+export function usePlatformOrganization(tenantId: string) {
+  return useQuery({
+    queryKey: queryKeys.platform.organization(tenantId),
+    queryFn: () => platformRepository.getOrganization(tenantId),
+    enabled: Boolean(tenantId),
+  });
+}
+
+export function useUpdatePlatformOrganization() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      tenantId,
+      payload,
+    }: {
+      tenantId: string;
+      payload: { displayName?: string; timezone?: string; defaultLanguage?: string };
+    }) => platformRepository.updateOrganization(tenantId, payload),
+    onSuccess: (_data, vars) => {
+      void qc.invalidateQueries({ queryKey: queryKeys.platform.organization(vars.tenantId) });
+    },
   });
 }

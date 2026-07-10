@@ -23,6 +23,7 @@ import { AdminRateLimitGuard } from '../../enterprise-security/guards/scoped-rat
 import {
   PlatformTenantsService,
   type CreateTenantDto,
+  type OnboardTenantDto,
   type UpdateTenantDto,
 } from '../services/platform-tenants.service';
 
@@ -44,6 +45,18 @@ export class PlatformTenantsController {
     @Query('status') status: TenantStatus | undefined,
   ) {
     const data = await this.tenants.list({ search, status });
+    return { data };
+  }
+
+  @Post('onboard')
+  @RequireAnyPermission(
+    PERMISSIONS.PLATFORM_TENANTS_WRITE,
+    PERMISSIONS.PLATFORM_SUPER_ADMIN,
+  )
+  @ApiOperation({ summary: 'Onboard tenant with admin user and RBAC seed' })
+  async onboard(@Body() dto: OnboardTenantDto, @Req() req: Request) {
+    const user = getJwtUser(req);
+    const data = await this.tenants.onboard(dto, user.sub);
     return { data };
   }
 

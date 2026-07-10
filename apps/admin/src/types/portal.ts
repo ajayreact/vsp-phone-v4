@@ -118,3 +118,56 @@ export type UserRecord = {
   tenantId?: string;
   tenantName?: string;
 };
+
+export type PlatformSettingsRecord = {
+  id: string;
+  platformName: string;
+  supportEmail: string;
+  defaultTimezone: string;
+  inventoryTenantId: string | null;
+  stripeEnabled: boolean;
+  smtpHost: string | null;
+  smtpPort: number | null;
+  smtpUsername: string | null;
+  smtpFromEmail: string | null;
+  smtpUseTls: boolean;
+  smtpConfigured: boolean;
+  updatedAt: string;
+};
+
+export type PlatformApiKeyRecord = {
+  id: string;
+  name: string;
+  keyPrefix: string;
+  status: string;
+  scopes: string[];
+  tenantId: string | null;
+  lastUsedAt: string | null;
+  expiresAt: string | null;
+  createdAt: string;
+};
+
+export type PlatformSearchResult = {
+  type: 'tenant' | 'user' | 'number' | 'extension';
+  id: string;
+  label: string;
+  subtitle: string;
+  href: string;
+};
+
+export type OrganizationRecord = {
+  tenantId: string;
+  name: string;
+  displayName: string;
+  slug: string;
+  status: string;
+  timezone: string | null;
+  defaultLanguage: string | null;
+  sites: Array<{ id: string; name: string; status: string }>;
+};
+
+export type OnboardTenantResult = {
+  tenant: PlatformTenantRecord;
+  adminUserId: string;
+  siteId: string;
+};

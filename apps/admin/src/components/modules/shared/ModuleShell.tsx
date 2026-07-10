@@ -156,9 +156,17 @@ export function defaultSearchFilter<T extends Record<string, unknown>>(rows: T[]
   return rows.filter((r) => JSON.stringify(r).toLowerCase().includes(q));
 }
 
-export function CreateButton({ label }: { label: string }) {
+export function CreateButton({
+  label,
+  onClick,
+  disabled,
+}: {
+  label: string;
+  onClick?: () => void;
+  disabled?: boolean;
+}) {
   return (
-    <Button size="sm" disabled>
+    <Button size="sm" onClick={onClick} disabled={disabled ?? !onClick}>
       <Plus className="h-4 w-4" />
       {label}
     </Button>

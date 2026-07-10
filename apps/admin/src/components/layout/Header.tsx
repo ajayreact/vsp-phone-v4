@@ -10,22 +10,23 @@ import {
   LogOut,
   Moon,
   Plus,
-  Search,
   Settings,
   Sun,
   User,
 } from 'lucide-react';
 import { useAuth } from '../../lib/auth/AuthProvider';
+import { detectPortal } from '../../lib/portal/detect-portal';
 import { displayNameFromSession } from '../../lib/rbac/permissions';
 import { useTheme } from '../../lib/theme/ThemeProvider';
+import { GlobalSearch } from './GlobalSearch';
 import { Avatar } from '../ui/Skeleton';
 import { Button } from '../ui/Button';
-import { Input } from '../ui/Input';
 
 export function Header() {
   const { session, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const router = useRouter();
+  const portal = detectPortal();
   const [menuOpen, setMenuOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
 
@@ -41,16 +42,7 @@ export function Header() {
   return (
     <header className="sticky top-0 z-40 flex h-16 items-center gap-4 border-b border-border bg-card/80 px-4 backdrop-blur-md sm:px-6">
       <div className="hidden min-w-0 flex-1 items-center gap-3 md:flex">
-        <div className="relative w-full max-w-xl">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            className="h-10 border-transparent bg-muted/60 pl-9 shadow-none focus-visible:bg-card"
-            placeholder="Search numbers, tenants, extensions, trunks…"
-          />
-          <kbd className="pointer-events-none absolute right-3 top-1/2 hidden -translate-y-1/2 rounded border border-border bg-card px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground sm:inline">
-            ⌘K
-          </kbd>
-        </div>
+        {portal === 'platform' ? <GlobalSearch /> : null}
       </div>
 
       <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
@@ -60,12 +52,14 @@ export function Header() {
           </span>
         ) : null}
 
-        <Link href="/telnyx-numbers" className="hidden sm:inline-flex">
-          <Button variant="default" size="sm" className="shadow-sm">
-            <Plus className="h-4 w-4" />
-            Add Number
-          </Button>
-        </Link>
+        {portal === 'platform' ? (
+          <Link href="/telnyx-numbers" className="hidden sm:inline-flex">
+            <Button variant="default" size="sm" className="shadow-sm">
+              <Plus className="h-4 w-4" />
+              Add Number
+            </Button>
+          </Link>
+        ) : null}
 
         <Link href="/softphone">
           <Button variant="outline" size="sm" title="Browser Softphone">

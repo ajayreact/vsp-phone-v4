@@ -1724,6 +1724,12 @@ model PlatformSettings {
   defaultTimezone       String   @map("default_timezone")
   inventoryTenantId     String?  @map("inventory_tenant_id") @db.Uuid
   stripeEnabled         Boolean  @default(false) @map("stripe_enabled")
+  smtpHost              String?  @map("smtp_host")
+  smtpPort              Int?     @map("smtp_port")
+  smtpUsername          String?  @map("smtp_username")
+  smtpFromEmail         String?  @map("smtp_from_email")
+  smtpUseTls            Boolean  @default(true) @map("smtp_use_tls")
+  smtpConfigured        Boolean  @default(false) @map("smtp_configured")
   createdAt             DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt             DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 

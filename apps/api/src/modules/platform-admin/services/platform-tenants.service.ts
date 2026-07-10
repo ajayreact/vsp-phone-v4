@@ -3,10 +3,12 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { TenantStatus } from '@prisma/client';
+import { SiteStatus, TenantStatus, UserStatus } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
+import { hashPassword } from '../../auth/password.util';
 import { PrismaService } from '../../telecom/prisma/prisma.service';
 import { newPublicId } from '../../tenant-portal/utils/tenant.util';
+import { seedTenantRbac } from './tenant-rbac.seed';
 
 export type TenantRecord = {
   id: string;
@@ -30,6 +32,24 @@ export type UpdateTenantDto = {
   displayName?: string;
   slug?: string;
   status?: TenantStatus;
+};
+
+export type OnboardTenantDto = {
+  name: string;
+  displayName?: string;
+  adminEmail: string;
+  adminPassword: string;
+  adminFirstName: string;
+  adminLastName: string;
+  timezone?: string;
+  defaultLanguage?: string;
+  siteName?: string;
+};
+
+export type OnboardTenantResult = {
+  tenant: TenantRecord;
+  adminUserId: string;
+  siteId: string;
 };
 
 function slugFromName(name: string): string {
@@ -128,6 +148,119 @@ export class PlatformTenantsService {
     });
 
     return this.toRecord(row);
+  }
+
+  async onboard(dto: OnboardTenantDto, actorUserId?: string): Promise<OnboardTenantResult> {
+    if (!this.prisma.connected) {
+      throw new ConflictException('Database unavailable');
+    }
+
+    const tenantId = randomUUID();
+    const name = dto.name.trim();
+    const displayName = dto.displayName?.trim() ?? name;
+    const slug = slugFromName(name);
+    const publicId = newPublicId('t');
+
+    const existing = await this.prisma.tenant.findFirst({
+      where: { slug, deletedAt: null },
+    });
+    if (existing) {
+      throw new ConflictException(`Tenant slug already exists: ${slug}`);
+    }
+
+    const adminUserId = randomUUID();
+    const siteId = randomUUID();
+    const email = dto.adminEmail.trim().toLowerCase();
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.tenant.create({
+        data: {
+          id: tenantId,
+          publicId,
+          name,
+          displayName,
+          slug,
+          status: TenantStatus.ACTIVE,
+        },
+      });
+
+      await tx.tenantSettings.create({
+        data: {
+          id: randomUUID(),
+          tenantId,
+          timezone: dto.timezone?.trim() || 'America/New_York',
+          defaultLanguage: dto.defaultLanguage?.trim() || 'en',
+          createdBy: actorUserId,
+          updatedBy: actorUserId,
+        },
+      });
+
+      await tx.site.create({
+        data: {
+          id: siteId,
+          publicId: newPublicId('site'),
+          tenantId,
+          name: dto.siteName?.trim() || 'Main Office',
+          code: slugFromName(dto.siteName?.trim() || 'main-office').slice(0, 32),
+          status: SiteStatus.ACTIVE,
+          createdBy: actorUserId,
+          updatedBy: actorUserId,
+        },
+      });
+
+      const { adminRoleId } = await seedTenantRbac(tx, tenantId, actorUserId);
+
+      await tx.user.create({
+        data: {
+          id: adminUserId,
+          publicId: newPublicId('u'),
+          tenantId,
+          email,
+          passwordHash: hashPassword(dto.adminPassword),
+          status: UserStatus.ACTIVE,
+          createdBy: actorUserId,
+          updatedBy: actorUserId,
+        },
+      });
+
+      await tx.userProfile.create({
+        data: {
+          id: randomUUID(),
+          tenantId,
+          userId: adminUserId,
+          firstName: dto.adminFirstName.trim(),
+          lastName: dto.adminLastName.trim(),
+          displayName: `${dto.adminFirstName.trim()} ${dto.adminLastName.trim()}`.trim(),
+          createdBy: actorUserId,
+          updatedBy: actorUserId,
+        },
+      });
+
+      await tx.userRole.create({
+        data: {
+          id: randomUUID(),
+          tenantId,
+          userId: adminUserId,
+          roleId: adminRoleId,
+          createdBy: actorUserId,
+          updatedBy: actorUserId,
+        },
+      });
+
+      await tx.userSite.create({
+        data: {
+          id: randomUUID(),
+          tenantId,
+          userId: adminUserId,
+          siteId,
+          createdBy: actorUserId,
+          updatedBy: actorUserId,
+        },
+      });
+    });
+
+    const tenant = await this.get(tenantId);
+    return { tenant, adminUserId, siteId };
   }
 
   async suspend(id: string): Promise<TenantRecord> {

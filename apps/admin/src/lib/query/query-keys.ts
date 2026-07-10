@@ -9,6 +9,10 @@ export const queryKeys = {
     permissions: (tenantId?: string) => ['platform', 'permissions', tenantId ?? 'all'] as const,
     audit: (params?: Record<string, string>) => ['platform', 'audit', params ?? {}] as const,
     users: (search?: string) => ['platform', 'users', search ?? ''] as const,
+    settings: () => ['platform', 'settings'] as const,
+    apiKeys: (tenantId?: string) => ['platform', 'api-keys', tenantId ?? 'all'] as const,
+    search: (q: string) => ['platform', 'search', q] as const,
+    organization: (tenantId: string) => ['platform', 'organization', tenantId] as const,
   },
   ops: {
     dashboard: (tenantId?: string) => ['ops', 'dashboard', tenantId ?? 'global'] as const,
