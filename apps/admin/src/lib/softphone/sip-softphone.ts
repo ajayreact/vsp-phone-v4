@@ -12,7 +12,13 @@ import {
 } from 'sip.js';
 import { holdModifier } from 'sip.js/lib/platform/web';
 import type { SessionDescriptionHandler } from 'sip.js/lib/platform/web';
-import type { EnrollConfig, SoftphoneEvent, SoftphoneState } from './types';
+import type {
+  CallSessionInfo,
+  EnrollConfig,
+  NetworkQuality,
+  SoftphoneEvent,
+  SoftphoneState,
+} from './types';
 
 type Listener = (event: SoftphoneEvent) => void;
 
@@ -26,6 +32,14 @@ function unholdModifier(description: RTCSessionDescriptionInit): Promise<RTCSess
   return Promise.resolve({ sdp, type: description.type });
 }
 
+function estimateMos(jitterMs: number, packetLossPct: number, rttMs: number): number {
+  const r = Math.min(100, packetLossPct);
+  const j = Math.min(100, jitterMs);
+  const lat = Math.min(500, rttMs);
+  const score = 4.5 - r * 0.035 - j * 0.01 - lat * 0.002;
+  return Math.max(1, Math.min(4.5, Math.round(score * 10) / 10));
+}
+
 /**
  * Phase 10 — SIP.js browser UA over WSS (ADR-038).
  * SDP/ICE/DTLS remain in browser + RTPengine only — never sent to NestJS.
@@ -33,13 +47,14 @@ function unholdModifier(description: RTCSessionDescriptionInit): Promise<RTCSess
 export class SipSoftphoneClient {
   private ua: UserAgent | null = null;
   private registerer: Registerer | null = null;
-  private session: Session | null = null;
+  private sessions = new Map<string, Session>();
+  private activeSessionId: string | null = null;
   private config: EnrollConfig | null = null;
   private listeners = new Set<Listener>();
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private enrollRefreshTimer: ReturnType<typeof setTimeout> | null = null;
-  private muted = false;
-  private held = false;
+  private statsTimer: ReturnType<typeof setInterval> | null = null;
+  private sessionMeta = new Map<string, { muted: boolean; held: boolean; remote: string; direction: 'inbound' | 'outbound'; startedAt: number }>();
   private currentMicId: string | null = null;
   private currentSpeakerId: string | null = null;
 
@@ -60,11 +75,27 @@ export class SipSoftphoneClient {
     this.emit({ type: 'log', message });
   }
 
+  private emitSessions(): void {
+    const sessions: CallSessionInfo[] = [];
+    for (const [id, meta] of this.sessionMeta) {
+      sessions.push({
+        id,
+        remote: meta.remote,
+        direction: meta.direction,
+        startedAt: meta.startedAt,
+        held: meta.held,
+        muted: meta.muted,
+      });
+    }
+    this.emit({ type: 'sessions', sessions });
+  }
+
   async connect(config: EnrollConfig): Promise<void> {
     this.config = config;
     this.setState('connecting');
     await this.startUa(config);
     this.scheduleEnrollRefresh(config.expiresAt, config.onReEnroll);
+    this.startStatsPolling();
   }
 
   private async startUa(config: EnrollConfig): Promise<void> {
@@ -104,7 +135,7 @@ export class SipSoftphoneClient {
       },
       delegate: {
         onInvite: (invitation: Invitation) => {
-          this.handleIncoming(invitation);
+          void this.handleIncoming(invitation);
         },
       },
     };
@@ -129,29 +160,62 @@ export class SipSoftphoneClient {
     await this.registerer.register();
   }
 
-  private handleIncoming(invitation: Invitation): void {
-    if (this.session) {
-      invitation.reject();
+  private sessionId(session: Session): string {
+    return session.id;
+  }
+
+  private async handleIncoming(invitation: Invitation): Promise<void> {
+    const id = this.sessionId(invitation);
+    const from = invitation.remoteIdentity.uri.toString();
+
+    if (this.activeSessionId && this.sessions.has(this.activeSessionId)) {
+      this.sessions.set(id, invitation);
+      this.sessionMeta.set(id, {
+        muted: false,
+        held: false,
+        remote: from,
+        direction: 'inbound',
+        startedAt: Date.now(),
+      });
+      this.emit({ type: 'waiting', from, sessionId: id });
+      this.emitSessions();
       return;
     }
-    this.session = invitation;
-    this.bindSession(invitation);
-    const from = invitation.remoteIdentity.uri.toString();
-    this.emit({ type: 'incoming', from });
+
+    this.sessions.set(id, invitation);
+    this.activeSessionId = id;
+    this.sessionMeta.set(id, {
+      muted: false,
+      held: false,
+      remote: from,
+      direction: 'inbound',
+      startedAt: Date.now(),
+    });
+    this.bindSession(invitation, id);
+    this.emit({ type: 'incoming', from, sessionId: id });
     this.setState('ringing', from);
+    this.emitSessions();
   }
 
-  async answer(): Promise<void> {
-    if (!(this.session instanceof Invitation)) return;
-    await this.session.accept();
+  async answer(sessionId?: string): Promise<void> {
+    const id = sessionId ?? this.activeSessionId;
+    if (!id) return;
+    const session = this.sessions.get(id);
+    if (!(session instanceof Invitation)) return;
+    await session.accept();
+    this.activeSessionId = id;
     this.setState('in-call');
+    this.emitSessions();
   }
 
-  async reject(): Promise<void> {
-    if (!(this.session instanceof Invitation)) return;
-    await this.session.reject();
-    this.session = null;
-    this.setState('registered');
+  async reject(sessionId?: string): Promise<void> {
+    const id = sessionId ?? this.activeSessionId;
+    if (!id) return;
+    const session = this.sessions.get(id);
+    if (!(session instanceof Invitation)) return;
+    await session.reject();
+    this.removeSession(id);
+    this.setState(this.sessions.size ? 'in-call' : 'registered');
   }
 
   async call(target: string): Promise<void> {
@@ -160,61 +224,129 @@ export class SipSoftphoneClient {
     const uri = UserAgent.makeURI(dest.startsWith('sip:') ? dest : `sip:${dest}`);
     if (!uri) throw new Error('Invalid dial target');
     const inviter = new Inviter(this.ua, uri);
-    this.session = inviter;
-    this.bindSession(inviter);
+    const id = this.sessionId(inviter);
+    this.sessions.set(id, inviter);
+    this.activeSessionId = id;
+    this.sessionMeta.set(id, {
+      muted: false,
+      held: false,
+      remote: dest,
+      direction: 'outbound',
+      startedAt: Date.now(),
+    });
+    this.bindSession(inviter, id);
     this.setState('calling', dest);
     await inviter.invite();
+    this.emitSessions();
   }
 
-  async hangup(): Promise<void> {
-    if (!this.session) return;
-    const state = this.session.state;
+  async hangup(sessionId?: string): Promise<void> {
+    const id = sessionId ?? this.activeSessionId;
+    if (!id) return;
+    const session = this.sessions.get(id);
+    if (!session) return;
+    const state = session.state;
     if (state === SessionState.Established) {
-      await this.session.bye();
-    } else if (this.session instanceof Inviter) {
-      await this.session.cancel();
-    } else if (this.session instanceof Invitation) {
-      await this.session.reject();
+      await session.bye();
+    } else if (session instanceof Inviter) {
+      await session.cancel();
+    } else if (session instanceof Invitation) {
+      await session.reject();
     }
-    this.session = null;
-    this.held = false;
-    this.muted = false;
-    this.setState('registered');
+    this.removeSession(id);
+    this.setState(this.sessions.size ? 'in-call' : 'registered');
   }
 
-  async toggleMute(): Promise<boolean> {
-    this.muted = !this.muted;
-    const pc = this.getPeerConnection();
+  async toggleMute(sessionId?: string): Promise<boolean> {
+    const id = sessionId ?? this.activeSessionId;
+    if (!id) return false;
+    const meta = this.sessionMeta.get(id);
+    if (!meta) return false;
+    meta.muted = !meta.muted;
+    const pc = this.getPeerConnection(id);
     pc?.getSenders().forEach((s) => {
-      if (s.track?.kind === 'audio') s.track.enabled = !this.muted;
+      if (s.track?.kind === 'audio') s.track.enabled = !meta.muted;
     });
-    this.log(this.muted ? 'Muted' : 'Unmuted');
-    return this.muted;
+    this.log(meta.muted ? 'Muted' : 'Unmuted');
+    this.emitSessions();
+    return meta.muted;
   }
 
-  isMuted(): boolean {
-    return this.muted;
+  isMuted(sessionId?: string): boolean {
+    const id = sessionId ?? this.activeSessionId;
+    return this.sessionMeta.get(id ?? '')?.muted ?? false;
   }
 
-  async toggleHold(): Promise<boolean> {
-    if (!this.session || this.session.state !== SessionState.Established) {
-      return this.held;
-    }
-    this.held = !this.held;
-    if (this.held) {
-      await this.session.invite({ sessionDescriptionHandlerModifiers: [holdModifier] });
+  async toggleHold(sessionId?: string): Promise<boolean> {
+    const id = sessionId ?? this.activeSessionId;
+    if (!id) return false;
+    const session = this.sessions.get(id);
+    const meta = this.sessionMeta.get(id);
+    if (!session || !meta || session.state !== SessionState.Established) return meta?.held ?? false;
+
+    meta.held = !meta.held;
+    if (meta.held) {
+      await session.invite({ sessionDescriptionHandlerModifiers: [holdModifier] });
       this.setState('held');
       this.log('On hold');
     } else {
-      await this.session.invite({ sessionDescriptionHandlerModifiers: [unholdModifier] });
+      await session.invite({ sessionDescriptionHandlerModifiers: [unholdModifier] });
       this.setState('in-call');
       this.log('Resumed');
     }
-    return this.held;
+    this.emitSessions();
+    return meta.held;
   }
 
-  isHeld(): boolean {
-    return this.held;
+  isHeld(sessionId?: string): boolean {
+    const id = sessionId ?? this.activeSessionId;
+    return this.sessionMeta.get(id ?? '')?.held ?? false;
+  }
+
+  async sendDtmf(tone: string, sessionId?: string): Promise<void> {
+    const id = sessionId ?? this.activeSessionId;
+    const session = id ? this.sessions.get(id) : null;
+    if (!session) return;
+    const sdh = session.sessionDescriptionHandler as SessionDescriptionHandler & {
+      sendDtmf?: (tone: string) => void;
+    };
+    if (sdh?.sendDtmf) {
+      sdh.sendDtmf(tone);
+      this.log(`DTMF ${tone}`);
+    }
+  }
+
+  async blindTransfer(target: string, sessionId?: string): Promise<void> {
+    const id = sessionId ?? this.activeSessionId;
+    if (!id) throw new Error('No active call');
+    const session = this.sessions.get(id);
+    if (!session) throw new Error('Session not found');
+    const dest = target.includes('@') ? target : `${target}@${this.config?.aor.split('@')[1]}`;
+    const uri = UserAgent.makeURI(dest.startsWith('sip:') ? dest : `sip:${dest}`);
+    if (!uri) throw new Error('Invalid transfer target');
+    await session.refer(uri);
+    this.log(`Blind transfer to ${dest}`);
+    this.removeSession(id);
+    this.setState(this.sessions.size ? 'in-call' : 'registered');
+  }
+
+  async switchToSession(sessionId: string): Promise<void> {
+    if (!this.sessions.has(sessionId)) return;
+    this.activeSessionId = sessionId;
+    const session = this.sessions.get(sessionId)!;
+    this.attachRemoteAudio(session);
+    this.setState(session.state === SessionState.Established ? 'in-call' : 'ringing');
+    this.emitSessions();
+  }
+
+  getActiveSessionId(): string | null {
+    return this.activeSessionId;
+  }
+
+  getRegistrationState(): 'registered' | 'unregistered' | 'connecting' {
+    if (!this.registerer) return 'unregistered';
+    if (this.registerer.state === RegistererState.Registered) return 'registered';
+    return 'connecting';
   }
 
   async listAudioDevices(): Promise<{ inputs: MediaDeviceInfo[]; outputs: MediaDeviceInfo[] }> {
@@ -227,27 +359,25 @@ export class SipSoftphoneClient {
 
   async setMicrophone(deviceId: string): Promise<void> {
     this.currentMicId = deviceId;
-    const pc = this.getPeerConnection();
-    if (!pc) return;
-    const stream = await navigator.mediaDevices.getUserMedia({
-      audio: { deviceId: { exact: deviceId } },
-      video: false,
-    });
-    const newTrack = stream.getAudioTracks()[0];
-    const sender = pc.getSenders().find((s) => s.track?.kind === 'audio');
-    if (sender && newTrack) {
-      await sender.replaceTrack(newTrack);
-      this.log(`Microphone switched: ${deviceId}`);
+    for (const id of this.sessions.keys()) {
+      const pc = this.getPeerConnection(id);
+      if (!pc) continue;
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: { deviceId: { exact: deviceId } },
+        video: false,
+      });
+      const newTrack = stream.getAudioTracks()[0];
+      const sender = pc.getSenders().find((s) => s.track?.kind === 'audio');
+      if (sender && newTrack) await sender.replaceTrack(newTrack);
     }
+    this.log(`Microphone switched: ${deviceId}`);
   }
 
   async setSpeaker(deviceId: string): Promise<void> {
     this.currentSpeakerId = deviceId;
     const audio = document.querySelector('audio[data-softphone-remote]') as HTMLAudioElement | null;
     if (audio && 'setSinkId' in audio) {
-      await (audio as HTMLAudioElement & { setSinkId: (id: string) => Promise<void> }).setSinkId(
-        deviceId,
-      );
+      await (audio as HTMLAudioElement & { setSinkId: (id: string) => Promise<void> }).setSinkId(deviceId);
       this.log(`Speaker switched: ${deviceId}`);
     }
   }
@@ -274,28 +404,42 @@ export class SipSoftphoneClient {
     }
     this.ua = null;
     this.registerer = null;
-    this.session = null;
+    this.sessions.clear();
+    this.sessionMeta.clear();
+    this.activeSessionId = null;
     this.setState('idle');
   }
 
-  private bindSession(session: Session): void {
+  private removeSession(id: string): void {
+    this.sessions.delete(id);
+    this.sessionMeta.delete(id);
+    if (this.activeSessionId === id) {
+      const next = this.sessions.keys().next().value as string | undefined;
+      this.activeSessionId = next ?? null;
+      if (next) {
+        const session = this.sessions.get(next)!;
+        this.attachRemoteAudio(session);
+      }
+    }
+    this.emitSessions();
+  }
+
+  private bindSession(session: Session, id: string): void {
     session.stateChange.addListener((state) => {
       if (state === SessionState.Established) {
-        this.setState('in-call');
+        if (this.activeSessionId === id) this.setState('in-call');
         this.attachRemoteAudio(session);
         this.log('Call established (DTLS-SRTP via RTPengine)');
       } else if (state === SessionState.Terminated) {
-        this.session = null;
-        this.held = false;
-        this.setState('registered');
+        this.removeSession(id);
+        if (!this.sessions.size) this.setState('registered');
         this.log('Call ended');
       }
     });
   }
 
   private attachRemoteAudio(session: Session): void {
-    const pc = (session.sessionDescriptionHandler as SessionDescriptionHandler | undefined)
-      ?.peerConnection;
+    const pc = (session.sessionDescriptionHandler as SessionDescriptionHandler | undefined)?.peerConnection;
     if (!pc) return;
     const audio = document.querySelector('audio[data-softphone-remote]') as HTMLAudioElement | null;
     if (!audio) return;
@@ -306,15 +450,57 @@ export class SipSoftphoneClient {
     audio.srcObject = remoteStream;
     void audio.play().catch(() => undefined);
     if (this.currentSpeakerId && 'setSinkId' in audio) {
-      void (
-        audio as HTMLAudioElement & { setSinkId: (id: string) => Promise<void> }
-      ).setSinkId(this.currentSpeakerId);
+      void (audio as HTMLAudioElement & { setSinkId: (id: string) => Promise<void> }).setSinkId(
+        this.currentSpeakerId,
+      );
     }
   }
 
-  private getPeerConnection(): RTCPeerConnection | undefined {
-    const sdh = this.session?.sessionDescriptionHandler as SessionDescriptionHandler | undefined;
+  private getPeerConnection(sessionId: string): RTCPeerConnection | undefined {
+    const sdh = this.sessions.get(sessionId)?.sessionDescriptionHandler as SessionDescriptionHandler | undefined;
     return sdh?.peerConnection;
+  }
+
+  private startStatsPolling(): void {
+    if (this.statsTimer) clearInterval(this.statsTimer);
+    this.statsTimer = setInterval(() => {
+      void this.pollStats();
+    }, 3000);
+  }
+
+  private async pollStats(): Promise<void> {
+    const id = this.activeSessionId;
+    if (!id) return;
+    const pc = this.getPeerConnection(id);
+    if (!pc) return;
+    try {
+      const report = await pc.getStats();
+      let jitterMs = 0;
+      let packetsLost = 0;
+      let packetsReceived = 0;
+      let rttMs = 0;
+      report.forEach((stat) => {
+        if (stat.type === 'inbound-rtp' && stat.kind === 'audio') {
+          jitterMs = (stat.jitter as number) * 1000;
+          packetsLost = stat.packetsLost as number;
+          packetsReceived = stat.packetsReceived as number;
+        }
+        if (stat.type === 'candidate-pair' && stat.state === 'succeeded') {
+          rttMs = (stat.currentRoundTripTime as number) * 1000;
+        }
+      });
+      const packetLossPct =
+        packetsReceived + packetsLost > 0 ? (packetsLost / (packetsReceived + packetsLost)) * 100 : 0;
+      const stats: NetworkQuality = {
+        jitterMs: Math.round(jitterMs * 10) / 10,
+        packetLossPct: Math.round(packetLossPct * 10) / 10,
+        rttMs: Math.round(rttMs * 10) / 10,
+        mos: estimateMos(jitterMs, packetLossPct, rttMs),
+      };
+      this.emit({ type: 'stats', stats });
+    } catch {
+      /* stats optional */
+    }
   }
 
   private scheduleReconnect(): void {
@@ -342,10 +528,7 @@ export class SipSoftphoneClient {
     }
   }
 
-  private scheduleEnrollRefresh(
-    expiresAt: string,
-    onReEnroll: EnrollConfig['onReEnroll'],
-  ): void {
+  private scheduleEnrollRefresh(expiresAt: string, onReEnroll: EnrollConfig['onReEnroll']): void {
     if (this.enrollRefreshTimer) clearTimeout(this.enrollRefreshTimer);
     const ms = new Date(expiresAt).getTime() - Date.now() - 60_000;
     if (ms <= 0) return;
@@ -366,7 +549,9 @@ export class SipSoftphoneClient {
   private clearTimers(): void {
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
     if (this.enrollRefreshTimer) clearTimeout(this.enrollRefreshTimer);
+    if (this.statsTimer) clearInterval(this.statsTimer);
     this.reconnectTimer = null;
     this.enrollRefreshTimer = null;
+    this.statsTimer = null;
   }
 }
