@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import {
   DeleteObjectCommand,
   GetObjectCommand,
+  HeadBucketCommand,
   PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
@@ -110,5 +111,22 @@ export class ObjectStorageService {
   async deleteObject(objectKey: string): Promise<void> {
     if (!this.client) return;
     await this.client.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: objectKey }));
+  }
+
+  async healthCheck(): Promise<{ status: 'up' | 'down' | 'degraded'; latencyMs?: number; failureReason?: string }> {
+    if (!this.enabled || !this.client) {
+      return { status: 'degraded', failureReason: 'object storage not configured' };
+    }
+    const started = Date.now();
+    try {
+      await this.client.send(new HeadBucketCommand({ Bucket: this.bucket }));
+      return { status: 'up', latencyMs: Date.now() - started };
+    } catch (err) {
+      return {
+        status: 'down',
+        latencyMs: Date.now() - started,
+        failureReason: err instanceof Error ? err.message : String(err),
+      };
+    }
   }
 }

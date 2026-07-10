@@ -73,9 +73,6 @@ export const queryKeys = {
   tenants: {
     all: () => ['tenants', 'list'] as const,
   },
-  billing: {
-    summary: () => ['billing', 'summary'] as const,
-  },
   supervisor: {
     dashboard: (tenantId?: string) => ['supervisor', 'dashboard', tenantId ?? 'tenant'] as const,
     wallboard: (tenantId?: string) => ['supervisor', 'wallboard', tenantId ?? 'tenant'] as const,
@@ -88,5 +85,22 @@ export const queryKeys = {
       ['supervisor', 'recordings', params ?? {}] as const,
     reports: (tenantId?: string) => ['supervisor', 'reports', tenantId ?? 'tenant'] as const,
     coaching: (callSessionId?: string) => ['supervisor', 'coaching', callSessionId ?? 'all'] as const,
+  },
+  noc: {
+    dashboard: (tenantId?: string) => ['noc', 'dashboard', tenantId ?? 'global'] as const,
+    registrations: (params?: Record<string, string | undefined>) => ['noc', 'registrations', params ?? {}] as const,
+    dialogs: (tenantId?: string) => ['noc', 'dialogs', tenantId ?? 'global'] as const,
+    sipTrace: (params?: Record<string, string | undefined>) => ['noc', 'sip-trace', params ?? {}] as const,
+    media: (tenantId?: string) => ['noc', 'media', tenantId ?? 'global'] as const,
+    kamailio: () => ['noc', 'kamailio'] as const,
+    rtpengine: (tenantId?: string) => ['noc', 'rtpengine', tenantId ?? 'global'] as const,
+    carriers: () => ['noc', 'carriers'] as const,
+    alerts: (status?: string) => ['noc', 'alerts', status ?? 'all'] as const,
+    fraud: (tenantId?: string) => ['noc', 'fraud', tenantId ?? 'global'] as const,
+    diagnostics: (platformUuid: string, tenantId?: string) =>
+      ['noc', 'diagnostics', platformUuid, tenantId ?? 'tenant'] as const,
+  },
+  billing: {
+    summary: () => ['billing', 'summary'] as const,
   },
 } as const;

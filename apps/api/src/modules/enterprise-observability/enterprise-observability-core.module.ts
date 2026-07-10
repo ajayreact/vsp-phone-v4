@@ -29,6 +29,7 @@ import { CallTraceService } from './tracing/call-trace.service';
   ],
   exports: [
     TelecomStructuredLoggerService,
+    MetricsRegistryService,
     MetricsService,
     CallTraceService,
     EnterpriseAuditService,

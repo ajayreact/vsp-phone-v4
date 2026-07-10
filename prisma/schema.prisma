@@ -345,6 +345,7 @@ model Tenant {
   numberNotifications    NumberNotification[]
   recordingAnnotations   RecordingAnnotation[]
   coachingNotes          CoachingNote[]
+  opsAlerts              OpsAlert[]
   ringGroups             RingGroup[]
   ringGroupMembers       RingGroupMember[]
   timeConditions         TimeCondition[]
@@ -2098,4 +2099,48 @@ model CoachingNote {
   @@index([tenantId, callSessionId])
   @@index([tenantId, agentLineId])
   @@map("coaching_notes")
+}
+
+enum OpsAlertSeverity {
+  CRITICAL
+  MAJOR
+  MINOR
+  INFO
+
+  @@map("ops_alert_severity")
+}
+
+enum OpsAlertStatus {
+  OPEN
+  ACKNOWLEDGED
+  RESOLVED
+  ESCALATED
+  SILENCED
+
+  @@map("ops_alert_status")
+}
+
+model OpsAlert {
+  id             String           @id @db.Uuid
+  tenantId       String?          @map("tenant_id") @db.Uuid
+  severity       OpsAlertSeverity
+  title          String
+  message        String
+  source         String
+  status         OpsAlertStatus   @default(OPEN)
+  acknowledgedAt DateTime?        @map("acknowledged_at") @db.Timestamptz(6)
+  acknowledgedBy String?          @map("acknowledged_by") @db.Uuid
+  resolvedAt     DateTime?        @map("resolved_at") @db.Timestamptz(6)
+  resolvedBy     String?          @map("resolved_by") @db.Uuid
+  escalatedAt    DateTime?        @map("escalated_at") @db.Timestamptz(6)
+  silencedUntil  DateTime?        @map("silenced_until") @db.Timestamptz(6)
+  metadata       Json?            @db.JsonB
+  createdAt      DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, status])
+  @@index([severity, status])
+  @@map("ops_alerts")
 }

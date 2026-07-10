@@ -105,6 +105,52 @@ export class EnterpriseHealthService {
     return { api, postgres, redis, kamailio, rtpengine, telnyx };
   }
 
+  async checkAllExtended(minio?: HealthCheckResult): Promise<Record<string, HealthCheckResult & Record<string, unknown>>> {
+    const base = await this.checkAll();
+    const [redisDetail, postgresDetail] = await Promise.all([
+      this.checkRedisDetailed(),
+      this.checkPostgresDetailed(),
+    ]);
+    const result: Record<string, HealthCheckResult & Record<string, unknown>> = {
+      api: { ...base.api },
+      postgres: { ...base.postgres, ...postgresDetail },
+      redis: { ...base.redis, ...redisDetail },
+      kamailio: { ...base.kamailio },
+      rtpengine: { ...base.rtpengine },
+      telnyx: { ...base.telnyx },
+    };
+    if (minio) {
+      result.minio = { ...minio };
+    }
+    return result;
+  }
+
+  async checkRedisDetailed(): Promise<Record<string, unknown>> {
+    if (!this.redis.isAvailable()) return { connectedClients: 0, usedMemory: null };
+    try {
+      const info = await this.redis.info('memory');
+      if (!info) return {};
+      const usedMatch = info.match(/used_memory_human:([^\r\n]+)/);
+      const clientsMatch = info.match(/connected_clients:(\d+)/);
+      return {
+        usedMemory: usedMatch?.[1]?.trim() ?? null,
+        connectedClients: clientsMatch ? Number(clientsMatch[1]) : null,
+      };
+    } catch {
+      return {};
+    }
+  }
+
+  async checkPostgresDetailed(): Promise<Record<string, unknown>> {
+    if (!this.prisma.connected) return { poolSize: null };
+    try {
+      const rows = await this.prisma.$queryRaw<Array<{ count: bigint }>>`SELECT count(*) FROM pg_stat_activity WHERE datname = current_database()`;
+      return { activeConnections: Number(rows[0]?.count ?? 0) };
+    } catch {
+      return {};
+    }
+  }
+
   private ok(component: string, extra: Partial<HealthCheckResult>): HealthCheckResult {
     this.lastSuccess[component] = new Date().toISOString();
     return {
