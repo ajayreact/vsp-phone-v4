@@ -13,7 +13,16 @@ export class ApiError extends Error {
 async function parseJson<T>(res: Response): Promise<T> {
   if (!res.ok) {
     const text = await res.text();
-    throw new ApiError(text || `HTTP ${res.status}`, res.status);
+    let message = text || `HTTP ${res.status}`;
+    try {
+      const json = JSON.parse(text) as { message?: string | string[]; error?: string };
+      if (Array.isArray(json.message)) message = json.message.join(', ');
+      else if (typeof json.message === 'string') message = json.message;
+      else if (json.error) message = json.error;
+    } catch {
+      /* use raw text */
+    }
+    throw new ApiError(message, res.status);
   }
   return res.json() as Promise<T>;
 }

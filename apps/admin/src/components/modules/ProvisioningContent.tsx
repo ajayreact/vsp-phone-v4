@@ -3,7 +3,7 @@
 import { useTenantDevices } from '../../lib/hooks/queries/use-tenant';
 import { StatusBadge } from '../ui/Badge';
 import type { Column } from '../data/DataTable';
-import { CreateButton, ModuleAccessGate, ModuleListShell, withRowIds } from './shared/ModuleShell';
+import { ModuleAccessGate, ModuleListShell, withRowIds } from './shared/ModuleShell';
 
 type ProvisioningRow = Record<string, unknown> & { id: string };
 
@@ -27,8 +27,7 @@ export function ProvisioningContent() {
           query={{ ...query, data: rows }}
           columns={columns}
           emptyTitle="No provisioned devices"
-          emptyDescription="Enroll desk phones via zero-touch provisioning to manage firmware and templates."
-          primaryAction={<CreateButton label="Enroll Device" />}
+          emptyDescription="Enrolled desk phones appear here once they register via zero-touch provisioning."
         />
       )}
     </ModuleAccessGate>

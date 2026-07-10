@@ -73,6 +73,26 @@ export const tenantRepository = {
     return httpPost<Record<string, unknown>>('/v1/tenant/extensions', payload);
   },
 
+  createQueue(payload: { name: string; code: string }): Promise<Record<string, unknown>> {
+    return httpPost<Record<string, unknown>>('/v1/tenant/queues', payload);
+  },
+
+  createIvr(payload: { name: string; code: string }): Promise<Record<string, unknown>> {
+    return httpPost<Record<string, unknown>>('/v1/tenant/ivrs', payload);
+  },
+
+  createRingGroup(payload: { name: string; strategy?: string; timeoutSec?: number }): Promise<Record<string, unknown>> {
+    return httpPost<Record<string, unknown>>('/v1/tenant/ring-groups', payload);
+  },
+
+  createVoicemail(payload: { lineId: string; pin?: string }): Promise<Record<string, unknown>> {
+    return httpPost<Record<string, unknown>>('/v1/tenant/voicemail', payload);
+  },
+
+  createRoutingPolicy(payload: { lineId: string; inboundEnabled?: boolean; outboundEnabled?: boolean }): Promise<Record<string, unknown>> {
+    return httpPost<Record<string, unknown>>('/v1/tenant/routing/policies', payload);
+  },
+
   updateExtension(id: string, payload: Record<string, unknown>): Promise<Record<string, unknown>> {
     return httpPatch<Record<string, unknown>>(`/v1/tenant/extensions/${id}`, payload);
   },

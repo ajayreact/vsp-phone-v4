@@ -6,12 +6,10 @@ const PORTAL_LABELS: Record<PortalType, string> = {
   tenant: 'Tenant Portal',
 };
 
+import { portalFromHostname as portalFromHost } from './portal-routes';
+
 function portalFromHostname(hostname: string): PortalType | null {
-  const host = hostname.toLowerCase();
-  if (host.startsWith('admin.')) return 'platform';
-  if (host.startsWith('app.')) return 'ops';
-  if (host.startsWith('tenant.')) return 'tenant';
-  return null;
+  return portalFromHost(hostname);
 }
 
 /** Resolve active portal from hostname or NEXT_PUBLIC_PORTAL env. */

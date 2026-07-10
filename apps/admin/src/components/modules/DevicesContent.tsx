@@ -5,7 +5,6 @@ import { useTenantDevices } from '../../lib/hooks/queries/use-tenant';
 import { StatusBadge } from '../ui/Badge';
 import type { Column } from '../data/DataTable';
 import {
-  CreateButton,
   defaultSearchFilter,
   ModuleAccessGate,
   ModuleListShell,
@@ -40,8 +39,7 @@ export function DevicesContent() {
           search={search}
           onSearchChange={setSearch}
           emptyTitle="No devices registered"
-          emptyDescription="Provision desk phones to see them listed here."
-          primaryAction={<CreateButton label="Provision Device" />}
+          emptyDescription="Provisioned desk phones appear here once registered with the platform."
           filterRows={(data, q) => defaultSearchFilter(data, q)}
         />
       )}

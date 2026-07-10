@@ -1,9 +1,13 @@
 'use client';
 
+import { useState } from 'react';
+import { useCreateTenantQueue } from '../../lib/hooks/queries/use-tenant-mutations';
 import { useTenantQueues } from '../../lib/hooks/queries/use-tenant';
+import { PERMISSIONS } from '../../lib/rbac/permissions';
 import { StatusBadge } from '../ui/Badge';
 import type { Column } from '../data/DataTable';
-import { CreateButton, ModuleAccessGate, ModuleListShell, withRowIds } from './shared/ModuleShell';
+import { ModuleAccessGate, ModuleListShell, withRowIds } from './shared/ModuleShell';
+import { NameCodeCreateSlideOver, WriteCreateButton } from './shared/TenantCreateForms';
 
 type QueueRow = Record<string, unknown> & { id: string };
 
@@ -16,20 +20,40 @@ const columns: Column<QueueRow>[] = [
 ];
 
 export function QueuesContent() {
+  const [open, setOpen] = useState(false);
   const query = useTenantQueues();
+  const create = useCreateTenantQueue();
   const rows = withRowIds(query.data ?? []) as QueueRow[];
 
   return (
     <ModuleAccessGate moduleId="queues">
       {({ module }) => (
-        <ModuleListShell
-          module={module}
-          query={{ ...query, data: rows }}
-          columns={columns}
-          emptyTitle="No call queues"
-          emptyDescription="Create a queue to route inbound calls to agents."
-          primaryAction={<CreateButton label="Create Queue" />}
-        />
+        <>
+          <ModuleListShell
+            module={module}
+            query={{ ...query, data: rows }}
+            columns={columns}
+            emptyTitle="No call queues"
+            emptyDescription="Create a queue to route inbound calls to agents."
+            primaryAction={
+              <WriteCreateButton
+                writePermission={PERMISSIONS.TENANT_QUEUES_WRITE}
+                label="Create Queue"
+                onClick={() => setOpen(true)}
+              />
+            }
+          />
+          <NameCodeCreateSlideOver
+            open={open}
+            onClose={() => setOpen(false)}
+            title="Create Queue"
+            description="Add a call queue for agent routing."
+            isPending={create.isPending}
+            onSubmit={async (values) => {
+              await create.mutateAsync(values);
+            }}
+          />
+        </>
       )}
     </ModuleAccessGate>
   );

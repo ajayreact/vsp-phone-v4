@@ -160,13 +160,22 @@ export function CreateButton({
   label,
   onClick,
   disabled,
+  disabledReason,
 }: {
   label: string;
   onClick?: () => void;
   disabled?: boolean;
+  disabledReason?: string;
 }) {
+  if (!onClick && !disabled) return null;
+
   return (
-    <Button size="sm" onClick={onClick} disabled={disabled ?? !onClick}>
+    <Button
+      size="sm"
+      onClick={onClick}
+      disabled={disabled ?? !onClick}
+      title={disabled && disabledReason ? disabledReason : undefined}
+    >
       <Plus className="h-4 w-4" />
       {label}
     </Button>

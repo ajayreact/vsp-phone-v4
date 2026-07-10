@@ -22,6 +22,7 @@ import {
 } from '../../lib/hooks/queries/use-telecom-noc';
 import type { NocAlert, NocSipDialog, NocSipRegistration } from '../../types/telecom-noc';
 import { DataTable, type Column } from '../data/DataTable';
+import { EmptyState } from '../data/EmptyState';
 import { MetricCard } from '../data/MetricCard';
 import { QueryState } from '../feedback/QueryState';
 import { ModuleAccessGate } from './shared/ModuleShell';
@@ -215,15 +216,45 @@ function DialogsPanel({ tenantId }: { tenantId?: string }) {
 function TracePanel({ tenantId }: { tenantId?: string }) {
   const [callId, setCallId] = useState('');
   const [platformUuid, setPlatformUuid] = useState('');
-  const query = useNocSipTrace({ tenantId, callId: callId || undefined, platformUuid: platformUuid || undefined }, Boolean(callId || platformUuid));
+  const [submitted, setSubmitted] = useState<{ callId?: string; platformUuid?: string } | null>(null);
+  const query = useNocSipTrace(
+    {
+      tenantId,
+      callId: submitted?.callId,
+      platformUuid: submitted?.platformUuid,
+    },
+    Boolean(submitted && (submitted.callId || submitted.platformUuid)),
+  );
+
+  const runSearch = () => {
+    setSubmitted({
+      callId: callId.trim() || undefined,
+      platformUuid: platformUuid.trim() || undefined,
+    });
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap gap-2">
         <input className="rounded-xl border px-3 py-2 text-sm" placeholder="Call-ID" value={callId} onChange={(e) => setCallId(e.target.value)} />
         <input className="rounded-xl border px-3 py-2 text-sm" placeholder="Platform UUID" value={platformUuid} onChange={(e) => setPlatformUuid(e.target.value)} />
-        <Button size="sm"><Search className="h-4 w-4" /> Search</Button>
+        <Button size="sm" onClick={runSearch} disabled={!callId.trim() && !platformUuid.trim()}>
+          <Search className="h-4 w-4" /> Search
+        </Button>
       </div>
-      <QueryState isLoading={query.isLoading} isError={query.isError} error={query.error}>
+      <QueryState
+        isLoading={query.isLoading}
+        isError={query.isError}
+        error={query.error}
+        onRetry={() => void query.refetch()}
+        isEmpty={!submitted}
+        empty={
+          <EmptyState
+            title="Enter trace criteria"
+            description="Provide a Call-ID or Platform UUID, then click Search to load SIP trace events."
+          />
+        }
+      >
         <pre className="max-h-[480px] overflow-auto rounded-xl border bg-muted/30 p-4 text-xs">{JSON.stringify(query.data, null, 2)}</pre>
       </QueryState>
     </div>

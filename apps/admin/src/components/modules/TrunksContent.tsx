@@ -1,7 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { Plus, RefreshCw } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useSipTrunks } from '../../lib/hooks/queries/use-telecom';
 import { getModuleById } from '../../lib/navigation';
@@ -92,16 +92,10 @@ export function TrunksContent() {
           title="SIP Trunks"
           description="Live Telnyx trunk registration, OPTIONS ping, latency, and channel utilization. Auto-refreshes every 10s."
           actions={
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={() => void query.refetch()}>
-                <RefreshCw className={`h-4 w-4 ${query.isFetching ? 'animate-spin' : ''}`} />
-                Refresh
-              </Button>
-              <Button size="sm" disabled>
-                <Plus className="h-4 w-4" />
-                Add Trunk
-              </Button>
-            </div>
+            <Button variant="outline" size="sm" onClick={() => void query.refetch()}>
+              <RefreshCw className={`h-4 w-4 ${query.isFetching ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
           }
         />
 

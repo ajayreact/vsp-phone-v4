@@ -1,94 +1,177 @@
 'use client';
 
-import { motion } from 'framer-motion';
-import { Plus, RefreshCw } from 'lucide-react';
-import { useMemo, useState } from 'react';
-import { useExtensions } from '../../lib/hooks/queries/use-telecom';
-import { getModuleById } from '../../lib/navigation';
-import { hasPermission } from '../../lib/rbac/permissions';
-import { usePermissions } from '../../lib/auth/AuthProvider';
-import type { ExtensionRecord } from '../../types/telecom';
-import { DataTable, type Column } from '../data/DataTable';
-import { SearchBar } from '../data/SearchBar';
-import { EmptyState } from '../data/EmptyState';
-import { PermissionDenied } from '../data/PermissionDenied';
-import { QueryState } from '../feedback/QueryState';
-import { PageContainer, PageHeader } from '../layout/PageHeader';
-import { Button } from '../ui/Button';
+import { useState } from 'react';
+import {
+  defaultSearchFilter,
+  ModuleAccessGate,
+  ModuleListShell,
+  withRowIds,
+} from './shared/ModuleShell';
+import { useCreateTenantExtension } from '../../lib/hooks/queries/use-tenant-mutations';
+import { useTenantDevices, useTenantExtensions } from '../../lib/hooks/queries/use-tenant';
+import { PERMISSIONS } from '../../lib/rbac/permissions';
 import { StatusBadge } from '../ui/Badge';
-import { Skeleton } from '../ui/Skeleton';
+import type { Column } from '../data/DataTable';
+import { Input } from '../ui/Input';
+import { SlideOver } from '../ui/SlideOver';
+import { Button } from '../ui/Button';
+import { useLineOptionsFromDevices, WriteCreateButton } from './shared/TenantCreateForms';
 
-const columns: Column<ExtensionRecord>[] = [
-  { key: 'extension', header: 'Extension', sortable: true, cell: (r) => <span className="font-mono font-medium">{r.extension}</span> },
-  { key: 'user', header: 'Display Name', cell: (r) => r.userDisplayName ?? '—' },
-  { key: 'tenant', header: 'Tenant', cell: (r) => r.tenantName ?? '—' },
-  { key: 'callerId', header: 'Caller ID', cell: (r) => r.callerId ?? '—' },
-  { key: 'device', header: 'Device', cell: (r) => r.deviceLabel ?? '—' },
-  { key: 'registration', header: 'Registration', cell: (r) => <StatusBadge status={r.registration === 'online' ? 'online' : 'offline'} /> },
-  { key: 'presence', header: 'Presence', cell: (r) => r.presence },
-  { key: 'vm', header: 'Voicemail', cell: (r) => (r.voicemailEnabled ? 'On' : 'Off') },
-  { key: 'cf', header: 'Call Forward', cell: (r) => r.callForward ?? '—' },
-  { key: 'dnd', header: 'DND', cell: (r) => (r.dnd ? 'On' : 'Off') },
-  { key: 'lastReg', header: 'Last Registration', cell: (r) => r.lastRegistrationAt ?? '—' },
-  { key: 'codec', header: 'Codec', cell: (r) => r.codec ?? '—' },
+type ExtensionRow = Record<string, unknown> & { id: string };
+
+const columns: Column<ExtensionRow>[] = [
+  {
+    key: 'extension',
+    header: 'Extension',
+    sortable: true,
+    cell: (r) => <span className="font-mono font-medium">{String(r.extension ?? '')}</span>,
+  },
+  {
+    key: 'line',
+    header: 'Line',
+    cell: (r) => {
+      const line = r.line as { name?: string } | undefined;
+      return line?.name ?? '—';
+    },
+  },
+  {
+    key: 'status',
+    header: 'Status',
+    cell: (r) => <StatusBadge status={String(r.status ?? 'ACTIVE') === 'ACTIVE' ? 'active' : 'pending'} />,
+  },
 ];
 
-export function ExtensionsContent() {
-  const module = getModuleById('extensions')!;
-  const permissions = usePermissions();
-  const [search, setSearch] = useState('');
-  const query = useExtensions(search);
+function ExtensionCreateSlideOver({
+  open,
+  onClose,
+  lineOptions,
+  isPending,
+  onSubmit,
+}: {
+  open: boolean;
+  onClose: () => void;
+  lineOptions: { id: string; label: string }[];
+  isPending: boolean;
+  onSubmit: (values: { lineId: string; extension: string }) => Promise<void>;
+}) {
+  const [lineId, setLineId] = useState('');
+  const [extension, setExtension] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const noLines = lineOptions.length === 0;
 
-  const rows = useMemo(() => query.data ?? [], [query.data]);
+  const reset = () => {
+    setLineId('');
+    setExtension('');
+    setError(null);
+  };
 
-  if (!hasPermission(permissions, module.permission)) {
-    return (
-      <PageContainer>
-        <PermissionDenied module={module.label} />
-      </PageContainer>
-    );
-  }
+  const handleClose = () => {
+    reset();
+    onClose();
+  };
+
+  const submit = async () => {
+    setError(null);
+    try {
+      await onSubmit({ lineId, extension: extension.trim() });
+      reset();
+      onClose();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Request failed');
+    }
+  };
 
   return (
-    <PageContainer>
-      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.18 }}>
-        <PageHeader
-          title="Extensions"
-          description="Extension lines, registrations, presence, and device assignments."
-          actions={
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={() => void query.refetch()}>
-                <RefreshCw className={`h-4 w-4 ${query.isFetching ? 'animate-spin' : ''}`} />
-                Refresh
-              </Button>
-              <Button size="sm" disabled>
-                <Plus className="h-4 w-4" />
-                Add Extension
-              </Button>
-            </div>
-          }
-        />
-        <div className="mb-6 max-w-lg">
-          <SearchBar value={search} onChange={setSearch} placeholder="Search extensions, users, devices…" />
+    <SlideOver
+      open={open}
+      onClose={handleClose}
+      title="Add Extension"
+      description="Assign an extension number to a line."
+      footer={
+        <div className="flex justify-end gap-2">
+          <Button variant="outline" onClick={handleClose}>
+            Cancel
+          </Button>
+          <Button onClick={() => void submit()} disabled={isPending || !lineId || !extension.trim() || noLines}>
+            {isPending ? 'Saving…' : 'Create'}
+          </Button>
         </div>
-        <QueryState
-          isLoading={query.isLoading}
-          isError={query.isError}
-          error={query.error}
-          onRetry={() => void query.refetch()}
-          isEmpty={!rows.length}
-          empty={
-            <EmptyState
-              title="No extensions"
-              description="Extension data loads from GET /v1/extensions when the API is available."
-              action={<Button disabled><Plus className="h-4 w-4" />Add Extension</Button>}
-            />
-          }
-          skeleton={<Skeleton className="h-64 w-full rounded-2xl" />}
-        >
-          <DataTable columns={columns} data={rows} />
-        </QueryState>
-      </motion.div>
-    </PageContainer>
+      }
+    >
+      <div className="space-y-4">
+        {error ? <p className="text-sm text-destructive">{error}</p> : null}
+        {noLines ? (
+          <p className="text-sm text-muted-foreground">
+            No lines are available yet. Provision a device or user line before adding extensions.
+          </p>
+        ) : (
+          <label className="block space-y-1.5 text-sm">
+            <span className="font-medium">Line *</span>
+            <select
+              className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm"
+              value={lineId}
+              onChange={(e) => setLineId(e.target.value)}
+            >
+              <option value="">Select a line…</option>
+              {lineOptions.map((opt) => (
+                <option key={opt.id} value={opt.id}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+        <label className="block space-y-1.5 text-sm">
+          <span className="font-medium">Extension *</span>
+          <Input value={extension} onChange={(e) => setExtension(e.target.value)} placeholder="101" />
+        </label>
+      </div>
+    </SlideOver>
+  );
+}
+
+export function ExtensionsContent() {
+  const [search, setSearch] = useState('');
+  const [open, setOpen] = useState(false);
+  const query = useTenantExtensions(search);
+  const devicesQuery = useTenantDevices();
+  const create = useCreateTenantExtension();
+  const lineOptions = useLineOptionsFromDevices(devicesQuery.data ?? []);
+  const rows = withRowIds(query.data ?? []) as ExtensionRow[];
+
+  return (
+    <ModuleAccessGate moduleId="extensions">
+      {({ module }) => (
+        <>
+          <ModuleListShell
+            module={module}
+            query={{ ...query, data: rows }}
+            columns={columns}
+            search={search}
+            onSearchChange={setSearch}
+            searchPlaceholder="Search extensions…"
+            emptyTitle="No extensions"
+            emptyDescription="Add extension numbers and assign them to lines."
+            primaryAction={
+              <WriteCreateButton
+                writePermission={PERMISSIONS.TENANT_EXTENSIONS_WRITE}
+                label="Add Extension"
+                onClick={() => setOpen(true)}
+              />
+            }
+            filterRows={(data, q) => defaultSearchFilter(data, q)}
+          />
+          <ExtensionCreateSlideOver
+            open={open}
+            onClose={() => setOpen(false)}
+            lineOptions={lineOptions}
+            isPending={create.isPending}
+            onSubmit={async (values) => {
+              await create.mutateAsync(values);
+            }}
+          />
+        </>
+      )}
+    </ModuleAccessGate>
   );
 }

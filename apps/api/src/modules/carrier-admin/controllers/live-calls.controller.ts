@@ -19,7 +19,12 @@ export class LiveCallsAdminController {
   ) {}
 
   @Get()
-  @RequireAnyPermission(PERMISSIONS.TENANT_ADMIN, PERMISSIONS.PLATFORM_SUPER_ADMIN)
+  @RequireAnyPermission(
+    PERMISSIONS.OPS_LIVE_CALLS_READ,
+    PERMISSIONS.SUPERVISOR_CALLS_READ,
+    PERMISSIONS.TENANT_ADMIN,
+    PERMISSIONS.PLATFORM_SUPER_ADMIN,
+  )
   @ApiOperation({ summary: 'Active call sessions for NOC view' })
   async list(@Query('tenantId') tenantIdQuery: string | undefined, @Req() req: Request) {
     const user = getJwtUser(req);
