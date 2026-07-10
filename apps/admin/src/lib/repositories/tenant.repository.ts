@@ -65,6 +65,10 @@ export const tenantRepository = {
     return httpGet<{ data: Record<string, unknown>[] }>('/v1/tenant/number-requests').then(normalizeList);
   },
 
+  createNumberRequest(payload: { phoneNumber: string; notes?: string }): Promise<Record<string, unknown>> {
+    return httpPost<Record<string, unknown>>('/v1/tenant/number-requests', payload);
+  },
+
   createExtension(payload: Record<string, unknown>): Promise<Record<string, unknown>> {
     return httpPost<Record<string, unknown>>('/v1/tenant/extensions', payload);
   },

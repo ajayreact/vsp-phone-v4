@@ -7,7 +7,12 @@ import {
   tenantsRepository,
   trunksRepository,
 } from '../repositories/telecom.repository';
-import type { AssignTelnyxNumberPayload } from '../../types/telecom';
+import type {
+  AssignTelnyxNumberPayload,
+  PurchaseTelnyxNumberPayload,
+  SearchAvailableParams,
+  UpdateTelnyxNumberPayload,
+} from '../../types/telecom';
 
 export const opsService = {
   getDashboard: opsRepository.getDashboard,
@@ -16,15 +21,31 @@ export const opsService = {
 
 export const telnyxNumbersService = {
   list: telnyxNumbersRepository.list,
-  searchAvailable: telnyxNumbersRepository.searchAvailable,
+  getDashboard: telnyxNumbersRepository.getDashboard,
+  getSyncStatus: telnyxNumbersRepository.getSyncStatus,
+  triggerSync: telnyxNumbersRepository.triggerSync,
+  get: telnyxNumbersRepository.get,
+  getHistory: telnyxNumbersRepository.getHistory,
+  searchAvailable: (params: SearchAvailableParams) => telnyxNumbersRepository.searchAvailable(params),
+  listMarketplace: telnyxNumbersRepository.listMarketplace,
   reserve: telnyxNumbersRepository.reserve,
   assign: (id: string, payload: AssignTelnyxNumberPayload) => telnyxNumbersRepository.assign(id, payload),
+  reassign: (id: string, payload: AssignTelnyxNumberPayload) => telnyxNumbersRepository.reassign(id, payload),
+  suspend: telnyxNumbersRepository.suspend,
+  activate: telnyxNumbersRepository.activate,
   release: telnyxNumbersRepository.release,
-  purchase: telnyxNumbersRepository.purchase,
-  update: telnyxNumbersRepository.update,
+  purchase: (payload: PurchaseTelnyxNumberPayload) => telnyxNumbersRepository.purchase(payload),
+  update: (id: string, payload: UpdateTelnyxNumberPayload) => telnyxNumbersRepository.update(id, payload),
   remove: telnyxNumbersRepository.remove,
   bulkAssign: telnyxNumbersRepository.bulkAssign,
   bulkRelease: telnyxNumbersRepository.bulkRelease,
+  bulkPurchase: telnyxNumbersRepository.bulkPurchase,
+  bulkReserve: telnyxNumbersRepository.bulkReserve,
+  bulkTag: telnyxNumbersRepository.bulkTag,
+  bulkEmergency: telnyxNumbersRepository.bulkEmergency,
+  listRequests: telnyxNumbersRepository.listRequests,
+  approveRequest: telnyxNumbersRepository.approveRequest,
+  rejectRequest: telnyxNumbersRepository.rejectRequest,
 };
 
 export const trunksService = {

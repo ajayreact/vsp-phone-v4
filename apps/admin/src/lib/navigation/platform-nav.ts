@@ -83,9 +83,9 @@ export const PLATFORM_MODULES: ModuleDefinition[] = [
     permission: PERMISSIONS.PLATFORM_TELNYX_READ,
     integration: 'live',
     primary: true,
-    description: 'Platform-wide Telnyx phone number inventory.',
-    breadcrumb: ['Carrier & Numbers', 'Telnyx Numbers'],
-    apiEndpoints: ['/v1/carriers/telnyx/numbers'],
+    description: 'Platform-wide Telnyx phone number inventory and Mission Control.',
+    breadcrumb: ['Carrier & Numbers', 'Telnyx Mission Control'],
+    apiEndpoints: ['/v1/carriers/telnyx/numbers', '/v1/carriers/telnyx/numbers/dashboard'],
   },
   {
     id: 'carriers',

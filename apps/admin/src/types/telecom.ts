@@ -9,6 +9,13 @@ export type ApiListResponse<T> = {
   };
 };
 
+export type ApiDataResponse<T> = { data: T };
+
+export type BulkResult<T> = {
+  succeeded: T[];
+  failed: Array<{ id?: string; phoneNumber?: string; error: string }>;
+};
+
 export type InfraHealthStatus = 'up' | 'down' | 'degraded';
 
 export type InfraHealthCheck = {
@@ -47,24 +54,119 @@ export type OpsDashboardSnapshot = {
   };
 };
 
+export type TelnyxDashboardStats = {
+  totalNumbers: number;
+  assigned: number;
+  available: number;
+  reserved: number;
+  pendingPort: number;
+  porting: number;
+  released: number;
+  smsEnabled: number;
+  voiceEnabled: number;
+  emergencyEnabled: number;
+  monthlyCost: number;
+  inventoryValue: number;
+};
+
+export type TelnyxSyncStatus = {
+  lastSyncAt: string | null;
+  status: string;
+  lastError?: string | null;
+  added: number;
+  updated: number;
+  failed: number;
+  conflicts: number;
+};
+
+export type TelnyxAvailableNumber = {
+  phoneNumber: string;
+  region: string;
+  monthlyCost: number;
+  upfrontCost: number;
+  features: string[];
+  phoneNumberType: string;
+  reservable: boolean;
+  quickship: boolean;
+  vanityFormat: string | null;
+  regulatoryRequirements: string[];
+};
+
 export type TelnyxNumberRecord = {
   id: string;
   number: string;
   e164: string;
+  telnyxId?: string | null;
   connectionType?: string;
+  connectionId?: string | null;
   voiceProfile?: string;
+  messagingProfile?: string;
   smsEnabled: boolean;
   mmsEnabled: boolean;
   emergencyEnabled: boolean;
+  emergencyAddress?: string | null;
+  cnam?: string | null;
   assignedTenantId: string | null;
   assignedTenantName: string | null;
+  assignedSiteId?: string | null;
   assignedExtension: string | null;
   assignedIvr: string | null;
   assignedQueue: string | null;
+  assignedRingGroup?: string | null;
+  assignedVoicemail?: string | null;
+  assignedConference?: string | null;
+  forwardTo?: string | null;
   region: string;
   monthlyCost: number;
   purchasedAt: string;
   status: 'active' | 'available' | 'pending' | 'porting' | 'suspended' | 'released';
+  tags?: string[];
+  notes?: string | null;
+  regulatoryBundle?: string | null;
+};
+
+export type TelnyxNumberHistory = {
+  assignments: Array<{
+    id: string;
+    tenantId: string;
+    tenantName: string;
+    effectiveFrom: string;
+    effectiveTo: string | null;
+  }>;
+  reservations: Array<{
+    id: string;
+    status: string;
+    expiresAt: string;
+    createdAt: string;
+  }>;
+  audit: Array<{
+    auditId: string;
+    ts: string;
+    action: string;
+    detail?: Record<string, unknown>;
+  }>;
+};
+
+export type TelnyxNumberRequest = {
+  id: string;
+  tenantId: string;
+  tenantName: string;
+  phoneNumber: string;
+  status: string;
+  requestedBy: string;
+  requesterEmail?: string;
+  reviewedBy: string | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type TelnyxReservation = {
+  id: string;
+  phoneNumber: string;
+  countryCode: string;
+  status: string;
+  expiresAt: string;
 };
 
 export type SipTrunkRecord = {
@@ -126,25 +228,69 @@ export type ExtensionRecord = {
   codec: string | null;
 };
 
+export type SearchAvailableParams = {
+  countryCode?: string;
+  administrativeArea?: string;
+  locality?: string;
+  postalCode?: string;
+  areaCode?: string;
+  nationalDestinationCode?: string;
+  prefix?: string;
+  contains?: string;
+  endsWith?: string;
+  startsWith?: string;
+  vanity?: string;
+  phoneNumberType?: string;
+  voice?: boolean;
+  sms?: boolean;
+  mms?: boolean;
+  emergency?: boolean;
+  quickship?: boolean;
+  bestEffort?: boolean;
+  search?: string;
+  limit?: number;
+};
+
 export type PurchaseTelnyxNumberPayload = {
   phoneNumber?: string;
   countryCode?: string;
   region?: string;
   connectionId?: string;
+  messagingProfileId?: string;
   voiceProfile?: string;
+  reservationId?: string;
 };
 
 export type BulkAssignPayload = {
   ids: string[];
   tenantId: string;
+  siteId?: string;
   extension?: string;
 };
 
 export type AssignTelnyxNumberPayload = {
   tenantId: string;
+  siteId?: string;
+  department?: string;
   extension?: string;
   ivr?: string;
   queue?: string;
+  ringGroup?: string;
+  voicemail?: string;
+  conference?: string;
+  forwardTo?: string;
+};
+
+export type UpdateTelnyxNumberPayload = {
+  voiceProfile?: string;
+  messagingProfile?: string;
+  smsEnabled?: boolean;
+  emergencyEnabled?: boolean;
+  emergencyAddress?: string;
+  cnam?: string;
+  connectionId?: string;
+  notes?: string;
+  tags?: string[];
 };
 
 export type TenantRecord = {

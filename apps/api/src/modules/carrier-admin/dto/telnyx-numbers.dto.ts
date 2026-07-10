@@ -1,5 +1,16 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsArray, IsBoolean, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
+import { Type } from 'class-transformer';
+import {
+  IsArray,
+  IsBoolean,
+  IsInt,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Max,
+  MaxLength,
+  Min,
+} from 'class-validator';
 
 export class ListTelnyxNumbersQueryDto {
   @ApiPropertyOptional()
@@ -16,10 +27,15 @@ export class ListTelnyxNumbersQueryDto {
   @IsOptional()
   @IsString()
   region?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  tag?: string;
 }
 
 export class PurchaseTelnyxNumberDto {
-  @ApiPropertyOptional({ description: 'E.164 number to purchase when known' })
+  @ApiPropertyOptional()
   @IsOptional()
   @IsString()
   phoneNumber?: string;
@@ -29,7 +45,7 @@ export class PurchaseTelnyxNumberDto {
   @IsString()
   countryCode?: string;
 
-  @ApiPropertyOptional({ description: 'State/region code for local number search' })
+  @ApiPropertyOptional()
   @IsOptional()
   @IsString()
   region?: string;
@@ -42,7 +58,17 @@ export class PurchaseTelnyxNumberDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  messagingProfileId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
   voiceProfile?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUUID()
+  reservationId?: string;
 }
 
 export class UpdateTelnyxNumberDto {
@@ -50,6 +76,11 @@ export class UpdateTelnyxNumberDto {
   @IsOptional()
   @IsString()
   voiceProfile?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  messagingProfile?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -64,13 +95,45 @@ export class UpdateTelnyxNumberDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  emergencyAddress?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  cnam?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
   connectionId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  notes?: string;
+
+  @ApiPropertyOptional({ type: [String] })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  tags?: string[];
 }
 
 export class AssignTelnyxNumberDto {
   @ApiProperty()
   @IsUUID()
   tenantId!: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUUID()
+  siteId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  department?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -87,6 +150,26 @@ export class AssignTelnyxNumberDto {
   @IsOptional()
   @IsString()
   queue?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  ringGroup?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  voicemail?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  conference?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  forwardTo?: string;
 }
 
 export class BulkAssignTelnyxNumbersDto {
@@ -101,6 +184,11 @@ export class BulkAssignTelnyxNumbersDto {
 
   @ApiPropertyOptional()
   @IsOptional()
+  @IsUUID()
+  siteId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
   @IsString()
   extension?: string;
 }
@@ -112,13 +200,70 @@ export class BulkReleaseTelnyxNumbersDto {
   ids!: string[];
 }
 
+export class BulkPurchaseTelnyxNumbersDto {
+  @ApiProperty({ type: [String] })
+  @IsArray()
+  @IsString({ each: true })
+  phoneNumbers!: string[];
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  connectionId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  countryCode?: string;
+}
+
+export class BulkReserveTelnyxNumbersDto {
+  @ApiProperty({ type: [String] })
+  @IsArray()
+  @IsString({ each: true })
+  phoneNumbers!: string[];
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  countryCode?: string;
+}
+
+export class BulkTagTelnyxNumbersDto {
+  @ApiProperty({ type: [String] })
+  @IsArray()
+  @IsUUID('4', { each: true })
+  ids!: string[];
+
+  @ApiProperty({ type: [String] })
+  @IsArray()
+  @IsString({ each: true })
+  tags!: string[];
+}
+
+export class BulkEmergencyUpdateDto {
+  @ApiProperty({ type: [String] })
+  @IsArray()
+  @IsUUID('4', { each: true })
+  ids!: string[];
+
+  @ApiProperty()
+  @IsString()
+  emergencyAddress!: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  emergencyEnabled?: boolean;
+}
+
 export class SearchAvailableNumbersQueryDto {
   @ApiPropertyOptional({ default: 'US' })
   @IsOptional()
   @IsString()
   countryCode?: string;
 
-  @ApiPropertyOptional({ description: 'State/province code' })
+  @ApiPropertyOptional()
   @IsOptional()
   @IsString()
   administrativeArea?: string;
@@ -128,6 +273,46 @@ export class SearchAvailableNumbersQueryDto {
   @IsString()
   locality?: string;
 
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  postalCode?: string;
+
+  @ApiPropertyOptional({ description: 'Area code / NDC' })
+  @IsOptional()
+  @IsString()
+  nationalDestinationCode?: string;
+
+  @ApiPropertyOptional({ description: 'Area code alias for nationalDestinationCode' })
+  @IsOptional()
+  @IsString()
+  areaCode?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  prefix?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  contains?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  endsWith?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  startsWith?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  vanity?: string;
+
   @ApiPropertyOptional({ enum: ['local', 'toll_free', 'mobile', 'national'] })
   @IsOptional()
   @IsString()
@@ -135,8 +320,57 @@ export class SearchAvailableNumbersQueryDto {
 
   @ApiPropertyOptional()
   @IsOptional()
+  @IsBoolean()
+  @Type(() => Boolean)
+  voice?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  @Type(() => Boolean)
+  sms?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  @Type(() => Boolean)
+  mms?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  @Type(() => Boolean)
+  emergency?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  @Type(() => Boolean)
+  quickship?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  @Type(() => Boolean)
+  bestEffort?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
   @IsString()
   search?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(250)
+  @Type(() => Number)
+  limit?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  sort?: string;
 }
 
 export class ReserveTelnyxNumberDto {
@@ -148,6 +382,18 @@ export class ReserveTelnyxNumberDto {
   @IsOptional()
   @IsString()
   countryCode?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  monthlyCost?: number;
+}
+
+export class ReviewNumberRequestDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  notes?: string;
 }
 
 export class TelnyxNumberResponseDto {
@@ -161,10 +407,19 @@ export class TelnyxNumberResponseDto {
   e164!: string;
 
   @ApiPropertyOptional()
+  telnyxId?: string | null;
+
+  @ApiPropertyOptional()
   connectionType?: string;
 
   @ApiPropertyOptional()
+  connectionId?: string | null;
+
+  @ApiPropertyOptional()
   voiceProfile?: string;
+
+  @ApiPropertyOptional()
+  messagingProfile?: string;
 
   @ApiProperty()
   smsEnabled!: boolean;
@@ -176,10 +431,19 @@ export class TelnyxNumberResponseDto {
   emergencyEnabled!: boolean;
 
   @ApiPropertyOptional()
+  emergencyAddress?: string | null;
+
+  @ApiPropertyOptional()
+  cnam?: string | null;
+
+  @ApiPropertyOptional()
   assignedTenantId?: string | null;
 
   @ApiPropertyOptional()
   assignedTenantName?: string | null;
+
+  @ApiPropertyOptional()
+  assignedSiteId?: string | null;
 
   @ApiPropertyOptional()
   assignedExtension?: string | null;
@@ -189,6 +453,18 @@ export class TelnyxNumberResponseDto {
 
   @ApiPropertyOptional()
   assignedQueue?: string | null;
+
+  @ApiPropertyOptional()
+  assignedRingGroup?: string | null;
+
+  @ApiPropertyOptional()
+  assignedVoicemail?: string | null;
+
+  @ApiPropertyOptional()
+  assignedConference?: string | null;
+
+  @ApiPropertyOptional()
+  forwardTo?: string | null;
 
   @ApiProperty()
   region!: string;
@@ -201,4 +477,74 @@ export class TelnyxNumberResponseDto {
 
   @ApiProperty()
   status!: string;
+
+  @ApiPropertyOptional({ type: [String] })
+  tags?: string[];
+
+  @ApiPropertyOptional()
+  notes?: string | null;
+
+  @ApiPropertyOptional()
+  regulatoryBundle?: string | null;
+}
+
+export class TelnyxDashboardDto {
+  @ApiProperty()
+  totalNumbers!: number;
+
+  @ApiProperty()
+  assigned!: number;
+
+  @ApiProperty()
+  available!: number;
+
+  @ApiProperty()
+  reserved!: number;
+
+  @ApiProperty()
+  pendingPort!: number;
+
+  @ApiProperty()
+  porting!: number;
+
+  @ApiProperty()
+  released!: number;
+
+  @ApiProperty()
+  smsEnabled!: number;
+
+  @ApiProperty()
+  voiceEnabled!: number;
+
+  @ApiProperty()
+  emergencyEnabled!: number;
+
+  @ApiProperty()
+  monthlyCost!: number;
+
+  @ApiProperty()
+  inventoryValue!: number;
+}
+
+export class TelnyxSyncStatusDto {
+  @ApiProperty()
+  lastSyncAt!: string | null;
+
+  @ApiProperty()
+  status!: string;
+
+  @ApiPropertyOptional()
+  lastError?: string | null;
+
+  @ApiProperty()
+  added!: number;
+
+  @ApiProperty()
+  updated!: number;
+
+  @ApiProperty()
+  failed!: number;
+
+  @ApiProperty()
+  conflicts!: number;
 }

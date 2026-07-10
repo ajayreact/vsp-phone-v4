@@ -42,9 +42,14 @@ export const queryKeys = {
     numberRequests: () => ['tenant', 'number-requests'] as const,
   },
   telnyx: {
+    dashboard: () => ['telnyx', 'dashboard'] as const,
+    syncStatus: () => ['telnyx', 'sync-status'] as const,
     numbers: (filters?: Record<string, string>) => ['telnyx', 'numbers', filters ?? {}] as const,
     number: (id: string) => ['telnyx', 'numbers', id] as const,
+    history: (id: string) => ['telnyx', 'history', id] as const,
     searchAvailable: (filters?: Record<string, string>) => ['telnyx', 'search-available', filters ?? {}] as const,
+    marketplace: (search?: string) => ['telnyx', 'marketplace', search ?? ''] as const,
+    requests: (status?: string) => ['telnyx', 'requests', status ?? 'all'] as const,
   },
   trunks: {
     all: () => ['trunks', 'list'] as const,
