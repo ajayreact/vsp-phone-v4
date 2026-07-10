@@ -7,10 +7,12 @@ import { ExtensionsAdminController } from './controllers/extensions.controller';
 import { LiveCallsAdminController } from './controllers/live-calls.controller';
 import { TelnyxNumbersController } from './controllers/telnyx-numbers.controller';
 import { TrunksAdminController } from './controllers/trunks.controller';
+import { UsersAdminController } from './controllers/users.controller';
 import { ExtensionsAdminService } from './services/extensions-admin.service';
 import { LiveCallsAdminService } from './services/live-calls-admin.service';
 import { TelnyxNumbersService } from './services/telnyx-numbers.service';
 import { TrunksAdminService } from './services/trunks-admin.service';
+import { UsersAdminService } from './services/users-admin.service';
 import { TelnyxApiClient } from './telnyx-api.client';
 
 @Module({
@@ -20,6 +22,7 @@ import { TelnyxApiClient } from './telnyx-api.client';
     TrunksAdminController,
     ExtensionsAdminController,
     LiveCallsAdminController,
+    UsersAdminController,
   ],
   providers: [
     TelnyxApiClient,
@@ -27,7 +30,14 @@ import { TelnyxApiClient } from './telnyx-api.client';
     TrunksAdminService,
     ExtensionsAdminService,
     LiveCallsAdminService,
+    UsersAdminService,
   ],
-  exports: [TelnyxNumbersService, TrunksAdminService, ExtensionsAdminService, LiveCallsAdminService],
+  exports: [
+    TelnyxNumbersService,
+    TrunksAdminService,
+    ExtensionsAdminService,
+    LiveCallsAdminService,
+    UsersAdminService,
+  ],
 })
 export class CarrierAdminModule {}

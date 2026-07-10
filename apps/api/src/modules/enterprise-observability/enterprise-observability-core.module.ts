@@ -34,6 +34,7 @@ import { CallTraceService } from './tracing/call-trace.service';
     EnterpriseAuditService,
     EnterpriseHealthService,
     OperationsDashboardService,
+    CallInspectorService,
   ],
 })
 export class EnterpriseObservabilityCoreModule {}

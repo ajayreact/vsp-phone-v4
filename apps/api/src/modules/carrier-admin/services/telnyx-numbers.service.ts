@@ -1,11 +1,6 @@
-import {
-  BadRequestException,
-  Injectable,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { CarrierType, PhoneNumberStatus, Prisma } from '@prisma/client';
+import { CarrierType, NumberReservationStatus, PhoneNumberStatus, Prisma } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { PrismaService } from '../../telecom/prisma/prisma.service';
 import type {
@@ -42,7 +37,10 @@ function normalizeE164(raw: string): string {
 }
 
 function metaFromTelnyxApi(row: TelnyxPhoneNumberApi): StoredTelnyxMeta {
-  const features = row.features?.map((f) => f.name.toLowerCase()) ?? [];
+  const rawFeatures = row.features;
+  const features = Array.isArray(rawFeatures)
+    ? rawFeatures.map((f) => (typeof f === 'object' && f && 'name' in f ? String(f.name) : String(f))).map((f) => f.toLowerCase())
+    : [];
   const region =
     row.region_information?.find((r) => r.region_type === 'state')?.region_name ??
     row.region_information?.[0]?.region_name ??
@@ -73,7 +71,16 @@ export class TelnyxNumbersService {
   async list(query: ListTelnyxNumbersQueryDto): Promise<TelnyxNumberResponseDto[]> {
     if (!this.prisma.connected) return [];
 
-    await this.syncFromTelnyxIfEnabled();
+    try {
+      await this.syncFromTelnyxIfEnabled();
+    } catch (err) {
+      if (err instanceof BadRequestException) throw err;
+      this.logger.warn(
+        `Telnyx inventory sync failed — returning PostgreSQL rows only: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+    }
 
     const where: Prisma.PhoneNumberWhereInput = {
       deletedAt: null,
@@ -298,27 +305,35 @@ export class TelnyxNumbersService {
     const remote = await this.telnyx.listAllPhoneNumbers();
 
     for (const remoteRow of remote) {
-      const e164 = normalizeE164(remoteRow.phone_number);
-      const meta = metaFromTelnyxApi(remoteRow);
-      const existing = await this.prisma.phoneNumber.findFirst({
-        where: { number: e164, deletedAt: null },
-      });
-      if (existing) {
-        await this.persistMeta(carrier.id, existing.id, { ...(await this.loadMeta(existing)), ...meta });
-        continue;
+      try {
+        const e164 = normalizeE164(remoteRow.phone_number);
+        const meta = metaFromTelnyxApi(remoteRow);
+        const existing = await this.prisma.phoneNumber.findFirst({
+          where: { number: e164, deletedAt: null },
+        });
+        if (existing) {
+          await this.persistMeta(carrier.id, existing.id, { ...(await this.loadMeta(existing)), ...meta });
+          continue;
+        }
+        const id = randomUUID();
+        await this.prisma.phoneNumber.create({
+          data: {
+            id,
+            publicId: this.buildPublicId(meta),
+            tenantId: inventoryTenantId,
+            carrierId: carrier.id,
+            number: e164,
+            status: PhoneNumberStatus.ACTIVE,
+          },
+        });
+        await this.persistMeta(carrier.id, id, meta);
+      } catch (err) {
+        this.logger.warn(
+          `Skipping Telnyx number ${remoteRow.phone_number ?? remoteRow.id}: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
       }
-      const id = randomUUID();
-      await this.prisma.phoneNumber.create({
-        data: {
-          id,
-          publicId: this.buildPublicId(meta),
-          tenantId: inventoryTenantId,
-          carrierId: carrier.id,
-          number: e164,
-          status: PhoneNumberStatus.ACTIVE,
-        },
-      });
-      await this.persistMeta(carrier.id, id, meta);
     }
   }
 
@@ -327,8 +342,18 @@ export class TelnyxNumbersService {
   }
 
   private async resolveInventoryTenantId(): Promise<string> {
-    const configured = this.config.get<string>('VSP_PLATFORM_INVENTORY_TENANT_ID');
-    if (configured) return configured;
+    const configured = this.config.get<string>('VSP_PLATFORM_INVENTORY_TENANT_ID')?.trim();
+    if (configured) {
+      const tenant = await this.prisma.tenant.findFirst({
+        where: { id: configured, deletedAt: null },
+      });
+      if (!tenant) {
+        throw new BadRequestException(
+          `VSP_PLATFORM_INVENTORY_TENANT_ID does not match an active tenant: ${configured}`,
+        );
+      }
+      return tenant.id;
+    }
 
     const tenant = await this.prisma.tenant.findFirst({
       where: { deletedAt: null },
@@ -453,6 +478,74 @@ export class TelnyxNumbersService {
       monthlyCost: m.monthlyCost ?? 0,
       purchasedAt: m.purchasedAt ?? row.createdAt.toISOString(),
       status,
+    };
+  }
+
+  async searchAvailable(query: {
+    countryCode?: string;
+    administrativeArea?: string;
+    locality?: string;
+    phoneNumberType?: string;
+    search?: string;
+  }): Promise<Array<{ phoneNumber: string; region: string; monthlyCost: number; features: string[] }>> {
+    if (!this.telnyx.enabled) return [];
+
+    const type = query.phoneNumberType as 'local' | 'toll_free' | 'mobile' | 'national' | undefined;
+    const rows = await this.telnyx.searchAvailableNumbers({
+      countryCode: query.countryCode ?? 'US',
+      administrativeArea: query.administrativeArea,
+      locality: query.locality,
+      phoneNumberType: type,
+      limit: 50,
+    });
+
+    let mapped = rows.map((r) => {
+      const meta = metaFromTelnyxApi(r);
+      const features: string[] = [];
+      if (meta.smsEnabled) features.push('sms');
+      if (meta.mmsEnabled) features.push('mms');
+      if (meta.emergencyEnabled) features.push('emergency');
+      return {
+        phoneNumber: r.phone_number,
+        region: meta.region ?? 'US',
+        monthlyCost: meta.monthlyCost ?? 0,
+        features,
+      };
+    });
+
+    if (query.search?.trim()) {
+      const q = query.search.trim();
+      mapped = mapped.filter((r) => r.phoneNumber.includes(q));
+    }
+
+    return mapped;
+  }
+
+  async reserve(dto: { phoneNumber: string; countryCode?: string }, actorUserId?: string) {
+    if (!this.prisma.connected) {
+      throw new BadRequestException('Database unavailable');
+    }
+
+    const e164 = normalizeE164(dto.phoneNumber);
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+    const reservation = await this.prisma.numberReservation.create({
+      data: {
+        id: randomUUID(),
+        phoneNumber: e164,
+        countryCode: dto.countryCode ?? 'US',
+        status: NumberReservationStatus.ACTIVE,
+        expiresAt,
+        reservedBy: actorUserId,
+      },
+    });
+
+    return {
+      id: reservation.id,
+      phoneNumber: reservation.phoneNumber,
+      countryCode: reservation.countryCode,
+      status: reservation.status,
+      expiresAt: reservation.expiresAt.toISOString(),
     };
   }
 }

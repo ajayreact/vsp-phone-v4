@@ -22,6 +22,8 @@ import {
   BulkReleaseTelnyxNumbersDto,
   ListTelnyxNumbersQueryDto,
   PurchaseTelnyxNumberDto,
+  ReserveTelnyxNumberDto,
+  SearchAvailableNumbersQueryDto,
   UpdateTelnyxNumberDto,
 } from '../dto/telnyx-numbers.dto';
 import { TelnyxNumbersService } from '../services/telnyx-numbers.service';
@@ -90,5 +92,19 @@ export class TelnyxNumbersController {
   async bulkRelease(@Body() dto: BulkReleaseTelnyxNumbersDto, @Req() req: Request) {
     await this.numbers.bulkRelease(dto, getJwtUser(req).sub);
     return { ok: true };
+  }
+
+  @Get('search/available')
+  @RequirePermission(PERMISSIONS.PLATFORM_SUPER_ADMIN)
+  @ApiOperation({ summary: 'Search Telnyx available phone numbers' })
+  searchAvailable(@Query() query: SearchAvailableNumbersQueryDto) {
+    return this.numbers.searchAvailable(query).then((data) => ({ data }));
+  }
+
+  @Post('reserve')
+  @RequirePermission(PERMISSIONS.PLATFORM_SUPER_ADMIN)
+  @ApiOperation({ summary: 'Reserve a phone number for purchase' })
+  reserve(@Body() dto: ReserveTelnyxNumberDto, @Req() req: Request) {
+    return this.numbers.reserve(dto, getJwtUser(req).sub);
   }
 }

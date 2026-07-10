@@ -81,6 +81,27 @@ export class TelnyxApiClient {
     await this.request(`/phone_numbers/${encodeURIComponent(telnyxId)}`, { method: 'DELETE' });
   }
 
+  async searchAvailableNumbers(params: {
+    countryCode?: string;
+    administrativeArea?: string;
+    locality?: string;
+    phoneNumberType?: 'local' | 'toll_free' | 'mobile' | 'national';
+    features?: string[];
+    limit?: number;
+  }): Promise<TelnyxPhoneNumberApi[]> {
+    const search = new URLSearchParams();
+    search.set('filter[country_code]', params.countryCode ?? 'US');
+    if (params.administrativeArea) search.set('filter[administrative_area]', params.administrativeArea);
+    if (params.locality) search.set('filter[locality]', params.locality);
+    if (params.phoneNumberType) search.set('filter[phone_number_type]', params.phoneNumberType);
+    if (params.features?.length) {
+      for (const f of params.features) search.append('filter[features][]', f);
+    }
+    search.set('filter[limit]', String(params.limit ?? 50));
+    const res = await this.request<{ data: TelnyxPhoneNumberApi[] }>(`/available_phone_numbers?${search.toString()}`);
+    return res.data ?? [];
+  }
+
   async updateNumber(telnyxId: string, patch: Record<string, unknown>): Promise<TelnyxPhoneNumberApi> {
     const res = await this.request<{ data: TelnyxPhoneNumberApi }>(
       `/phone_numbers/${encodeURIComponent(telnyxId)}`,

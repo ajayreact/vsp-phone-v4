@@ -23,10 +23,18 @@ export class PermissionsService {
     if (!this.prisma.connected) {
       const devUserId = (this.config.get<string>('DEV_AUTH_USER_ID') || '').trim();
       if (devUserId && userId === devUserId) {
-        return DEV_FALLBACK_PERMISSIONS.includes(permissionKey);
+        return DEV_FALLBACK_PERMISSIONS.includes(permissionKey) || permissionKey.startsWith('platform:') || permissionKey.startsWith('ops:') || permissionKey.startsWith('tenant:');
       }
       return false;
     }
+    const isSuperAdmin = await this.prisma.rolePermission.count({
+      where: {
+        deletedAt: null,
+        permission: { key: 'platform:super_admin', deletedAt: null },
+        role: { deletedAt: null, userRoles: { some: { userId, deletedAt: null } } },
+      },
+    });
+    if (isSuperAdmin > 0) return true;
     const count = await this.prisma.rolePermission.count({
       where: {
         deletedAt: null,

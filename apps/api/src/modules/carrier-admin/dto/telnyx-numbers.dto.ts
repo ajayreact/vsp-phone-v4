@@ -112,6 +112,44 @@ export class BulkReleaseTelnyxNumbersDto {
   ids!: string[];
 }
 
+export class SearchAvailableNumbersQueryDto {
+  @ApiPropertyOptional({ default: 'US' })
+  @IsOptional()
+  @IsString()
+  countryCode?: string;
+
+  @ApiPropertyOptional({ description: 'State/province code' })
+  @IsOptional()
+  @IsString()
+  administrativeArea?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  locality?: string;
+
+  @ApiPropertyOptional({ enum: ['local', 'toll_free', 'mobile', 'national'] })
+  @IsOptional()
+  @IsString()
+  phoneNumberType?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  search?: string;
+}
+
+export class ReserveTelnyxNumberDto {
+  @ApiProperty()
+  @IsString()
+  phoneNumber!: string;
+
+  @ApiPropertyOptional({ default: 'US' })
+  @IsOptional()
+  @IsString()
+  countryCode?: string;
+}
+
 export class TelnyxNumberResponseDto {
   @ApiProperty()
   id!: string;
