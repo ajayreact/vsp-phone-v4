@@ -194,8 +194,21 @@ enum CallParticipantStatus {
 enum QueueStatus {
   ACTIVE
   INACTIVE
+  PAUSED
+  EMERGENCY_CLOSED
 
   @@map("queue_status")
+}
+
+enum QueueType {
+  SALES
+  BILLING
+  TECHNICAL
+  EMERGENCY
+  VIP
+  OUTBOUND
+
+  @@map("queue_type")
 }
 
 enum QueueStrategy {
@@ -204,8 +217,24 @@ enum QueueStrategy {
   LONGEST_IDLE
   RING_ALL
   PRIORITY
+  FEWEST_ANSWERED
+  RANDOM
+  WEIGHTED
+  SKILLS_BASED
+  STICKY_AGENT
 
   @@map("queue_strategy")
+}
+
+enum QueueCallbackStatus {
+  PENDING
+  SCHEDULED
+  DIALING
+  COMPLETED
+  FAILED
+  CANCELLED
+
+  @@map("queue_callback_status")
 }
 
 enum QueueMemberStatus {
@@ -276,6 +305,11 @@ enum RingGroupStrategy {
   ROUND_ROBIN
   LONGEST_IDLE
   WEIGHTED
+  RANDOM
+  PRIORITY
+  BROADCAST
+  CASCADE
+  FAILOVER
 
   @@map("ring_group_strategy")
 }
@@ -408,6 +442,7 @@ model Tenant {
   callParticipants       CallParticipant[]
   queues                 Queue[]
   queueMembers           QueueMember[]
+  queueCallbacks         QueueCallback[]
   ivrs                   IVR[]
   ivrMenus               IVRMenu[]
   conferences            Conference[]
@@ -1518,14 +1553,27 @@ model Queue {
   tenantId  String        @map("tenant_id") @db.Uuid
   name      String
   code      String
+  description String?
+  queueType QueueType     @default(SALES) @map("queue_type")
   strategy  QueueStrategy @default(ROUND_ROBIN)
   status    QueueStatus   @default(ACTIVE)
   wrapUpSec Int           @default(0) @map("wrap_up_sec")
   slaTargetSec Int?       @map("sla_target_sec")
   maxWaitSec Int?          @map("max_wait_sec")
+  maxQueueLength Int?      @map("max_queue_length")
   overflowDestinationType RouteDestinationType? @map("overflow_destination_type")
   overflowDestinationId String? @map("overflow_destination_id") @db.Uuid
+  overflowQueueId String? @map("overflow_queue_id") @db.Uuid
   callbackEnabled Boolean @default(false) @map("callback_enabled")
+  scheduledCallbackEnabled Boolean @default(false) @map("scheduled_callback_enabled")
+  priorityCallbackEnabled Boolean @default(false) @map("priority_callback_enabled")
+  positionAnnouncementEnabled Boolean @default(false) @map("position_announcement_enabled")
+  estimatedWaitAnnouncementEnabled Boolean @default(false) @map("estimated_wait_announcement_enabled")
+  timeConditionId String? @map("time_condition_id") @db.Uuid
+  holidayCalendarId String? @map("holiday_calendar_id") @db.Uuid
+  mohPlaylistId String?   @map("moh_playlist_id") @db.Uuid
+  announcementId String?  @map("announcement_id") @db.Uuid
+  recordingPolicyId String? @map("recording_policy_id") @db.Uuid
   version   Int           @default(1)
   createdAt DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -1539,6 +1587,7 @@ model Queue {
   updater         User?         @relation("QueueUpdatedBy", fields: [updatedBy], references: [id], onDelete: Restrict)
   deleter         User?         @relation("QueueDeletedBy", fields: [deletedBy], references: [id], onDelete: Restrict)
   members         QueueMember[]
+  callbacks       QueueCallback[]
   callSessions    CallSession[]
   ivrDestinations IVRMenu[]     @relation("IVRMenuDestinationQueue")
 
@@ -1561,8 +1610,11 @@ model QueueMember {
   queueId   String            @map("queue_id") @db.Uuid
   lineId    String            @map("line_id") @db.Uuid
   priority  Int               @default(0)
+  penalty   Int               @default(0)
   status    QueueMemberStatus @default(ACTIVE)
   loggedIn  Boolean           @default(true) @map("logged_in")
+  enabled   Boolean           @default(true)
+  maxConcurrentCalls Int      @default(1) @map("max_concurrent_calls")
   pausedReason String?        @map("paused_reason")
   pausedAt  DateTime?         @map("paused_at") @db.Timestamptz(6)
   skills    Json?             @db.JsonB
@@ -2107,8 +2159,20 @@ model RingGroup {
   publicId  String    @unique @map("public_id")
   tenantId  String    @map("tenant_id") @db.Uuid
   name      String
+  description String?
+  extension String?
+  phoneNumberId String? @map("phone_number_id") @db.Uuid
   strategy  RingGroupStrategy @default(SIMULTANEOUS)
   timeoutSec Int      @default(30) @map("timeout_sec")
+  retryCount Int      @default(0) @map("retry_count")
+  maxCycles  Int      @default(1) @map("max_cycles")
+  callerIdName String? @map("caller_id_name")
+  recordingPolicyId String? @map("recording_policy_id") @db.Uuid
+  voicemailLineId String? @map("voicemail_line_id") @db.Uuid
+  timeConditionId String? @map("time_condition_id") @db.Uuid
+  holidayCalendarId String? @map("holiday_calendar_id") @db.Uuid
+  mohPlaylistId String? @map("moh_playlist_id") @db.Uuid
+  announcementId String? @map("announcement_id") @db.Uuid
   overflowDestinationType RouteDestinationType? @map("overflow_destination_type")
   overflowDestinationId String? @map("overflow_destination_id") @db.Uuid
   status    QueueStatus @default(ACTIVE)
@@ -2116,11 +2180,14 @@ model RingGroup {
   createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedBy String?   @map("updated_by") @db.Uuid
 
   tenant  Tenant            @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   members RingGroupMember[]
   ivrDestinations IVRMenu[] @relation("IVRMenuDestinationRingGroup")
 
+  @@index([tenantId, status])
   @@index([tenantId])
   @@index([deletedAt])
   @@map("ring_groups")
@@ -2132,7 +2199,15 @@ model RingGroupMember {
   ringGroupId String    @map("ring_group_id") @db.Uuid
   extensionId String    @map("extension_id") @db.Uuid
   priority    Int       @default(0)
+  penalty     Int       @default(0)
+  enabled     Boolean   @default(true)
+  ringDelaySec Int      @default(0) @map("ring_delay_sec")
+  maxCalls    Int?      @map("max_calls")
+  busySkip    Boolean   @default(false) @map("busy_skip")
+  wrapUpSec   Int       @default(0) @map("wrap_up_sec")
+  memberOrder Int       @default(0) @map("member_order")
   createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(6)
 
   tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
@@ -2140,7 +2215,33 @@ model RingGroupMember {
   extension Extension @relation(fields: [extensionId], references: [id], onDelete: Restrict)
 
   @@index([ringGroupId])
+  @@index([tenantId, ringGroupId])
   @@map("ring_group_members")
+}
+
+model QueueCallback {
+  id           String              @id @db.Uuid
+  tenantId     String              @map("tenant_id") @db.Uuid
+  queueId      String              @map("queue_id") @db.Uuid
+  phoneNumber  String              @map("phone_number")
+  callerName   String?             @map("caller_name")
+  priority     Int                 @default(0)
+  status       QueueCallbackStatus @default(PENDING)
+  scheduledAt  DateTime?           @map("scheduled_at") @db.Timestamptz(6)
+  retryCount   Int                 @default(0) @map("retry_count")
+  maxRetries   Int                 @default(3) @map("max_retries")
+  completedAt  DateTime?           @map("completed_at") @db.Timestamptz(6)
+  createdAt    DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt    DateTime?           @map("deleted_at") @db.Timestamptz(6)
+  createdBy    String?             @map("created_by") @db.Uuid
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  queue  Queue  @relation(fields: [queueId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, queueId])
+  @@index([tenantId, status])
+  @@map("queue_callbacks")
 }
 
 model TimeCondition {

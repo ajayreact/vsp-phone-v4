@@ -38,6 +38,7 @@ export const queryKeys = {
     queues: () => ['tenant', 'queues'] as const,
     ivrs: () => ['tenant', 'ivrs'] as const,
     ringGroups: () => ['tenant', 'ring-groups'] as const,
+    queueDashboard: () => ['tenant', 'queue-dashboard'] as const,
     voicemail: () => ['tenant', 'voicemail'] as const,
     routing: () => ['tenant', 'routing'] as const,
     cdr: (params?: Record<string, string>) => ['tenant', 'cdr', params ?? {}] as const,

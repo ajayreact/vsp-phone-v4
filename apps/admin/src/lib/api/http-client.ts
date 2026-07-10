@@ -25,6 +25,15 @@ export async function httpPatch<T>(path: string, body: unknown, init?: RequestIn
   });
 }
 
+export async function httpPut<T>(path: string, body: unknown, init?: RequestInit): Promise<T> {
+  return apiFetch<T>(path, {
+    method: 'PUT',
+    body: JSON.stringify(body),
+    ...init,
+    token: getAccessToken(),
+  });
+}
+
 export async function httpDelete<T>(path: string, init?: RequestInit): Promise<T> {
   return apiFetch<T>(path, { method: 'DELETE', ...init, token: getAccessToken() });
 }

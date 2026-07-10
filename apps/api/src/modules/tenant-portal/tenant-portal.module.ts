@@ -34,6 +34,7 @@ import { TenantIvrService } from './services/tenant-ivr.service';
 import { TenantMarketplaceService } from './services/tenant-marketplace.service';
 import { TenantNumberRequestsService } from './services/tenant-number-requests.service';
 import { TenantQueuesService } from './services/tenant-queues.service';
+import { TenantQueueEventsService } from './services/tenant-queue-events.service';
 import { TenantRecordingsService } from './services/tenant-recordings.service';
 import { TenantRingGroupsService } from './services/tenant-ring-groups.service';
 import { TenantRoutingService } from './services/tenant-routing.service';
@@ -70,6 +71,7 @@ import { TenantVoicemailService } from './services/tenant-voicemail.service';
     TenantLinesService,
     TenantExtensionsService,
     TenantQueuesService,
+    TenantQueueEventsService,
     TenantIvrService,
     TenantRingGroupsService,
     TenantDevicesService,
