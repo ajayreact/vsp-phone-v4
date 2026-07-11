@@ -96,16 +96,9 @@ export function hostnameFromHostHeader(hostHeader: string | null | undefined): s
   return hostHeader.split(':')[0]?.trim().toLowerCase() ?? '';
 }
 
-function isLoopbackHostname(hostname: string): boolean {
-  return !hostname || hostname === '127.0.0.1' || hostname === 'localhost';
-}
-
 export type ResolvePortalFromRequestOptions = {
-  /** X-Forwarded-Host (highest priority) */
   forwardedHost?: string | null;
-  /** Host header */
   host?: string | null;
-  /** request.nextUrl.hostname — used only when headers resolve to loopback/absent (local dev) */
   urlHostname?: string | null;
   envPortal?: string;
 };
@@ -113,28 +106,22 @@ export type ResolvePortalFromRequestOptions = {
 /**
  * Single portal resolver for middleware and SSR layout.
  *
- * Priority:
- * 1. X-Forwarded-Host
- * 2. Host
- * 3. request.nextUrl.hostname (only when headers resolve to loopback or are absent)
- *
- * Production nginx passes Host: admin|app|tenant.vspphone.com — nextUrl hostname (127.0.0.1) is never used.
+ * Checks X-Forwarded-Host, Host, and nextUrl.hostname — first recognized
+ * production vhost (admin.* / app.* / tenant.*) wins.
  */
 export function resolvePortalFromRequest(options: ResolvePortalFromRequestOptions): PortalType {
   const fromForwarded = hostnameFromHostHeader(options.forwardedHost);
   const fromHost = hostnameFromHostHeader(options.host);
+  const fromUrl = hostnameFromHostHeader(options.urlHostname);
 
-  let hostname = fromForwarded || fromHost;
-
-  if (isLoopbackHostname(hostname)) {
-    const urlHost = hostnameFromHostHeader(options.urlHostname);
-    if (urlHost && !isLoopbackHostname(urlHost)) {
-      hostname = urlHost;
-    } else if (!hostname) {
-      hostname = urlHost || 'localhost';
-    }
+  // Any recognized production vhost wins immediately (admin.* / app.* / tenant.*).
+  for (const candidate of [fromForwarded, fromHost, fromUrl]) {
+    const portal = portalFromHostname(candidate);
+    if (portal) return portal;
   }
 
+  // Local dev / loopback: fall back to env portal or ops default.
+  const hostname = fromForwarded || fromHost || fromUrl || 'localhost';
   return resolvePortal(hostname, options.envPortal);
 }
 

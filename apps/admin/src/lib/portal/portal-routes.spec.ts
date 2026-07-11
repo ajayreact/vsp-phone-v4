@@ -78,6 +78,26 @@ describe('portal routing', () => {
       ).toBe('platform');
     });
 
+    it('resolves from Host even when urlHostname is loopback (curl / nginx proxy)', () => {
+      expect(
+        resolvePortalFromRequest({
+          host: 'admin.vspphone.com',
+          urlHostname: '127.0.0.1',
+          envPortal: 'ops',
+        }),
+      ).toBe('platform');
+    });
+
+    it('resolves from urlHostname when Host is loopback but nextUrl has vhost', () => {
+      expect(
+        resolvePortalFromRequest({
+          host: '127.0.0.1:3001',
+          urlHostname: 'admin.vspphone.com',
+          envPortal: 'ops',
+        }),
+      ).toBe('platform');
+    });
+
     it('middleware and SSR resolve identically for nginx production headers', () => {
       const headers = { host: 'admin.vspphone.com', forwardedHost: null as string | null };
       const middlewarePortal = resolvePortalFromRequest({
