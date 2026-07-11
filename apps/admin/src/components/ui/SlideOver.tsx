@@ -21,9 +21,9 @@ export function SlideOver({
   description?: string;
   children: ReactNode;
   footer?: ReactNode;
-  width?: 'sm' | 'md' | 'lg';
+  width?: 'sm' | 'md' | 'lg' | 'xl';
 }) {
-  const widths = { sm: 'max-w-md', md: 'max-w-lg', lg: 'max-w-2xl' };
+  const widths = { sm: 'max-w-md', md: 'max-w-lg', lg: 'max-w-2xl', xl: 'max-w-3xl' };
 
   return (
     <AnimatePresence>

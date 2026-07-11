@@ -9,7 +9,20 @@ export type OrganizationRecord = {
   status: string;
   timezone: string | null;
   defaultLanguage: string | null;
-  sites: Array<{ id: string; name: string; status: string }>;
+  businessEmail: string | null;
+  businessPhone: string | null;
+  website: string | null;
+  industry: string | null;
+  companySize: string | null;
+  logoUrl: string | null;
+  sites: Array<{
+    id: string;
+    name: string;
+    status: string;
+    postalCode: string | null;
+    description: string | null;
+    businessHours: string | null;
+  }>;
 };
 
 export type UpdateOrganizationDto = {
@@ -40,7 +53,20 @@ export class PlatformOrganizationService {
       status: tenant.status,
       timezone: tenant.settings?.timezone ?? null,
       defaultLanguage: tenant.settings?.defaultLanguage ?? null,
-      sites: tenant.sites.map((s) => ({ id: s.id, name: s.name, status: s.status })),
+      businessEmail: tenant.settings?.businessEmail ?? null,
+      businessPhone: tenant.settings?.businessPhone ?? null,
+      website: tenant.settings?.website ?? null,
+      industry: tenant.settings?.industry ?? null,
+      companySize: tenant.settings?.companySize ?? null,
+      logoUrl: tenant.settings?.logoUrl ?? null,
+      sites: tenant.sites.map((s) => ({
+        id: s.id,
+        name: s.name,
+        status: s.status,
+        postalCode: s.postalCode,
+        description: s.description,
+        businessHours: s.businessHours,
+      })),
     };
   }
 

@@ -38,6 +38,15 @@ export async function httpDelete<T>(path: string, init?: RequestInit): Promise<T
   return apiFetch<T>(path, { method: 'DELETE', ...init, token: getAccessToken() });
 }
 
+export async function httpPostForm<T>(path: string, body: FormData, init?: RequestInit): Promise<T> {
+  return apiFetch<T>(path, {
+    method: 'POST',
+    body,
+    ...init,
+    token: getAccessToken(),
+  });
+}
+
 /** Admin BFF routes (server-side service auth). */
 export async function bffGet<T>(path: string): Promise<T> {
   const res = await fetch(path, { cache: 'no-store' });

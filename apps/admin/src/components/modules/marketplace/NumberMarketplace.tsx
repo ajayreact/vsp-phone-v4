@@ -264,6 +264,7 @@ function BrowseTab({
           <Input placeholder="Area code" value={filters.areaCode ?? ''} onChange={(e) => setFilters({ ...filters, areaCode: e.target.value })} />
           <Input placeholder="Prefix" value={filters.prefix ?? ''} onChange={(e) => setFilters({ ...filters, prefix: e.target.value })} />
           <Input placeholder="Contains" value={filters.contains ?? ''} onChange={(e) => setFilters({ ...filters, contains: e.target.value })} />
+          <Input placeholder="Ends with" value={filters.endsWith ?? ''} onChange={(e) => setFilters({ ...filters, endsWith: e.target.value })} />
           <select className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm" value={filters.phoneNumberType ?? ''} onChange={(e) => setFilters({ ...filters, phoneNumberType: e.target.value || undefined })}>
             <option value="">Any type</option>
             <option value="local">Local</option>

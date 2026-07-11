@@ -15,6 +15,7 @@ services:
       - ./prisma:/app/prisma:ro
       - ./prisma.config.ts:/app/prisma.config.ts:ro
       - rtpengine_spool:/var/spool/rtpengine:ro
+      - ./data/branding:/app/uploads/branding
     environment:
       NODE_ENV: production
       VSP_ENV: production

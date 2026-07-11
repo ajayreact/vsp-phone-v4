@@ -7,6 +7,7 @@ import {
   Prisma,
 } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
+import { normalizePhoneDigits, phoneMatchesDigitFilters } from '../../../common/query-param.util';
 import { EnterpriseAuditService } from '../../enterprise-observability/audit/enterprise-audit.service';
 import { PrismaService } from '../../telecom/prisma/prisma.service';
 import type {
@@ -323,6 +324,10 @@ export class TelnyxNumbersService {
     if (merged.mms) features.push('mms');
     if (merged.emergency) features.push('emergency');
 
+    const contains = normalizePhoneDigits(merged.contains) || undefined;
+    const endsWith = normalizePhoneDigits(merged.endsWith) || undefined;
+    const startsWith = normalizePhoneDigits(merged.startsWith) || undefined;
+
     const params: TelnyxSearchParams = {
       countryCode: merged.countryCode ?? 'US',
       administrativeArea: merged.administrativeArea,
@@ -332,14 +337,26 @@ export class TelnyxNumbersService {
       phoneNumberType: merged.phoneNumberType as TelnyxSearchParams['phoneNumberType'],
       features: features.length ? features : undefined,
       limit: merged.limit ?? 50,
-      startsWith: merged.startsWith,
-      endsWith: merged.endsWith,
-      contains: merged.contains,
+      startsWith,
+      endsWith,
+      contains,
       bestEffort: merged.bestEffort,
       quickship: merged.quickship,
     };
 
-    const rows = await this.telnyx.searchAvailableNumbers(params);
+    let rows = await this.telnyx.searchAvailableNumbers(params);
+
+    rows = rows.filter((r) =>
+      phoneMatchesDigitFilters(r.phone_number, {
+        contains,
+        endsWith,
+        startsWith,
+      }),
+    );
+
+    if (merged.quickship) {
+      rows = rows.filter((r) => r.quickship === true);
+    }
 
     return rows.map((r) => {
       const meta = metaFromTelnyxApi(r);

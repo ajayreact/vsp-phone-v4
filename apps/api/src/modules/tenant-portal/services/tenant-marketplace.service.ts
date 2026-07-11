@@ -11,6 +11,7 @@ import type { TelnyxNumberResponseDto } from '../../carrier-admin/dto/telnyx-num
 import { EnterpriseAuditService } from '../../enterprise-observability/audit/enterprise-audit.service';
 import { PrismaService } from '../../telecom/prisma/prisma.service';
 import type { MarketplaceSearchQueryDto } from '../dto/tenant-marketplace.dto';
+import { normalizePhoneDigits } from '../../../common/query-param.util';
 import { NumberNotificationsService } from '../../carrier-admin/services/number-notifications.service';
 
 const RESERVATION_TTL_MS = 24 * 60 * 60 * 1000;
@@ -96,8 +97,12 @@ export class TenantMarketplaceService {
       rows = rows.filter((r) => r.number.replace(/\D/g, '').startsWith(p));
     }
     if (query.contains?.trim()) {
-      const c = query.contains.trim().replace(/\D/g, '');
-      rows = rows.filter((r) => r.number.replace(/\D/g, '').includes(c));
+      const c = normalizePhoneDigits(query.contains);
+      rows = rows.filter((r) => normalizePhoneDigits(r.number).includes(c));
+    }
+    if (query.endsWith?.trim()) {
+      const suffix = normalizePhoneDigits(query.endsWith);
+      rows = rows.filter((r) => normalizePhoneDigits(r.number).endsWith(suffix));
     }
     if (query.phoneNumberType?.trim()) {
       const t = query.phoneNumberType.trim().toLowerCase();
