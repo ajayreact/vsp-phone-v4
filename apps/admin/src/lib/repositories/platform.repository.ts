@@ -5,6 +5,7 @@ import type {
   OrganizationRecord,
   PlatformApiKeyRecord,
   PlatformBillingSummary,
+  PlatformPlanRecord,
   PlatformCarrierRecord,
   PlatformDashboardSnapshot,
   PlatformPermissionRecord,
@@ -14,7 +15,7 @@ import type {
   PlatformTenantRecord,
   UserRecord,
 } from '../../types/portal';
-import { httpDelete, httpGet, httpPatch, httpPost } from '../api/http-client';
+import { httpDelete, httpGet, httpPatch, httpPost, httpPostForm } from '../api/http-client';
 import { normalizeList, unwrapData } from './api-utils';
 
 export type CreateTenantPayload = {
@@ -26,13 +27,55 @@ export type CreateTenantPayload = {
 export type OnboardTenantPayload = {
   name: string;
   displayName?: string;
+  slug?: string;
+  businessEmail?: string;
+  businessPhone?: string;
+  website?: string;
+  industry?: string;
+  companySize?: string;
+  logoUrl?: string;
+  timezone?: string;
+  country?: string;
+  state?: string;
+  city?: string;
+  address?: string;
+  postalCode?: string;
+  currency?: string;
+  defaultLanguage?: string;
+  status?: string;
+  siteName?: string;
+  siteCountry?: string;
+  siteTimezone?: string;
+  siteAddress?: string;
+  siteLocationCode?: string;
+  siteDescription?: string;
+  businessHours?: string;
   adminEmail: string;
   adminPassword: string;
   adminFirstName: string;
   adminLastName: string;
-  timezone?: string;
-  defaultLanguage?: string;
-  siteName?: string;
+  adminUsername?: string;
+  adminMobile?: string;
+  adminJobTitle?: string;
+  adminDepartment?: string;
+  adminLanguage?: string;
+  adminTimezone?: string;
+  voicemailEnabled?: boolean;
+  recordingEnabled?: boolean;
+  musicOnHold?: boolean;
+  planId: string;
+  trial?: boolean;
+  billingCycle?: string;
+  maxExtensions?: number;
+  maxUsers?: number;
+  maxNumbers?: number;
+  storageLimitGb?: number;
+  recordingRetentionDays?: number;
+};
+
+export type TenantLogoUploadResult = {
+  logoUrl: string;
+  previewUrl: string;
 };
 
 export type UpdateTenantPayload = {
@@ -104,6 +147,14 @@ export const platformRepository = {
     return httpPost<ApiDataResponse<OnboardTenantResult>>('/v1/platform/tenants/onboard', payload).then(unwrapData);
   },
 
+  uploadTenantLogo(file: File): Promise<TenantLogoUploadResult> {
+    const form = new FormData();
+    form.append('file', file);
+    return httpPostForm<ApiDataResponse<TenantLogoUploadResult>>('/v1/platform/tenants/logo-upload', form).then(
+      unwrapData,
+    );
+  },
+
   updateTenant(id: string, payload: UpdateTenantPayload): Promise<PlatformTenantRecord> {
     return httpPatch<ApiDataResponse<PlatformTenantRecord>>(`/v1/platform/tenants/${id}`, payload).then(unwrapData);
   },
@@ -122,6 +173,10 @@ export const platformRepository = {
 
   getBillingSummary(): Promise<PlatformBillingSummary> {
     return httpGet<ApiDataResponse<PlatformBillingSummary>>('/v1/platform/billing/summary').then(unwrapData);
+  },
+
+  listPlans(): Promise<PlatformPlanRecord[]> {
+    return httpGet<ApiDataResponse<PlatformPlanRecord[]>>('/v1/platform/billing/plans').then(normalizeList);
   },
 
   listCarriers(): Promise<PlatformCarrierRecord[]> {

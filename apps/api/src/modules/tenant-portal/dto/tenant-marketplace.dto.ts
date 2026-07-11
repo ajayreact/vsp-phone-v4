@@ -57,6 +57,11 @@ export class MarketplaceSearchQueryDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  endsWith?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
   phoneNumberType?: string;
 
   @ApiPropertyOptional()

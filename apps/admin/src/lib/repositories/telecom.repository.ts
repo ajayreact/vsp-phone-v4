@@ -19,6 +19,7 @@ import type {
   SipTrunkRecord,
 } from '../../types/telecom';
 import { httpDelete, httpGet, httpPatch, httpPost } from '../api/http-client';
+import { buildSearchQueryParams } from '../utils/search-params';
 import { normalizeList, unwrapData } from './api-utils';
 import { opsRepository } from './ops.repository';
 import { platformRepository } from './platform.repository';
@@ -61,11 +62,7 @@ export const telnyxNumbersRepository = {
   },
 
   async searchAvailable(params: SearchAvailableParams): Promise<TelnyxAvailableNumber[]> {
-    const searchParams = new URLSearchParams();
-    Object.entries(params).forEach(([k, v]) => {
-      if (v !== undefined && v !== '') searchParams.set(k, String(v));
-    });
-    const q = searchParams.toString();
+    const q = buildSearchQueryParams(params as Record<string, unknown>).toString();
     const res = await httpGet<ApiListResponse<TelnyxAvailableNumber>>(`${BASE}/search/available${q ? `?${q}` : ''}`);
     return normalizeList(res);
   },

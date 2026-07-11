@@ -43,6 +43,18 @@ export type PlatformBillingSummary = {
   currency: string;
 };
 
+export type PlatformPlanRecord = {
+  id: string;
+  publicId: string;
+  name: string;
+  description: string | null;
+  priceCents: number;
+  currency: string;
+  seatLimit: number;
+  didLimit: number;
+  active: boolean;
+};
+
 export type PlatformCarrierRecord = {
   id: string;
   publicId: string;
@@ -163,11 +175,25 @@ export type OrganizationRecord = {
   status: string;
   timezone: string | null;
   defaultLanguage: string | null;
-  sites: Array<{ id: string; name: string; status: string }>;
+  businessEmail: string | null;
+  businessPhone: string | null;
+  website: string | null;
+  industry: string | null;
+  companySize: string | null;
+  logoUrl: string | null;
+  sites: Array<{
+    id: string;
+    name: string;
+    status: string;
+    postalCode: string | null;
+    description: string | null;
+    businessHours: string | null;
+  }>;
 };
 
 export type OnboardTenantResult = {
   tenant: PlatformTenantRecord;
   adminUserId: string;
   siteId: string;
+  subscriptionId: string;
 };

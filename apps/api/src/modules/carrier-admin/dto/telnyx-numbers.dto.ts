@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
+import { parseQueryBoolean } from '../../../common/query-param.util';
 import {
   IsArray,
   IsBoolean,
@@ -322,37 +323,37 @@ export class SearchAvailableNumbersQueryDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsBoolean()
-  @Type(() => Boolean)
+  @Transform(({ value }) => parseQueryBoolean(value))
   voice?: boolean;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsBoolean()
-  @Type(() => Boolean)
+  @Transform(({ value }) => parseQueryBoolean(value))
   sms?: boolean;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsBoolean()
-  @Type(() => Boolean)
+  @Transform(({ value }) => parseQueryBoolean(value))
   mms?: boolean;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsBoolean()
-  @Type(() => Boolean)
+  @Transform(({ value }) => parseQueryBoolean(value))
   emergency?: boolean;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsBoolean()
-  @Type(() => Boolean)
+  @Transform(({ value }) => parseQueryBoolean(value))
   quickship?: boolean;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsBoolean()
-  @Type(() => Boolean)
+  @Transform(({ value }) => parseQueryBoolean(value))
   bestEffort?: boolean;
 
   @ApiPropertyOptional()

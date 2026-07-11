@@ -5,6 +5,7 @@ import { queryKeys } from '../../query/query-keys';
 import { telnyxNumbersService, tenantsService, trunksService, liveCallsService, extensionsService } from '../../services/telecom.service';
 import { usePlatformBilling } from './use-platform';
 import type { AssignTelnyxNumberPayload, PurchaseTelnyxNumberPayload, SearchAvailableParams, UpdateTelnyxNumberPayload } from '../../../types/telecom';
+import { buildSearchQueryParams, hasTelnyxSearchFilters } from '../../utils/search-params';
 
 export { useOpsDashboard, useOpsHealth, useInfraHealth } from './use-ops';
 export {
@@ -84,7 +85,7 @@ export function useSearchAvailableNumbers(filters: SearchAvailableParams, enable
   return useQuery({
     queryKey: queryKeys.telnyx.searchAvailable(filters as Record<string, string>),
     queryFn: () => telnyxNumbersService.searchAvailable(filters),
-    enabled: enabled && Boolean(filters.countryCode || filters.areaCode || filters.contains || filters.search),
+    enabled: enabled && hasTelnyxSearchFilters(filters),
   });
 }
 

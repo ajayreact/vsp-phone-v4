@@ -3,6 +3,7 @@ import { AuthModule } from '../auth/auth.module';
 import { CarrierAdminModule } from '../carrier-admin/carrier-admin.module';
 import { EnterpriseObservabilityCoreModule } from '../enterprise-observability/enterprise-observability-core.module';
 import { EnterpriseSecurityCoreModule } from '../enterprise-security/enterprise-security-core.module';
+import { RecordingCoreModule } from '../recording/recording-core.module';
 import { TelecomInfrastructureModule } from '../telecom/telecom-infrastructure.module';
 import { PlatformApiKeysController } from './controllers/platform-api-keys.controller';
 import { PlatformAuditController } from './controllers/platform-audit.controller';
@@ -13,9 +14,13 @@ import { PlatformOrganizationController } from './controllers/platform-organizat
 import { PlatformRolesController } from './controllers/platform-roles.controller';
 import { PlatformSearchController } from './controllers/platform-search.controller';
 import { PlatformSettingsController } from './controllers/platform-settings.controller';
-import { PlatformTenantsController } from './controllers/platform-tenants.controller';
+import {
+  PlatformAssetsController,
+  PlatformTenantsController,
+} from './controllers/platform-tenants.controller';
 import { PlatformUsersController } from './controllers/platform-users.controller';
 import { PlatformApiKeysService } from './services/platform-api-keys.service';
+import { PlatformAssetStorageService } from './services/platform-asset-storage.service';
 import { PlatformAuditService } from './services/platform-audit.service';
 import { PlatformBillingService } from './services/platform-billing.service';
 import { PlatformCarriersService } from './services/platform-carriers.service';
@@ -34,10 +39,12 @@ import { PlatformUsersService } from './services/platform-users.service';
     AuthModule,
     EnterpriseObservabilityCoreModule,
     CarrierAdminModule,
+    RecordingCoreModule,
   ],
   controllers: [
     PlatformDashboardController,
     PlatformTenantsController,
+    PlatformAssetsController,
     PlatformBillingController,
     PlatformRolesController,
     PlatformCarriersController,
@@ -51,6 +58,7 @@ import { PlatformUsersService } from './services/platform-users.service';
   providers: [
     PlatformDashboardService,
     PlatformTenantsService,
+    PlatformAssetStorageService,
     PlatformBillingService,
     PlatformRolesService,
     PlatformCarriersService,

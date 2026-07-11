@@ -53,7 +53,14 @@ export function useOnboardTenant() {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['platform', 'tenants'] });
       void qc.invalidateQueries({ queryKey: ['platform', 'users'] });
+      void qc.invalidateQueries({ queryKey: ['platform', 'billing'] });
     },
+  });
+}
+
+export function useUploadTenantLogo() {
+  return useMutation({
+    mutationFn: (file: File) => platformRepository.uploadTenantLogo(file),
   });
 }
 
@@ -92,6 +99,13 @@ export function usePlatformBilling() {
   return useQuery({
     queryKey: queryKeys.platform.billing(),
     queryFn: () => platformRepository.getBillingSummary(),
+  });
+}
+
+export function usePlatformPlans() {
+  return useQuery({
+    queryKey: [...queryKeys.platform.billing(), 'plans'],
+    queryFn: () => platformRepository.listPlans(),
   });
 }
 

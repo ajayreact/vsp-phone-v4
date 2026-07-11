@@ -665,6 +665,12 @@ model TenantSettings {
   tenantId        String    @unique @map("tenant_id") @db.Uuid
   timezone        String
   defaultLanguage String    @map("default_language")
+  businessEmail   String?   @map("business_email")
+  businessPhone   String?   @map("business_phone")
+  website         String?
+  industry        String?
+  companySize     String?   @map("company_size")
+  logoUrl         String?   @map("logo_url")
   createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt       DateTime? @map("deleted_at") @db.Timestamptz(6)
@@ -691,11 +697,14 @@ model Site {
   tenantId  String     @map("tenant_id") @db.Uuid
   name      String
   code      String
-  address   String?
-  city      String?
-  state     String?
-  country   String?
-  status    SiteStatus @default(ACTIVE)
+  address       String?
+  city          String?
+  state         String?
+  country       String?
+  postalCode    String?    @map("postal_code")
+  description   String?
+  businessHours String?    @map("business_hours")
+  status        SiteStatus @default(ACTIVE)
   version   Int        @default(1)
   createdAt DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -908,6 +917,9 @@ model UserProfile {
   firstName   String    @map("first_name")
   lastName    String    @map("last_name")
   displayName String    @map("display_name")
+  mobile      String?
+  jobTitle    String?   @map("job_title")
+  department  String?
   createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(6)
@@ -2218,14 +2230,20 @@ model Plan {
 }
 
 model Subscription {
-  id        String             @id @db.Uuid
-  tenantId  String             @map("tenant_id") @db.Uuid
-  planId    String             @map("plan_id") @db.Uuid
-  status    SubscriptionStatus @default(TRIAL)
-  startedAt DateTime           @default(now()) @map("started_at") @db.Timestamptz(6)
-  endsAt    DateTime?          @map("ends_at") @db.Timestamptz(6)
-  createdAt DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id                     String             @id @db.Uuid
+  tenantId               String             @map("tenant_id") @db.Uuid
+  planId                 String             @map("plan_id") @db.Uuid
+  status                 SubscriptionStatus @default(TRIAL)
+  billingCycle           String             @default("monthly") @map("billing_cycle")
+  maxUsers               Int                @default(0) @map("max_users")
+  maxExtensions          Int                @default(0) @map("max_extensions")
+  maxNumbers             Int                @default(0) @map("max_numbers")
+  storageLimitGb         Int                @default(0) @map("storage_limit_gb")
+  recordingRetentionDays Int                @default(90) @map("recording_retention_days")
+  startedAt              DateTime           @default(now()) @map("started_at") @db.Timestamptz(6)
+  endsAt                 DateTime?          @map("ends_at") @db.Timestamptz(6)
+  createdAt              DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   plan   Plan   @relation(fields: [planId], references: [id], onDelete: Restrict)

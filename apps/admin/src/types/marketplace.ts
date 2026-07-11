@@ -22,6 +22,7 @@ export type MarketplaceSearchParams = {
   areaCode?: string;
   prefix?: string;
   contains?: string;
+  endsWith?: string;
   phoneNumberType?: string;
   voice?: boolean;
   sms?: boolean;

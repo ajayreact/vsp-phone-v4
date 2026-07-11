@@ -11,17 +11,12 @@ import type {
   TenantNumberRequest,
 } from '../../types/marketplace';
 import { httpDelete, httpGet, httpPatch, httpPost } from '../api/http-client';
+import { buildSearchQueryParams } from '../utils/search-params';
 import { normalizeList } from './api-utils';
 
 function searchParams(params?: MarketplaceSearchParams): string {
   if (!params) return '';
-  const q = new URLSearchParams();
-  for (const [key, value] of Object.entries(params)) {
-    if (value !== undefined && value !== '' && value !== false) {
-      q.set(key, String(value));
-    }
-  }
-  const qs = q.toString();
+  const qs = buildSearchQueryParams(params as Record<string, unknown>).toString();
   return qs ? `?${qs}` : '';
 }
 

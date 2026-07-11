@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InvoiceStatus, SubscriptionStatus } from '@prisma/client';
 import { PrismaService } from '../../telecom/prisma/prisma.service';
+import { ensureDefaultBillingPlans } from './billing-plans.seed';
 
 export type BillingSummary = {
   mrrCents: number;
@@ -92,8 +93,11 @@ export class PlatformBillingService {
   async listPlans(): Promise<PlanRecord[]> {
     if (!this.prisma.connected) return [];
 
+    await ensureDefaultBillingPlans(this.prisma);
+
     const rows = await this.prisma.plan.findMany({
-      orderBy: { name: 'asc' },
+      where: { active: true },
+      orderBy: { priceCents: 'asc' },
     });
 
     return rows.map((p) => ({
