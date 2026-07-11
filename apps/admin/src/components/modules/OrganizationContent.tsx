@@ -12,6 +12,7 @@ import {
 import { useAuth } from '../../lib/auth/AuthProvider';
 import { useTenantDashboard } from '../../lib/hooks/queries/use-tenant';
 import { ModuleAccessGate } from './shared/ModuleShell';
+import { EmptyState } from '../data/EmptyState';
 import { QueryState } from '../feedback/QueryState';
 import { PageContainer, PageHeader } from '../layout/PageHeader';
 import { Button } from '../ui/Button';
@@ -83,22 +84,37 @@ export function OrganizationContent() {
             />
 
             {portal === 'platform' ? (
-              <div className="mb-6 max-w-md">
-                <label className="block space-y-1.5 text-sm">
-                  <span className="font-medium">Tenant</span>
-                  <select
-                    className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm"
-                    value={tenantId}
-                    onChange={(e) => setTenantId(e.target.value)}
-                  >
-                    {(tenantsQuery.data ?? []).map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.displayName || t.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
+              <QueryState
+                isLoading={tenantsQuery.isLoading}
+                isError={tenantsQuery.isError}
+                error={tenantsQuery.error}
+                onRetry={() => void tenantsQuery.refetch()}
+                isEmpty={!tenantsQuery.data?.length}
+                empty={
+                  <EmptyState
+                    title="No tenants available"
+                    description="Provision a tenant from Platform → Tenants before editing organization profiles."
+                  />
+                }
+                skeleton={<div className="mb-6 max-w-md h-10 rounded-xl bg-muted animate-pulse" />}
+              >
+                <div className="mb-6 max-w-md">
+                  <label className="block space-y-1.5 text-sm">
+                    <span className="font-medium">Tenant</span>
+                    <select
+                      className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm"
+                      value={tenantId}
+                      onChange={(e) => setTenantId(e.target.value)}
+                    >
+                      {(tenantsQuery.data ?? []).map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.displayName || t.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+              </QueryState>
             ) : null}
 
             <div className="grid gap-6 lg:grid-cols-2">
@@ -111,6 +127,13 @@ export function OrganizationContent() {
                       isError={orgQuery.isError}
                       error={orgQuery.error}
                       onRetry={() => void orgQuery.refetch()}
+                      isEmpty={!tenantId}
+                      empty={
+                        <EmptyState
+                          title="Select a tenant"
+                          description="Choose a tenant above to view and edit organization settings."
+                        />
+                      }
                       skeleton={<Skeleton className="h-40 w-full rounded-xl" />}
                     >
                       {orgQuery.data ? (

@@ -90,6 +90,69 @@ export function resolvePortal(hostname: string, envPortal?: string): PortalType 
   return 'ops';
 }
 
+/** Strip port from Host / X-Forwarded-Host header value. */
+export function hostnameFromHostHeader(hostHeader: string | null | undefined): string {
+  if (!hostHeader) return '';
+  return hostHeader.split(':')[0]?.trim().toLowerCase() ?? '';
+}
+
+function isLoopbackHostname(hostname: string): boolean {
+  return !hostname || hostname === '127.0.0.1' || hostname === 'localhost';
+}
+
+export type ResolvePortalFromRequestOptions = {
+  /** X-Forwarded-Host (highest priority) */
+  forwardedHost?: string | null;
+  /** Host header */
+  host?: string | null;
+  /** request.nextUrl.hostname — used only when headers resolve to loopback/absent (local dev) */
+  urlHostname?: string | null;
+  envPortal?: string;
+};
+
+/**
+ * Single portal resolver for middleware and SSR layout.
+ *
+ * Priority:
+ * 1. X-Forwarded-Host
+ * 2. Host
+ * 3. request.nextUrl.hostname (only when headers resolve to loopback or are absent)
+ *
+ * Production nginx passes Host: admin|app|tenant.vspphone.com — nextUrl hostname (127.0.0.1) is never used.
+ */
+export function resolvePortalFromRequest(options: ResolvePortalFromRequestOptions): PortalType {
+  const fromForwarded = hostnameFromHostHeader(options.forwardedHost);
+  const fromHost = hostnameFromHostHeader(options.host);
+
+  let hostname = fromForwarded || fromHost;
+
+  if (isLoopbackHostname(hostname)) {
+    const urlHost = hostnameFromHostHeader(options.urlHostname);
+    if (urlHost && !isLoopbackHostname(urlHost)) {
+      hostname = urlHost;
+    } else if (!hostname) {
+      hostname = urlHost || 'localhost';
+    }
+  }
+
+  return resolvePortal(hostname, options.envPortal);
+}
+
+/**
+ * @deprecated Use resolvePortalFromRequest — kept for call-site clarity where urlHostname is N/A.
+ */
+export function resolvePortalFromHostHeaders(
+  hostHeader: string | null | undefined,
+  forwardedHostHeader: string | null | undefined,
+  envPortal?: string,
+): PortalType {
+  return resolvePortalFromRequest({
+    host: hostHeader,
+    forwardedHost: forwardedHostHeader,
+    envPortal,
+  });
+}
+
 export function isPathAllowedForPortal(pathname: string, portal: PortalType): boolean {
   const path = pathname.split('?')[0] ?? '/';
   if (path === '/' || path === '/login') return true;

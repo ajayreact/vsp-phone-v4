@@ -4,14 +4,10 @@ import { motion } from 'framer-motion';
 import { RefreshCw } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useSipTrunks } from '../../lib/hooks/queries/use-telecom';
-import { usePortal } from '../../lib/portal/PortalProvider';
-import { getModuleById } from '../../lib/navigation';
-import { hasPermission } from '../../lib/rbac/permissions';
-import { usePermissions } from '../../lib/auth/AuthProvider';
+import { ModuleAccessGate } from './shared/ModuleShell';
 import type { SipTrunkRecord } from '../../types/telecom';
 import { DataTable, type Column } from '../data/DataTable';
 import { EmptyState } from '../data/EmptyState';
-import { PermissionDenied } from '../data/PermissionDenied';
 import { QueryState } from '../feedback/QueryState';
 import { PageContainer, PageHeader } from '../layout/PageHeader';
 import { Button } from '../ui/Button';
@@ -55,9 +51,6 @@ function Sparkline({ values, label }: { values: number[]; label: string }) {
 }
 
 export function TrunksContent() {
-  const portal = usePortal();
-  const module = getModuleById('trunks', portal)!;
-  const permissions = usePermissions();
   const query = useSipTrunks();
   const [history, setHistory] = useState<{ latency: number[]; loss: number[]; usage: number[] }>({
     latency: [],
@@ -79,20 +72,14 @@ export function TrunksContent() {
     }));
   }, [trunks, query.dataUpdatedAt]);
 
-  if (!hasPermission(permissions, module.permission)) {
-    return (
-      <PageContainer>
-        <PermissionDenied module={module.label} />
-      </PageContainer>
-    );
-  }
-
   return (
+    <ModuleAccessGate moduleId="trunks">
+      {({ module }) => (
     <PageContainer>
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.18 }}>
         <PageHeader
-          title="SIP Trunks"
-          description="Live Telnyx trunk registration, OPTIONS ping, latency, and channel utilization. Auto-refreshes every 10s."
+          title={module.label}
+          description={module.description}
           actions={
             <Button variant="outline" size="sm" onClick={() => void query.refetch()}>
               <RefreshCw className={`h-4 w-4 ${query.isFetching ? 'animate-spin' : ''}`} />
@@ -133,5 +120,7 @@ export function TrunksContent() {
         </QueryState>
       </motion.div>
     </PageContainer>
+      )}
+    </ModuleAccessGate>
   );
 }

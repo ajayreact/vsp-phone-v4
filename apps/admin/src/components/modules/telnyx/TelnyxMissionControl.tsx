@@ -11,6 +11,7 @@ import {
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useMemo, useState } from 'react';
+import { usePortal } from '../../../lib/portal/PortalProvider';
 import { usePlatformTenants } from '../../../lib/hooks/queries/use-platform';
 import {
   useActivateTelnyxNumber,
@@ -83,7 +84,8 @@ function exportCsv(rows: TelnyxNumberRecord[]) {
 }
 
 export function TelnyxMissionControl() {
-  const module = getModuleById('telnyx-numbers')!;
+  const portal = usePortal();
+  const module = getModuleById('telnyx-numbers', portal);
   const permissions = usePermissions();
   const searchParams = useSearchParams();
   const initialTab = (searchParams.get('tab') as TabId) || 'inventory';
@@ -102,6 +104,17 @@ export function TelnyxMissionControl() {
   const tenantsQuery = usePlatformTenants();
 
   const rows = useMemo(() => inventoryQuery.data ?? [], [inventoryQuery.data]);
+
+  if (!module) {
+    return (
+      <PageContainer>
+        <EmptyState
+          title="Telnyx Numbers unavailable"
+          description="This module is only available on the Platform Admin portal (admin.vspphone.com)."
+        />
+      </PageContainer>
+    );
+  }
 
   if (!hasPermission(permissions, module.permission)) {
     return (

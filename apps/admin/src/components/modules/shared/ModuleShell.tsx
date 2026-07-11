@@ -11,6 +11,7 @@ import type { ModuleDefinition } from '../../../types/navigation';
 import { DataTable, type Column } from '../../data/DataTable';
 import { EmptyState } from '../../data/EmptyState';
 import { PermissionDenied } from '../../data/PermissionDenied';
+import { getPortalLabel } from '../../../lib/portal/detect-portal';
 import { SearchBar } from '../../data/SearchBar';
 import { QueryState } from '../../feedback/QueryState';
 import { PageContainer, PageHeader } from '../../layout/PageHeader';
@@ -50,8 +51,18 @@ export function ModuleAccessGate({
   moduleId: string;
   children: (ctx: { module: ModuleDefinition }) => ReactNode;
 }) {
+  const portal = usePortal();
   const { module, allowed } = useModuleAccess(moduleId);
-  if (!module) return null;
+  if (!module) {
+    return (
+      <PageContainer>
+        <EmptyState
+          title="Module unavailable"
+          description={`"${moduleId}" is not registered for ${getPortalLabel(portal)}. Use admin.vspphone.com for platform administration.`}
+        />
+      </PageContainer>
+    );
+  }
   if (!allowed) {
     return (
       <PageContainer>
