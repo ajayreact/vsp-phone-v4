@@ -2,7 +2,7 @@
 
 import { motion } from 'framer-motion';
 import { RefreshCw } from 'lucide-react';
-import { detectPortal } from '../../lib/portal/detect-portal';
+import { usePortal } from '../../lib/portal/PortalProvider';
 import { usePlatformCarriers } from '../../lib/hooks/queries/use-platform';
 import { useOpsCarriersHealth } from '../../lib/hooks/queries/use-ops';
 import type { PlatformCarrierRecord } from '../../types/portal';
@@ -35,7 +35,7 @@ const columns: Column<CarrierRow>[] = [
 ];
 
 export function CarriersContent() {
-  const portal = detectPortal();
+  const portal = usePortal();
   const platformQuery = usePlatformCarriers();
   const opsQuery = useOpsCarriersHealth();
 

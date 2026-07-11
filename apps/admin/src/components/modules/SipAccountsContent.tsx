@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { detectPortal } from '../../lib/portal/detect-portal';
+import { usePortal } from '../../lib/portal/PortalProvider';
 import { useOpsSipRegistrations } from '../../lib/hooks/queries/use-ops';
 import { useTenantDevices } from '../../lib/hooks/queries/use-tenant';
 import type { SipRegistrationRecord } from '../../types/portal';
@@ -39,7 +39,7 @@ const tenantColumns: Column<TenantSipRow>[] = [
 ];
 
 export function SipAccountsContent() {
-  const portal = detectPortal();
+  const portal = usePortal();
   const [search, setSearch] = useState('');
   const opsQuery = useOpsSipRegistrations({ limit: 200 });
   const tenantQuery = useTenantDevices(search);

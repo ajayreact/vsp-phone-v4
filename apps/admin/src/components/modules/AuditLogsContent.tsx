@@ -1,6 +1,6 @@
 'use client';
 
-import { detectPortal } from '../../lib/portal/detect-portal';
+import { usePortal } from '../../lib/portal/PortalProvider';
 import { usePlatformAudit } from '../../lib/hooks/queries/use-platform';
 import { useOpsAudit } from '../../lib/hooks/queries/use-ops';
 import type { AuditLogRecord } from '../../types/portal';
@@ -18,7 +18,7 @@ const columns: Column<AuditRow>[] = [
 ];
 
 export function AuditLogsContent() {
-  const portal = detectPortal();
+  const portal = usePortal();
   const platformQuery = usePlatformAudit({ limit: 100 });
   const opsQuery = useOpsAudit({ limit: 100 });
   const query = portal === 'platform' ? platformQuery : opsQuery;

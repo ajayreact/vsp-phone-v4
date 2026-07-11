@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { RefreshCw } from 'lucide-react';
-import { detectPortal } from '../../lib/portal/detect-portal';
+import { usePortal } from '../../lib/portal/PortalProvider';
 import {
   usePlatformDashboard,
   usePlatformSettings,
@@ -20,7 +20,7 @@ import { Skeleton } from '../ui/Skeleton';
 import { Badge } from '../ui/Badge';
 
 export function SettingsContent() {
-  const portal = detectPortal();
+  const portal = usePortal();
   const { session } = useAuth();
   const platformDashboard = usePlatformDashboard();
   const settingsQuery = usePlatformSettings();

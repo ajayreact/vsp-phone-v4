@@ -3,7 +3,7 @@
 import { Plus, RefreshCw } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useMemo, type ReactNode } from 'react';
-import { detectPortal } from '../../../lib/portal/detect-portal';
+import { usePortal } from '../../../lib/portal/PortalProvider';
 import { getModuleById } from '../../../lib/navigation';
 import { hasPermission } from '../../../lib/rbac/permissions';
 import { usePermissions } from '../../../lib/auth/AuthProvider';
@@ -37,7 +37,7 @@ export function useModuleAccess(moduleId: string): {
   allowed: boolean;
 } {
   const permissions = usePermissions();
-  const portal = detectPortal();
+  const portal = usePortal();
   const module = getModuleById(moduleId, portal);
   const allowed = module ? hasPermission(permissions, module.permission) : false;
   return { module, allowed };

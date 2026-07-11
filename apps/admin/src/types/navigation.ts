@@ -8,6 +8,7 @@ export type NavGroup =
   | 'routing'
   | 'analytics'
   | 'billing'
+  | 'reports'
   | 'infrastructure'
   | 'security'
   | 'system';

@@ -15,7 +15,7 @@ import {
   User,
 } from 'lucide-react';
 import { useAuth } from '../../lib/auth/AuthProvider';
-import { detectPortal } from '../../lib/portal/detect-portal';
+import { usePortal } from '../../lib/portal/PortalProvider';
 import { displayNameFromSession } from '../../lib/rbac/permissions';
 import { useTheme } from '../../lib/theme/ThemeProvider';
 import { GlobalSearch } from './GlobalSearch';
@@ -26,7 +26,7 @@ export function Header() {
   const { session, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const router = useRouter();
-  const portal = detectPortal();
+  const portal = usePortal();
   const [menuOpen, setMenuOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
 

@@ -4,12 +4,12 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { ChevronRight, Home } from 'lucide-react';
 import { getModuleByHref } from '../../lib/navigation';
-import { detectPortal } from '../../lib/portal/detect-portal';
+import { usePortal } from '../../lib/portal/PortalProvider';
 import { cn } from '../../lib/utils/cn';
 
 export function Breadcrumbs() {
   const pathname = usePathname();
-  const portal = detectPortal();
+  const portal = usePortal();
   const module = getModuleByHref(pathname, portal);
   const crumbs = module?.breadcrumb ?? ['Portal'];
 

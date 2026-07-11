@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { RefreshCw } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useSipTrunks } from '../../lib/hooks/queries/use-telecom';
+import { usePortal } from '../../lib/portal/PortalProvider';
 import { getModuleById } from '../../lib/navigation';
 import { hasPermission } from '../../lib/rbac/permissions';
 import { usePermissions } from '../../lib/auth/AuthProvider';
@@ -54,7 +55,8 @@ function Sparkline({ values, label }: { values: number[]; label: string }) {
 }
 
 export function TrunksContent() {
-  const module = getModuleById('trunks')!;
+  const portal = usePortal();
+  const module = getModuleById('trunks', portal)!;
   const permissions = usePermissions();
   const query = useSipTrunks();
   const [history, setHistory] = useState<{ latency: number[]; loss: number[]; usage: number[] }>({

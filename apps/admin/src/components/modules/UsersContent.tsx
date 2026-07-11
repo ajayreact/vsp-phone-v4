@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { detectPortal } from '../../lib/portal/detect-portal';
+import { usePortal } from '../../lib/portal/PortalProvider';
 import {
   useCreatePlatformUser,
   usePlatformTenants,
@@ -43,7 +43,7 @@ const emptyUser = {
 };
 
 export function UsersContent() {
-  const portal = detectPortal();
+  const portal = usePortal();
   const [search, setSearch] = useState('');
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(emptyUser);

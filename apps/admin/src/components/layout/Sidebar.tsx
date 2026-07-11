@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { ChevronLeft, ChevronRight, Radio } from 'lucide-react';
 import { motion } from 'framer-motion';
 import {
@@ -9,7 +9,8 @@ import {
   NAV_GROUP_ORDER,
   filterNavByPermissions,
 } from '../../lib/navigation';
-import { detectPortal, getPortalLabel } from '../../lib/portal/detect-portal';
+import { getPortalLabel } from '../../lib/portal/detect-portal';
+import { usePortal } from '../../lib/portal/PortalProvider';
 import type { NavGroup } from '../../types/navigation';
 import { cn } from '../../lib/utils/cn';
 import { usePermissions } from '../../lib/auth/AuthProvider';
@@ -24,8 +25,9 @@ export function Sidebar({
   onToggle: () => void;
 }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const permissions = usePermissions();
-  const portal = detectPortal();
+  const portal = usePortal();
   const items = filterNavByPermissions(permissions, portal);
   const health = useOpsHealth();
   const sidebarStatus =
@@ -81,7 +83,12 @@ export function Sidebar({
             <ul className="space-y-0.5">
               {groups[group]!.map((item) => {
                 const Icon = item.icon;
-                const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+                const tab = searchParams.get('tab');
+                const active =
+                  pathname === item.href ||
+                  pathname.startsWith(`${item.href}/`) ||
+                  (item.id === 'number-marketplace' && pathname === '/telnyx-numbers' && tab === 'search') ||
+                  (item.id === 'telnyx-numbers' && pathname === '/telnyx-numbers' && tab !== 'search');
                 const isPrimary = item.primary;
                 return (
                   <li key={item.id}>

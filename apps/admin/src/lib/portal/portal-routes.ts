@@ -9,12 +9,17 @@ export const PORTAL_ROUTE_PREFIXES: Record<PortalType, string[]> = {
     '/users',
     '/billing',
     '/telnyx-numbers',
+    '/number-marketplace',
+    '/number-requests',
+    '/marketplace-reports',
     '/carriers',
+    '/trunks',
     '/roles',
     '/permissions',
     '/audit-logs',
     '/api-keys',
     '/settings',
+    '/system-health',
     '/softphone',
   ],
   ops: [
@@ -68,12 +73,21 @@ export function portalFromHostname(hostname: string): PortalType | null {
   return null;
 }
 
+/**
+ * Resolve portal for middleware and SSR.
+ * Production uses one admin container behind three hostnames — hostname wins when recognized.
+ * NEXT_PUBLIC_PORTAL is a dev fallback (localhost) or legacy per-build deploys.
+ */
 export function resolvePortal(hostname: string, envPortal?: string): PortalType {
+  const fromHost = portalFromHostname(hostname);
+  if (fromHost) return fromHost;
+
   const normalized = envPortal?.trim().toLowerCase();
   if (normalized === 'platform' || normalized === 'ops' || normalized === 'tenant') {
     return normalized;
   }
-  return portalFromHostname(hostname) ?? 'ops';
+
+  return 'ops';
 }
 
 export function isPathAllowedForPortal(pathname: string, portal: PortalType): boolean {

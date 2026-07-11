@@ -8,21 +8,23 @@ export const NAV_GROUP_LABELS: Record<NavGroup, string> = {
   routing: 'Call Routing',
   analytics: 'Analytics',
   billing: 'Billing',
+  reports: 'Reports',
   infrastructure: 'Infrastructure',
   security: 'Security',
   system: 'System',
 };
 
-/** Nav group display order — carrier inventory first for platform operators. */
+/** Nav group display order — platform admin surfaces carrier + billing after core platform items. */
 export const NAV_GROUP_ORDER: NavGroup[] = [
-  'operations',
-  'carrier',
   'platform',
+  'carrier',
+  'billing',
+  'reports',
+  'infrastructure',
+  'operations',
   'telephony',
   'routing',
   'analytics',
-  'billing',
-  'infrastructure',
   'security',
   'system',
 ];

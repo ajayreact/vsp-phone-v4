@@ -1,13 +1,12 @@
-'use client';
-
+import { headers } from 'next/headers';
 import type { ReactNode } from 'react';
-import { RequireAuth } from '../../components/auth/RequireAuth';
-import { AppShell } from '../../components/layout/AppShell';
+import { resolvePortal } from '../../lib/portal/portal-routes';
+import { PortalShell } from './PortalShell';
 
-export default function PortalLayout({ children }: { children: ReactNode }) {
-  return (
-    <RequireAuth>
-      <AppShell>{children}</AppShell>
-    </RequireAuth>
-  );
+export default async function PortalLayout({ children }: { children: ReactNode }) {
+  const hostHeader = (await headers()).get('host') ?? '';
+  const hostname = hostHeader.split(':')[0] ?? '';
+  const portal = resolvePortal(hostname, process.env.NEXT_PUBLIC_PORTAL);
+
+  return <PortalShell portal={portal}>{children}</PortalShell>;
 }

@@ -6,25 +6,13 @@ const PORTAL_LABELS: Record<PortalType, string> = {
   tenant: 'Tenant Portal',
 };
 
-import { portalFromHostname as portalFromHost } from './portal-routes';
+import { resolvePortal } from './portal-routes';
 
-function portalFromHostname(hostname: string): PortalType | null {
-  return portalFromHost(hostname);
-}
-
-/** Resolve active portal from hostname or NEXT_PUBLIC_PORTAL env. */
-export function detectPortal(): PortalType {
-  const envPortal = process.env.NEXT_PUBLIC_PORTAL?.trim().toLowerCase();
-  if (envPortal === 'platform' || envPortal === 'ops' || envPortal === 'tenant') {
-    return envPortal;
-  }
-
-  if (typeof window !== 'undefined') {
-    const fromHost = portalFromHostname(window.location.hostname);
-    if (fromHost) return fromHost;
-  }
-
-  return 'ops';
+/** Resolve portal outside React (prefer usePortal() in client components). */
+export function detectPortal(hostname?: string): PortalType {
+  const host =
+    hostname ?? (typeof window !== 'undefined' ? window.location.hostname : '');
+  return resolvePortal(host, process.env.NEXT_PUBLIC_PORTAL);
 }
 
 export function getPortalLabel(portal?: PortalType): string {

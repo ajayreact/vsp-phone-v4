@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { RefreshCw } from 'lucide-react';
-import { detectPortal } from '../../lib/portal/detect-portal';
+import { usePortal } from '../../lib/portal/PortalProvider';
 import {
   usePlatformOrganization,
   usePlatformTenants,
@@ -21,7 +21,7 @@ import { Skeleton } from '../ui/Skeleton';
 import { StatusBadge } from '../ui/Badge';
 
 export function OrganizationContent() {
-  const portal = detectPortal();
+  const portal = usePortal();
   const { session } = useAuth();
   const tenantsQuery = usePlatformTenants();
   const [tenantId, setTenantId] = useState('');

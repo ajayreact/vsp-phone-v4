@@ -6,7 +6,7 @@ import { useOpsHealth } from '../../lib/hooks/queries/use-ops';
 import { hasPermission } from '../../lib/rbac/permissions';
 import { usePermissions } from '../../lib/auth/AuthProvider';
 import { getModuleById } from '../../lib/navigation';
-import { detectPortal } from '../../lib/portal/detect-portal';
+import { usePortal } from '../../lib/portal/PortalProvider';
 import type { InfraHealthCheck } from '../../types/telecom';
 import { QueryState } from '../feedback/QueryState';
 import { PermissionDenied } from '../data/PermissionDenied';
@@ -39,7 +39,7 @@ function healthBadge(status: string): 'healthy' | 'warning' | 'error' {
 }
 
 export function SystemHealthContent() {
-  const portal = detectPortal();
+  const portal = usePortal();
   const module = getModuleById('system-health', portal)!;
   const permissions = usePermissions();
   const health = useOpsHealth();
