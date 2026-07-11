@@ -15,6 +15,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
 import { ApiBearerAuth, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { TenantStatus } from '@prisma/client';
 import type { Request, Response } from 'express';
@@ -76,7 +77,12 @@ export class PlatformTenantsController {
   )
   @ApiOperation({ summary: 'Upload tenant logo before onboarding' })
   @ApiConsumes('multipart/form-data')
-  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 2 * 1024 * 1024 } }))
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { fileSize: 2 * 1024 * 1024 },
+      storage: memoryStorage(),
+    }),
+  )
   async uploadLogo(@UploadedFile() file?: { buffer: Buffer; mimetype: string; originalname: string; size: number }) {
     if (!file) {
       throw new BadRequestException('Logo file is required');

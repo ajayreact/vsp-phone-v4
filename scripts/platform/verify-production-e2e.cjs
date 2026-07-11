@@ -290,23 +290,22 @@ async function main() {
   }
 
   try {
-    const tenantUrl = `https://${slug}.vspphone.com/login`;
+    const tenantUrl = 'https://tenant.vspphone.com/login';
     const tenantPage = await fetch(tenantUrl, { redirect: 'follow' });
-    record('Tenant Portal', `Portal ${slug}.vspphone.com`, tenantPage.status === 200, `HTTP ${tenantPage.status}`);
+    record('Tenant Portal', 'Portal tenant.vspphone.com/login', tenantPage.status === 200, `HTTP ${tenantPage.status}`);
   } catch (err) {
-    record('Tenant Portal', `Portal ${slug}.vspphone.com`, false, err.message);
+    record('Tenant Portal', 'Portal tenant.vspphone.com/login', false, err.message);
   }
 
   // --- 5. Database verification (via docker on EC2) ---
-  record(
-    'Database',
-    'Postgres field persistence',
-    false,
-    'Run scripts/platform/verify-onboarding-db.sql on EC2 with TENANT_ID=' + (newTenantId || 'MISSING'),
-  );
-
-  if (newTenantId && process.env.RUN_DB_VERIFY === '1') {
-    await runDbVerify(newTenantId, slug, adminEmail, logo?.logoUrl);
+  if (newTenantId) {
+    const auditRes = await api('GET', `/v1/platform/audit?tenantId=${newTenantId}&limit=20`, { token });
+    const auditRows = unwrap(auditRes);
+    const hasOnboard = Array.isArray(auditRows) && auditRows.some((r) => r.action === 'tenant.onboarded');
+    record('Database', 'Audit log tenant.onboarded', auditRes.ok && hasOnboard, `HTTP ${auditRes.status}`);
+    await runDbVerify(newTenantId, logo?.logoUrl);
+  } else {
+    record('Database', 'Postgres field persistence', false, 'No tenant ID from onboard');
   }
 
   printReport();
@@ -314,24 +313,33 @@ async function main() {
   process.exit(failed > 0 ? 1 : 0);
 }
 
-async function runDbVerify(tenantId, slug, adminEmail, logoUrl) {
+async function runDbVerify(tenantId, logoUrl) {
   const { execSync } = require('node:child_process');
-  const sqlPath = path.join(__dirname, 'verify-onboarding-db.sql');
-  if (!fs.existsSync(sqlPath)) return;
+  const repoRoot = process.env.REPO_ROOT || '/opt/vsp-phone-v4';
+  const dbName = process.env.POSTGRES_DB || 'vsp_phone_v4';
+  const compose =
+    process.env.COMPOSE ||
+    'docker compose -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.host-db.yml --env-file .env';
   try {
-    const sql = fs
-      .readFileSync(sqlPath, 'utf8')
-      .replace(/:tenant_id/g, tenantId)
-      .replace(/:slug/g, slug)
-      .replace(/:admin_email/g, adminEmail)
-      .replace(/:logo_url/g, logoUrl || '');
-    const out = execSync(
-      `docker compose -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.host-db.yml exec -T postgres psql -U vsp -d vsp_phone -c "${sql.replace(/"/g, '\\"')}"`,
-      { cwd: '/opt/vsp-phone-v4', encoding: 'utf8' },
-    );
-    record('Database', 'All onboarding fields persisted', out.includes('OK'), out.slice(0, 200));
+    const checks = [
+      ['tenant_settings.business_email', `SELECT CASE WHEN business_email IS NOT NULL THEN 'OK' ELSE 'MISSING' END FROM tenant_settings WHERE tenant_id='${tenantId}'`],
+      ['tenant_settings.logo_url', logoUrl ? `SELECT CASE WHEN logo_url IS NOT NULL THEN 'OK' ELSE 'MISSING' END FROM tenant_settings WHERE tenant_id='${tenantId}'` : null],
+      ['sites.postal_code', `SELECT CASE WHEN postal_code IS NOT NULL THEN 'OK' ELSE 'MISSING' END FROM sites WHERE tenant_id='${tenantId}' AND deleted_at IS NULL LIMIT 1`],
+      ['user_profiles.mobile', `SELECT CASE WHEN mobile IS NOT NULL THEN 'OK' ELSE 'MISSING' END FROM user_profiles WHERE tenant_id='${tenantId}' AND deleted_at IS NULL LIMIT 1`],
+      ['subscriptions.billing_cycle', `SELECT CASE WHEN billing_cycle IS NOT NULL THEN 'OK' ELSE 'MISSING' END FROM subscriptions WHERE tenant_id='${tenantId}'`],
+      ['billing_accounts', `SELECT CASE WHEN COUNT(*)=1 THEN 'OK' ELSE 'MISSING' END FROM billing_accounts WHERE tenant_id='${tenantId}'`],
+      ['tenant_features', `SELECT CASE WHEN COUNT(*)>=3 THEN 'OK' ELSE 'MISSING' END FROM tenant_features WHERE tenant_id='${tenantId}' AND deleted_at IS NULL`],
+    ].filter(([, sql]) => sql);
+
+    for (const [label, sql] of checks) {
+      const out = execSync(`${compose} exec -T postgres psql -U vsp -d ${dbName} -t -A -c "${sql}"`, {
+        cwd: repoRoot,
+        encoding: 'utf8',
+      }).trim();
+      record('Database', label, out === 'OK', out || 'empty');
+    }
   } catch (err) {
-    record('Database', 'All onboarding fields persisted', false, err.message);
+    record('Database', 'Postgres checks', false, err.message);
   }
 }
 

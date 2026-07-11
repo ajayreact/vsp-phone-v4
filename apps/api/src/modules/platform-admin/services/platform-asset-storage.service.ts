@@ -38,18 +38,28 @@ export class PlatformAssetStorageService {
     const ext = this.extFromMime(file.mimetype) ?? (extname(file.originalname).slice(1) || 'png');
     const objectKey = `tenant-logos/${randomUUID()}.${ext}`;
 
-    const endpoint = (this.config.get<string>('S3_ENDPOINT') || '').trim();
-    if (endpoint) {
+    // Tenant logos use local disk — avoids MinIO/S3 bucket coupling for branding assets.
+    try {
+      const dir = join(this.localRoot, 'tenant-logos');
+      await mkdir(dir, { recursive: true });
+      await writeFile(join(this.localRoot, objectKey), file.buffer);
+      this.logger.log(JSON.stringify({ event: 'platform.logo.local_upload', objectKey }));
+    } catch (err) {
+      const endpoint = (this.config.get<string>('S3_ENDPOINT') || '').trim();
+      if (!endpoint) {
+        throw err;
+      }
+      this.logger.warn(
+        JSON.stringify({
+          event: 'platform.logo.local_failed_fallback_s3',
+          error: err instanceof Error ? err.message : String(err),
+        }),
+      );
       await this.objectStorage.uploadBuffer({
         objectKey,
         body: file.buffer,
         contentType: file.mimetype,
       });
-    } else {
-      const dir = join(this.localRoot, 'tenant-logos');
-      await mkdir(dir, { recursive: true });
-      await writeFile(join(this.localRoot, objectKey), file.buffer);
-      this.logger.log(JSON.stringify({ event: 'platform.logo.local_upload', objectKey }));
     }
 
     const previewUrl = `/v1/platform/assets/${encodeURIComponent(objectKey)}`;
