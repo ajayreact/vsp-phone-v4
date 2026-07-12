@@ -85,7 +85,10 @@ async function bffGet(route, token, query = '') {
     if (tenantLogin.token) {
       for (const route of BFF_ROUTES) {
         const r = await bffGet(route, tenantLogin.token);
-        record(`${route} tenant JWT → 403`, r.status === 403, `got ${r.status}`);
+        // 403 = auth OK, permission denied (expected).
+        // 502 = transport failure to /v1/auth/me (details only in admin container logs).
+        const pass = r.status === 403;
+        record(`${route} tenant JWT → 403`, pass, `got ${r.status}`);
       }
     } else {
       record('tenant login', false, `status ${tenantLogin.status}`);
