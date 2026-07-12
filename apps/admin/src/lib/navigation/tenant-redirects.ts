@@ -1,8 +1,9 @@
 /** Legacy tenant routes → Tenant Portal V2 paths (applied when V2 is enabled). */
 export const TENANT_LEGACY_REDIRECTS: Record<string, string> = {
   '/dids': '/extensions',
-  '/users': '/people/users',
+  '/users': '/dashboard',
   '/extensions': '/extensions',
+  '/people/users': '/dashboard',
   '/people/extensions': '/extensions',
   '/devices': '/extensions',
   '/people/devices': '/extensions',
@@ -17,15 +18,19 @@ export const TENANT_LEGACY_REDIRECTS: Record<string, string> = {
   '/paging-intercom': '/communication/paging',
   '/audio-library': '/communication/music-on-hold',
   '/cdr': '/reports/cdr',
-  '/call-recordings': '/reports/recordings',
+  '/call-recordings': '/communication/recordings',
+  '/reports/recordings': '/communication/recordings',
   '/reports': '/reports/analytics',
   '/settings': '/settings/pbx',
-  '/organization': '/organization/company',
+  '/organization': '/settings/company',
+  '/organization/company': '/settings/company',
+  '/organization/sites': '/settings/sites',
+  '/organization/departments': '/settings/departments',
   '/supervisor': '/contact-center/supervisor',
   '/reception': '/contact-center/reception',
   '/sip-accounts': '/extensions',
   '/provisioning': '/extensions',
-  '/phone-numbers/my-numbers': '/extensions',
+  '/phone-numbers/routing': '/call-flow/routing',
   '/api-keys': '/settings/api-keys',
 };
 

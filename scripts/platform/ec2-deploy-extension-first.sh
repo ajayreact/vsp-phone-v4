@@ -11,7 +11,8 @@ REPO_ROOT="${REPO_ROOT:-/opt/vsp-phone-v4}"
 cd "$REPO_ROOT"
 
 COMPOSE="docker compose -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.host-db.yml --env-file .env"
-if [[ -f docker-compose.ec2-legacy-db.yml ]]; then
+DB_HOST_ENV="$(grep -E '^DATABASE_HOST=' .env 2>/dev/null | cut -d= -f2- | tr -d '\r' || true)"
+if [[ -f docker-compose.ec2-legacy-db.yml && "${DB_HOST_ENV:-postgres}" == "vsp-voip-postgres-1" ]]; then
   COMPOSE="$COMPOSE -f docker-compose.ec2-legacy-db.yml"
 fi
 export API_DOCKER_TARGET=production
@@ -87,12 +88,13 @@ if [[ -f "$RBAC_SQL" ]]; then
   DB_NAME="$(grep -E '^POSTGRES_APP_DB=' .env | cut -d= -f2- | tr -d '\r')"
   DB_USER="$(grep -E '^POSTGRES_USER=' .env | cut -d= -f2- | tr -d '\r')"
   DB_PASS="$(grep -E '^POSTGRES_PASSWORD=' .env | cut -d= -f2- | tr -d '\r')"
-  DB_HOST="${DB_HOST:-vsp-voip-postgres-1}"
-  DB_NAME="${DB_NAME:-vsp_voip}"
+  DB_HOST="${DB_HOST:-postgres}"
+  DB_NAME="${DB_NAME:-vsp_phone_v4}"
   DB_USER="${DB_USER:-vsp}"
   DB_PASS="${DB_PASS:-vsp}"
-  docker run --rm -i --network vsp-voip_default postgres:16-alpine \
-    psql "postgresql://${DB_USER}:${DB_PASS}@${DB_HOST}:5432/${DB_NAME}" < "$RBAC_SQL" || true
+  docker run --rm -i --network vsp_internal postgres:16-alpine \
+    psql "postgresql://${DB_USER}:${DB_PASS}@${DB_HOST}:5432/${DB_NAME}" < "$RBAC_SQL" || \
+  docker exec -i vsp-postgres psql -U "$DB_USER" -d "$DB_NAME" < "$RBAC_SQL" || true
 fi
 
 echo "=== RBAC verify (tenant:dids:write) ==="
@@ -100,12 +102,11 @@ DB_HOST="$(grep -E '^DATABASE_HOST=' .env | cut -d= -f2- | tr -d '\r')"
 DB_NAME="$(grep -E '^POSTGRES_APP_DB=' .env | cut -d= -f2- | tr -d '\r')"
 DB_USER="$(grep -E '^POSTGRES_USER=' .env | cut -d= -f2- | tr -d '\r')"
 DB_PASS="$(grep -E '^POSTGRES_PASSWORD=' .env | cut -d= -f2- | tr -d '\r')"
-DB_HOST="${DB_HOST:-vsp-voip-postgres-1}"
-DB_NAME="${DB_NAME:-vsp_voip}"
+DB_HOST="${DB_HOST:-postgres}"
+DB_NAME="${DB_NAME:-vsp_phone_v4}"
 DB_USER="${DB_USER:-vsp}"
 DB_PASS="${DB_PASS:-vsp}"
-docker run --rm --network vsp-voip_default postgres:16-alpine \
-  psql "postgresql://${DB_USER}:${DB_PASS}@${DB_HOST}:5432/${DB_NAME}" -c \
+docker exec vsp-postgres psql -U "$DB_USER" -d "$DB_NAME" -c \
   "SELECT COUNT(*) AS permissions_tenant_dids_write FROM permissions WHERE key = 'tenant:dids:write' AND deleted_at IS NULL;
    SELECT COUNT(*) AS tenant_admin_assignments FROM role_permissions rp
    JOIN permissions p ON p.id = rp.permission_id AND p.deleted_at IS NULL

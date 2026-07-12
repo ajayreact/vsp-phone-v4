@@ -75,7 +75,7 @@ export function MyNumbersContent() {
   ];
 
   return (
-    <ModuleAccessGate moduleId="my-numbers">
+    <ModuleAccessGate moduleId="number-inventory">
       {({ module }) => (
         <>
           <ModuleListShell

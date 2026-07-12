@@ -77,7 +77,7 @@ export function AssignDidDrawer({
     let destinationId = defaultDestinationId ?? '';
     if (!destinationId && destinationType === 'EXTENSION' && did.line?.id) {
       const match = extRows.find((e) => (e.line as { id?: string } | undefined)?.id === did.line?.id);
-      destinationId = match?.id ?? '';
+      destinationId = typeof match?.id === 'string' ? match.id : '';
     } else if (!destinationId) {
       destinationId = did.line?.id ?? '';
     }

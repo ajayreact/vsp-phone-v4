@@ -12,7 +12,7 @@ import { Button } from '../ui/Button';
 import { Skeleton } from '../ui/Skeleton';
 import { PhoneIncoming, Users } from 'lucide-react';
 
-export function ReportsContent() {
+export function ReportsContent({ moduleId = 'analytics' }: { moduleId?: string }) {
   const dashboard = useTenantDashboard();
   const cdr = useTenantCdr({ limit: 500 });
 
@@ -20,7 +20,7 @@ export function ReportsContent() {
   const completedCalls = cdr.data?.filter((r) => String(r.state ?? '').includes('ENDED')).length ?? 0;
 
   return (
-    <ModuleAccessGate moduleId="reports">
+    <ModuleAccessGate moduleId={moduleId}>
       {({ module }) => (
         <PageContainer>
           <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.18 }}>

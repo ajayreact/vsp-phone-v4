@@ -44,7 +44,7 @@ export function TenantDashboardV2Content() {
         <PageContainer>
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}>
             <PageHeader
-              title="Home"
+              title="Dashboard"
               description="At-a-glance PBX health. Manage everything from Extensions."
               actions={
                 <div className="flex flex-wrap gap-2">

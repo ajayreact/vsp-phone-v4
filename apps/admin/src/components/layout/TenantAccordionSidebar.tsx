@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { ChevronDown, ChevronLeft, ChevronRight, Plus, Radio } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, Radio } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getTenantNavSections } from '../../lib/navigation';
@@ -13,19 +13,17 @@ import { usePermissions } from '../../lib/auth/AuthProvider';
 import { useOpsHealth } from '../../lib/hooks/queries/use-ops';
 import { LiveIndicator } from '../ui/LiveIndicator';
 import type { TenantNavSectionId } from '../../types/navigation';
-import { Button } from '../ui/Button';
 
 const STORAGE_KEY = 'vsp-tenant-nav-expanded-section';
 
 function sectionForPath(pathname: string, sectionIds: TenantNavSectionId[]): TenantNavSectionId | null {
   if (pathname === '/dashboard' || pathname.startsWith('/dashboard/')) return 'dashboard';
-  if (pathname.startsWith('/organization')) return 'organization';
-  if (pathname.startsWith('/people')) return 'people';
+  if (pathname === '/extensions' || pathname.startsWith('/extensions/')) return 'extensions';
   if (pathname.startsWith('/phone-numbers')) return 'phone-numbers';
   if (pathname.startsWith('/call-flow')) return 'call-flow';
-  if (pathname.startsWith('/communication')) return 'communication';
+  if (pathname.startsWith('/communication')) return 'operations';
   if (pathname.startsWith('/reports')) return 'reports';
-  if (pathname.startsWith('/settings')) return 'settings';
+  if (pathname.startsWith('/settings') || pathname.startsWith('/organization')) return 'settings';
   if (pathname.startsWith('/contact-center')) return 'contact-center';
   return sectionIds[0] ?? null;
 }
@@ -90,40 +88,53 @@ export function TenantAccordionSidebar({
           <div className="border-b border-sidebar-border px-3 py-3">
             <LiveIndicator label={sidebarStatus.label} status={sidebarStatus.status} className="w-full justify-center" />
           </div>
-          <div className="border-b border-sidebar-border px-3 py-3">
-            <Link href="/people/provision">
-              <Button size="sm" className="w-full shadow-sm">
-                <Plus className="h-4 w-4" />
-                Provision Employee
-              </Button>
-            </Link>
-          </div>
         </>
       ) : null}
 
       <nav className="flex-1 overflow-y-auto px-3 py-4">
         {sections.map((section) => {
           const isOpen = expanded === section.id;
-          const isSingleItem = section.items.length === 1 && section.id === 'dashboard';
+          const isSingleItem =
+            section.items.length === 1 && (section.id === 'dashboard' || section.id === 'extensions');
 
           if (isSingleItem) {
             const item = section.items[0]!;
             const Icon = item.icon;
             const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+            const isPrimaryWorkspace = section.id === 'extensions';
             return (
-              <ul key={section.id} className="space-y-0.5">
+              <ul key={section.id} className={cn('space-y-0.5', isPrimaryWorkspace && 'mb-3')}>
+                {isPrimaryWorkspace && !collapsed ? (
+                  <p className="mb-1 px-3 text-[11px] font-semibold uppercase tracking-widest text-primary">
+                    Primary workspace
+                  </p>
+                ) : null}
                 <li>
                   <Link
                     href={item.href}
                     title={collapsed ? item.label : undefined}
                     className={cn(
                       'group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-150',
-                      active ? 'bg-primary/10 text-primary' : 'text-sidebar-fg hover:bg-sidebar-accent',
+                      active
+                        ? 'bg-primary/15 text-primary shadow-sm'
+                        : isPrimaryWorkspace
+                          ? 'bg-primary/5 text-primary ring-1 ring-primary/25 hover:bg-primary/10'
+                          : 'text-sidebar-fg hover:bg-sidebar-accent',
                       collapsed && 'justify-center px-2',
+                      isPrimaryWorkspace && !collapsed && 'font-semibold',
                     )}
                   >
-                    <Icon className={cn('relative h-4 w-4 shrink-0', active && 'text-primary')} />
-                    {!collapsed ? <span className="relative truncate">{item.label}</span> : null}
+                    <Icon className={cn('relative h-4 w-4 shrink-0', (active || isPrimaryWorkspace) && 'text-primary')} />
+                    {!collapsed ? (
+                      <span className="relative flex items-center gap-1.5 truncate">
+                        {item.label}
+                        {isPrimaryWorkspace ? (
+                          <span className="text-primary" aria-hidden>
+                            ★
+                          </span>
+                        ) : null}
+                      </span>
+                    ) : null}
                   </Link>
                 </li>
               </ul>

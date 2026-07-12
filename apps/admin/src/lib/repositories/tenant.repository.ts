@@ -23,6 +23,10 @@ export const tenantRepository = {
     return httpGet<{ data: Record<string, unknown>[] }>(`/v1/tenant/extensions${q}`).then(normalizeList);
   },
 
+  getExtension(id: string, signal?: AbortSignal): Promise<Record<string, unknown>> {
+    return httpGet<Record<string, unknown>>(`/v1/tenant/extensions/${id}`, { signal });
+  },
+
   listExtensionHub(search?: string) {
     const q = search ? `?search=${encodeURIComponent(search)}` : '';
     return httpGet<{ data: import('../hooks/queries/use-extension-hub').ExtensionHubRow[] }>(

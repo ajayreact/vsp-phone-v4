@@ -1,9 +1,10 @@
 # ------------------------------------------------------------------------------
 # Host DB overlay — reuse host PostgreSQL; use Compose Redis on the Docker network.
 #
-# EC2 production (legacy stack): set in .env:
-#   DATABASE_HOST=vsp-voip-postgres-1
-#   POSTGRES_APP_DB=vsp_voip
+# EC2 production database (confirmed):
+#   DATABASE_HOST=postgres          # vsp-postgres compose service (NOT vsp-voip-postgres-1)
+#   POSTGRES_APP_DB=vsp_phone_v4    # 5 tenants live here on vsp-postgres volume
+# Legacy vsp_voip on vsp-voip-postgres-1 is v3 schema — do not point v4 API there.
 # See docs/13-production-validation/10-extension-first-ec2-deploy.md
 #
 # Linux note: host PostgreSQL bound to 127.0.0.1 is NOT reachable via

@@ -18,11 +18,10 @@ export type ApiIntegrationStatus = 'live' | 'bff' | 'planned';
 /** Tenant Portal V2 collapsible sidebar section */
 export type TenantNavSectionId =
   | 'dashboard'
-  | 'organization'
-  | 'people'
+  | 'extensions'
   | 'phone-numbers'
   | 'call-flow'
-  | 'communication'
+  | 'operations'
   | 'reports'
   | 'settings'
   | 'contact-center';

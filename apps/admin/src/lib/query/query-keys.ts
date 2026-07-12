@@ -36,6 +36,7 @@ export const queryKeys = {
     extensions: (search?: string) => ['tenant', 'extensions', search ?? ''] as const,
     extensionHub: (search?: string) => ['tenant', 'extensionHub', search ?? ''] as const,
     extensionHubStats: () => ['tenant', 'extensionHub', 'stats'] as const,
+    extensionDetail: (id: string) => ['tenant', 'extensions', 'detail', id] as const,
     dids: (search?: string) => ['tenant', 'dids', search ?? ''] as const,
     didDestinations: (type: string) => ['tenant', 'did-destinations', type] as const,
     search: (q: string) => ['tenant', 'search', q] as const,

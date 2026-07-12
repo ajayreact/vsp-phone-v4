@@ -11,11 +11,13 @@ export function ExtensionQrPanel({
   qr,
   loading,
   onRegenerate,
+  hasExistingMobile = false,
 }: {
   row: ExtensionHubRow;
   qr: ExtensionMobileQrResult | null;
   loading: boolean;
   onRegenerate: () => void;
+  hasExistingMobile?: boolean;
 }) {
   const [copied, setCopied] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
@@ -48,9 +50,17 @@ export function ExtensionQrPanel({
       <div className="rounded-xl border border-border bg-muted/30 p-4 text-sm">
         <p className="font-medium">{row.label}</p>
         <p className="mt-1 text-muted-foreground">
-          Scan to register the mobile app or open the enroll link on this device.
+          {hasExistingMobile
+            ? 'Your mobile app is registered. View the current QR or regenerate a new one.'
+            : 'Scan this QR code with your phone to register the mobile app.'}
         </p>
       </div>
+
+      {loading && !qr?.qrDataUrl ? (
+        <p className="text-center text-sm text-muted-foreground">
+          {hasExistingMobile ? 'Loading current QR…' : 'Generating QR…'}
+        </p>
+      ) : null}
 
       {loading ? <Skeleton className="mx-auto h-64 w-64 rounded-xl" /> : null}
 
@@ -75,7 +85,7 @@ export function ExtensionQrPanel({
         </Button>
         <Button size="sm" variant="outline" onClick={onRegenerate} disabled={loading}>
           <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-          Regenerate QR
+          {hasExistingMobile ? 'Regenerate QR' : 'Generate QR'}
         </Button>
       </div>
 

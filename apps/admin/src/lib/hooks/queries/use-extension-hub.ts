@@ -120,12 +120,74 @@ export function useExtensionRestartRegistration() {
 }
 
 export type ConfigureTabId =
+  | 'overview'
   | 'general'
   | 'phone'
   | 'mobile'
   | 'desk'
   | 'voicemail'
-  | 'callForward'
-  | 'recording'
-  | 'security'
+  | 'callHandling'
   | 'advanced';
+
+/** Form state for ExtensionConfigureDrawer — hydrated from GET /extensions/:id */
+export type ExtensionConfigureFormState = {
+  displayName: string;
+  description: string;
+  departmentId: string;
+  linkedUserId: string;
+  callerIdName: string;
+  pin: string;
+  callForwardEnabled: boolean;
+  callForwardDestination: string;
+  dndEnabled: boolean;
+  voicemailNotifyEmail: string;
+  recordingEnabled: boolean;
+  selectedDidId: string;
+};
+
+export function mapExtensionDetailToForm(
+  row: ExtensionHubRow,
+  detail: Record<string, unknown>,
+): ExtensionConfigureFormState {
+  const line = detail.line as Record<string, unknown> | undefined;
+  const ts = line?.telephonySettings as Record<string, unknown> | undefined;
+  const callerId = line?.callerId as Record<string, unknown> | undefined;
+  const recordingPolicy = line?.recordingPolicy as Record<string, unknown> | undefined;
+  const user = line?.user as { id?: string } | undefined;
+  const dept = detail.department as { id?: string; name?: string } | null | undefined;
+  const vm = line?.voicemail as { pin?: string | null } | undefined;
+  const phoneNumbers = line?.phoneNumbers as { id?: string }[] | undefined;
+  const didFromLine = phoneNumbers?.[0]?.id ?? (callerId?.phoneNumber as { id?: string } | undefined)?.id;
+
+  return {
+    displayName: String(line?.name ?? row.displayName),
+    description: detail.description != null ? String(detail.description) : (row.description ?? ''),
+    departmentId: dept?.id ?? row.department?.id ?? '',
+    linkedUserId: user?.id ?? row.linkedUser?.id ?? '',
+    callerIdName: callerId?.callerIdName != null ? String(callerId.callerIdName) : '',
+    pin: ts?.pin != null ? String(ts.pin) : vm?.pin != null ? String(vm.pin) : '',
+    callForwardEnabled: Boolean(ts?.callForwardEnabled),
+    callForwardDestination: ts?.callForwardDestination != null ? String(ts.callForwardDestination) : '',
+    dndEnabled: Boolean(ts?.dndEnabled),
+    voicemailNotifyEmail: ts?.voicemailNotifyEmail != null ? String(ts.voicemailNotifyEmail) : '',
+    recordingEnabled: Boolean(recordingPolicy?.recordingEnabled),
+    selectedDidId: row.did?.id ?? didFromLine ?? '',
+  };
+}
+
+export function extensionDetailMatchesRow(
+  detail: Record<string, unknown> | undefined,
+  extensionId: string,
+): detail is Record<string, unknown> {
+  if (!detail || !extensionId) return false;
+  const detailId = detail.id != null ? String(detail.id) : '';
+  return !detailId || detailId === extensionId;
+}
+
+export function useExtensionDetail(id: string, enabled: boolean) {
+  return useQuery({
+    queryKey: queryKeys.tenant.extensionDetail(id),
+    queryFn: ({ signal }) => tenantRepository.getExtension(id, signal),
+    enabled: enabled && Boolean(id),
+  });
+}

@@ -3,16 +3,17 @@
 | Field | Value |
 |-------|-------|
 | **Branch** | `release/v4.0.0-rc1` |
-| **Production DB** | `vsp_voip` on `vsp-voip-postgres-1` |
-| **Network** | `vsp-voip_default` |
+| **Production DB host** | `postgres` (container `vsp-postgres`) |
+| **Production DB name** | `vsp_phone_v4` |
+| **Legacy** | `vsp-voip-postgres-1` / `vsp_voip` — v3 only, not for v4 API |
 
 ---
 
 ## Required `.env` (EC2)
 
 ```bash
-DATABASE_HOST=vsp-voip-postgres-1
-POSTGRES_APP_DB=vsp_voip
+DATABASE_HOST=postgres
+POSTGRES_APP_DB=vsp_phone_v4
 POSTGRES_USER=vsp
 POSTGRES_PASSWORD=vsp
 ```
@@ -20,14 +21,19 @@ POSTGRES_PASSWORD=vsp
 Resulting API connection:
 
 ```text
-postgresql://vsp:vsp@vsp-voip-postgres-1:5432/vsp_voip?schema=public
+postgresql://vsp:vsp@postgres:5432/vsp_phone_v4?schema=public
 ```
 
 Verify:
 
 ```bash
 docker inspect vsp-api --format '{{range .Config.Env}}{{println .}}{{end}}' | grep '^DATABASE_URL='
+docker exec vsp-postgres psql -U vsp -d vsp_phone_v4 -c \
+  "SELECT COUNT(*) AS tenants FROM tenants WHERE deleted_at IS NULL;"
 ```
+
+Do **not** use `DATABASE_HOST=vsp-voip-postgres-1` — that host's `vsp_phone_v4` is empty.  
+Do **not** use `POSTGRES_APP_DB=vsp_voip` — legacy v3 schema.
 
 ---
 
@@ -40,75 +46,49 @@ export COMPOSE="docker compose \
   -f docker-compose.yml \
   -f docker-compose.prod.yml \
   -f docker-compose.host-db.yml \
-  -f docker-compose.ec2-legacy-db.yml \
   --env-file .env"
 
 export API_DOCKER_TARGET=production
 export ADMIN_DOCKER_TARGET=production
 ```
 
-`docker-compose.ec2-legacy-db.yml` connects the API to legacy Postgres (`vsp-voip-postgres-1`).
+`docker-compose.ec2-legacy-db.yml` is only needed when connecting to `vsp-voip-postgres-1`.  
+When using compose `postgres` (`vsp-postgres`), omit the legacy overlay.
 
 ---
 
 ## Deploy
 
 ```bash
-sudo bash scripts/platform/ec2-deploy-extension-first.sh
-```
-
-Manual restart (api + admin only):
-
-```bash
-$COMPOSE up -d redis
+$COMPOSE up -d postgres redis
 $COMPOSE up -d --force-recreate --no-deps api admin
 curl -sk https://127.0.0.1:3000/api/health | jq .
 ```
 
 ---
 
-## Migration: `20260712150000_tenant_dids_write_permission`
+## RBAC: `tenant:dids:write`
 
-Check status:
-
-```bash
-docker run --rm --network vsp-voip_default postgres:16-alpine \
-  psql "postgresql://vsp:vsp@vsp-voip-postgres-1:5432/vsp_voip" -c \
-  "SELECT migration_name, finished_at FROM _prisma_migrations
-   WHERE migration_name = '20260712150000_tenant_dids_write_permission';"
-```
-
-Apply via Prisma (preferred after git pull):
+After git pull (`bcc68a3+`):
 
 ```bash
 $COMPOSE exec -T api npx prisma migrate deploy --schema=/app/prisma/schema.prisma
-```
 
-Or apply SQL directly:
-
-```bash
-docker run --rm -i --network vsp-voip_default postgres:16-alpine \
-  psql "postgresql://vsp:vsp@vsp-voip-postgres-1:5432/vsp_voip" \
+docker exec -i vsp-postgres psql -U vsp -d vsp_phone_v4 \
   < prisma/migrations/20260712150000_tenant_dids_write_permission/migration.sql
 ```
 
----
-
-## Verify RBAC
+Verify:
 
 ```bash
-docker run --rm --network vsp-voip_default postgres:16-alpine \
-  psql "postgresql://vsp:vsp@vsp-voip-postgres-1:5432/vsp_voip" -c "
-SELECT COUNT(*) AS permissions_tenant_dids_write
-FROM permissions WHERE key = 'tenant:dids:write' AND deleted_at IS NULL;
-SELECT COUNT(*) AS tenant_admin_assignments
-FROM role_permissions rp
-JOIN permissions p ON p.id = rp.permission_id AND p.deleted_at IS NULL
-JOIN roles r ON r.id = rp.role_id AND r.deleted_at IS NULL
-WHERE p.key = 'tenant:dids:write' AND r.name = 'Tenant Admin' AND rp.deleted_at IS NULL;"
+docker exec vsp-postgres psql -U vsp -d vsp_phone_v4 -c \
+  "SELECT COUNT(*) AS permissions FROM permissions WHERE key='tenant:dids:write' AND deleted_at IS NULL;
+   SELECT COUNT(*) AS role_links FROM role_permissions rp
+   JOIN permissions p ON p.id=rp.permission_id JOIN roles r ON r.id=rp.role_id
+   WHERE p.key='tenant:dids:write' AND r.name='Tenant Admin' AND rp.deleted_at IS NULL;"
 ```
 
-Both counts must be **≥ 1**. Then log out/in at https://tenant.vspphone.com (fresh JWT).
+Both counts must be **≥ 1**. Log out/in at https://tenant.vspphone.com, then test Assign DID.
 
 ---
 
@@ -116,21 +96,7 @@ Both counts must be **≥ 1**. Then log out/in at https://tenant.vspphone.com (f
 
 | Check | Expected |
 |-------|----------|
-| Login landing | `/extensions` |
-| Configure drawer | Opens |
-| Phone Number tab | Opens |
+| `/extensions` landing | Works |
 | Assign DID | HTTP 200, no 403 |
-| Refresh | DID persists |
-| Caller ID | Saved with assign payload |
-| Inbound route | Created on assign |
-| Extension rename | Works (`tenant:extensions:write`) |
-| QR generation | Works |
-| Desk / mobile provision | Works (`tenant:devices:write`) |
-
----
-
-## API permission
-
-`POST /v1/tenant/dids/:id/assign` requires **`tenant:dids:write`** only.
-
-Frontend: `tenant.repository.assignDid()` → `/v1/tenant/dids/${id}/assign`.
+| DID persists after refresh | Yes |
+| QR / rename / provision | Unchanged |

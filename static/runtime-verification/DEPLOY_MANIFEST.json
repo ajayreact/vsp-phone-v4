@@ -1,0 +1,6 @@
+﻿{
+  "packedAt": "2026-07-13T00:33:44.0150111+05:30",
+  "commit": "bcc68a34795d283e29f32cdb72f8c55d2055883e",
+  "dirty": true,
+  "note": "Extension-First deploy bundle â€” preserve EC2 .env on extract"
+}

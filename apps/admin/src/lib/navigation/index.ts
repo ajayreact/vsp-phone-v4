@@ -49,8 +49,10 @@ const TENANT_V2_MODULE_ALIASES: Record<string, string> = {
   'paging-intercom': 'paging',
   settings: 'settings-pbx',
   reports: 'analytics',
+  usage: 'usage',
   'audio-library': 'announcements',
-  dids: 'my-numbers',
+  dids: 'number-inventory',
+  'my-numbers': 'number-inventory',
   'api-keys': 'settings-api-keys',
 };
 
@@ -70,5 +72,7 @@ export function getModuleById(id: string, portal?: PortalType): ModuleDefinition
 }
 
 export function filterNavByPermissions(permissions: string[], portal?: PortalType): ModuleDefinition[] {
-  return getModulesForPortal(portal).filter((item) => hasPermission(permissions, item.permission));
+  return getModulesForPortal(portal).filter(
+    (item) => !item.hiddenFromNav && hasPermission(permissions, item.permission),
+  );
 }
