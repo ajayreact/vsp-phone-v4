@@ -72,14 +72,23 @@ export function AssignDidDrawer({
 
   useEffect(() => {
     if (!open || !did) return;
+    const extRows = extensionsQuery.data ?? [];
+    const destinationType = defaultDestinationType ?? 'EXTENSION';
+    let destinationId = defaultDestinationId ?? '';
+    if (!destinationId && destinationType === 'EXTENSION' && did.line?.id) {
+      const match = extRows.find((e) => (e.line as { id?: string } | undefined)?.id === did.line?.id);
+      destinationId = match?.id ?? '';
+    } else if (!destinationId) {
+      destinationId = did.line?.id ?? '';
+    }
     setForm({
-      destinationType: defaultDestinationType ?? 'EXTENSION',
-      destinationId: defaultDestinationId ?? did.line?.id ?? '',
+      destinationType,
+      destinationId,
       callerIdName: defaultCallerIdName ?? '',
       siteId: '',
     });
     setError(null);
-  }, [open, did, defaultDestinationType, defaultDestinationId, defaultCallerIdName]);
+  }, [open, did, defaultDestinationType, defaultDestinationId, defaultCallerIdName, extensionsQuery.data]);
 
   const preview = useMemo(() => {
     if (!did) return null;

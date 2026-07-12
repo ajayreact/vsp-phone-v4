@@ -1,6 +1,11 @@
 # ------------------------------------------------------------------------------
 # Host DB overlay — reuse host PostgreSQL; use Compose Redis on the Docker network.
 #
+# EC2 production (legacy stack): set in .env:
+#   DATABASE_HOST=vsp-voip-postgres-1
+#   POSTGRES_APP_DB=vsp_voip
+# See docs/13-production-validation/10-extension-first-ec2-deploy.md
+#
 # Linux note: host PostgreSQL bound to 127.0.0.1 is NOT reachable via
 # host.docker.internal. Set DATABASE_HOST in .env to the EC2 private IP
 # (e.g. 172.31.x.x) or configure PostgreSQL listen_addresses='*'.

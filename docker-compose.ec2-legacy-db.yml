@@ -1,0 +1,15 @@
+# EC2 production — API joins legacy Postgres network (vsp-voip-postgres-1).
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml \
+#     -f docker-compose.host-db.yml -f docker-compose.ec2-legacy-db.yml --env-file .env ...
+
+services:
+  api:
+    networks:
+      - vsp_internal
+      - legacy_postgres
+
+networks:
+  legacy_postgres:
+    external: true
+    name: vsp-voip_default
