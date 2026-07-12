@@ -1,9 +1,14 @@
 import { NextResponse } from 'next/server';
-import { fetchOpsDashboard, SERVICE_TOKEN } from '../../../../../lib/api/ops-server';
+import {
+  BFF_OBSERVABILITY_CALLS_PERMISSIONS,
+  requireBffAuth,
+  resolveBffTenantId,
+} from '../../../../../lib/bff/bff-auth';
+import { API_BASE, SERVICE_TOKEN } from '../../../../../lib/api/ops-server';
 
 export const dynamic = 'force-dynamic';
 
-/** Proxies live call diagnostics for NOC view. */
+/** Proxies live call diagnostics for NOC view — tenant scoped from JWT only. */
 export async function GET(request: Request) {
   if (!SERVICE_TOKEN) {
     return NextResponse.json(
@@ -12,14 +17,10 @@ export async function GET(request: Request) {
     );
   }
 
-  const { searchParams } = new URL(request.url);
-  const tenantId = searchParams.get('tenantId');
-  if (!tenantId) {
-    return NextResponse.json({ data: [] });
-  }
+  const auth = await requireBffAuth(request, BFF_OBSERVABILITY_CALLS_PERMISSIONS);
+  if ('response' in auth) return auth.response;
 
-  const API_BASE =
-    process.env.API_INTERNAL_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
+  const tenantId = resolveBffTenantId(auth.session);
 
   try {
     const res = await fetch(

@@ -47,9 +47,13 @@ export async function httpPostForm<T>(path: string, body: FormData, init?: Reque
   });
 }
 
-/** Admin BFF routes (server-side service auth). */
+/** Admin BFF routes — requires caller JWT (see bff-auth.ts). */
 export async function bffGet<T>(path: string): Promise<T> {
-  const res = await fetch(path, { cache: 'no-store' });
+  const token = getAccessToken();
+  const res = await fetch(path, {
+    cache: 'no-store',
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
   if (!res.ok) {
     const text = await res.text();
     let message = text || `HTTP ${res.status}`;

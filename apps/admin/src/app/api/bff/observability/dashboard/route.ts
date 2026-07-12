@@ -1,4 +1,9 @@
 import { NextResponse } from 'next/server';
+import {
+  BFF_OBSERVABILITY_READ_PERMISSIONS,
+  requireBffAuth,
+  resolveBffTenantId,
+} from '../../../../../lib/bff/bff-auth';
 import { fetchOpsDashboard, SERVICE_TOKEN } from '../../../../../lib/api/ops-server';
 
 export const dynamic = 'force-dynamic';
@@ -11,10 +16,11 @@ export async function GET(request: Request) {
     );
   }
 
-  const { searchParams } = new URL(request.url);
-  const tenantId = searchParams.get('tenantId') ?? undefined;
+  const auth = await requireBffAuth(request, BFF_OBSERVABILITY_READ_PERMISSIONS);
+  if ('response' in auth) return auth.response;
 
   try {
+    const tenantId = resolveBffTenantId(auth.session);
     const data = await fetchOpsDashboard(tenantId);
     return NextResponse.json(data);
   } catch (err) {
