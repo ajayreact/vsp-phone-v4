@@ -37,11 +37,19 @@ type Row = Record<string, unknown> & { id: string };
 
 const TABS = ['Policies', 'Inbound', 'Outbound', 'Dial Plans', 'Time Conditions', 'Holidays', 'Route Tester'] as const;
 
-export function CallRoutingContent() {
+export type CallRoutingTab = (typeof TABS)[number];
+
+export function CallRoutingContent({
+  defaultTab,
+  moduleId = 'call-routing',
+}: {
+  defaultTab?: CallRoutingTab;
+  moduleId?: string;
+}) {
   const permissions = usePermissions();
   const canWrite = hasPermission(permissions, PERMISSIONS.TENANT_ROUTING_WRITE);
 
-  const [tab, setTab] = useState<(typeof TABS)[number]>('Policies');
+  const [tab, setTab] = useState<(typeof TABS)[number]>(defaultTab ?? 'Policies');
   const [policyOpen, setPolicyOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [testPhone, setTestPhone] = useState('');
@@ -150,7 +158,7 @@ export function CallRoutingContent() {
     : policyColumns;
 
   return (
-    <ModuleAccessGate moduleId="call-routing">
+    <ModuleAccessGate moduleId={moduleId}>
       {({ module }) => (
         <>
           {metrics ? (

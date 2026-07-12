@@ -1170,7 +1170,7 @@ model Line {
   id        String     @id @db.Uuid
   publicId  String     @unique @map("public_id")
   tenantId  String     @map("tenant_id") @db.Uuid
-  userId    String     @map("user_id") @db.Uuid
+  userId    String?    @map("user_id") @db.Uuid
   name      String
   status    LineStatus @default(ACTIVE)
   version   Int        @default(1)
@@ -1182,7 +1182,7 @@ model Line {
   deletedBy String?    @map("deleted_by") @db.Uuid
 
   tenant                 Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  user                   User                    @relation(fields: [userId], references: [id], onDelete: Restrict)
+  user                   User?                   @relation(fields: [userId], references: [id], onDelete: Restrict)
   creator                User?                   @relation("LineCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
   updater                User?                   @relation("LineUpdatedBy", fields: [updatedBy], references: [id], onDelete: Restrict)
   deleter                User?                   @relation("LineDeletedBy", fields: [deletedBy], references: [id], onDelete: Restrict)
@@ -1224,11 +1224,13 @@ model Line {
 // ---------------------------------------------------------------------------
 
 model Extension {
-  id        String    @id @db.Uuid
-  tenantId  String    @map("tenant_id") @db.Uuid
-  lineId    String    @unique @map("line_id") @db.Uuid
-  extension String
-  version   Int       @default(1)
+  id           String    @id @db.Uuid
+  tenantId     String    @map("tenant_id") @db.Uuid
+  lineId       String    @unique @map("line_id") @db.Uuid
+  extension    String
+  description  String?
+  departmentId String?   @map("department_id") @db.Uuid
+  version      Int       @default(1)
   createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
@@ -1236,9 +1238,10 @@ model Extension {
   updatedBy String?   @map("updated_by") @db.Uuid
   deletedBy String?   @map("deleted_by") @db.Uuid
 
-  tenant  Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  line    Line   @relation(fields: [lineId], references: [id], onDelete: Restrict)
-  creator User?  @relation("ExtensionCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
+  tenant     Tenant      @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  line       Line        @relation(fields: [lineId], references: [id], onDelete: Restrict)
+  department Department? @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  creator    User?       @relation("ExtensionCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
   updater User?  @relation("ExtensionUpdatedBy", fields: [updatedBy], references: [id], onDelete: Restrict)
   deleter User?  @relation("ExtensionDeletedBy", fields: [deletedBy], references: [id], onDelete: Restrict)
 
@@ -2593,8 +2596,9 @@ model Department {
   updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
 
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  devices Device[]
+  tenant     Tenant      @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  devices    Device[]
+  extensions Extension[]
 
   @@index([tenantId])
   @@map("departments")
@@ -2695,9 +2699,12 @@ model InboundRoute {
   priority          Int                  @default(100)
   destinationType   RouteDestinationType @map("destination_type")
   destinationLineId String?              @map("destination_line_id") @db.Uuid
+  destinationExtensionId String?         @map("destination_extension_id") @db.Uuid
   destinationQueueId String?             @map("destination_queue_id") @db.Uuid
   destinationIvrId  String?              @map("destination_ivr_id") @db.Uuid
   destinationRingGroupId String?         @map("destination_ring_group_id") @db.Uuid
+  destinationVoicemailId String?       @map("destination_voicemail_id") @db.Uuid
+  destinationConferenceId String?        @map("destination_conference_id") @db.Uuid
   timeConditionId   String?              @map("time_condition_id") @db.Uuid
   holidayCalendarId String?              @map("holiday_calendar_id") @db.Uuid
   openHoursDestinationType RouteDestinationType? @map("open_hours_destination_type")

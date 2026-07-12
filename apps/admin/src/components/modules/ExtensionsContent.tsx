@@ -24,6 +24,7 @@ import {
   withRowIds,
 } from './shared/ModuleShell';
 import { WriteCreateButton } from './shared/TenantCreateForms';
+import { formatExtensionLabel } from '../../lib/extensions/format-extension-label';
 
 type ExtensionRow = Record<string, unknown> & { id: string };
 
@@ -211,7 +212,14 @@ export function ExtensionsContent() {
         key: 'extension',
         header: 'Extension',
         sortable: true,
-        cell: (r) => <span className="font-mono font-medium">{String(r.extension ?? '')}</span>,
+        cell: (r) => {
+          const line = r.line as { name?: string } | undefined;
+          return (
+            <span className="font-mono font-medium">
+              {formatExtensionLabel(String(r.extension ?? ''), line?.name)}
+            </span>
+          );
+        },
       },
       {
         key: 'user',

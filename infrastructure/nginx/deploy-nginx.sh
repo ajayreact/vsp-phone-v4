@@ -69,10 +69,12 @@ if [[ -f "${WILDCARD_CERT}" && -f "${WILDCARD_KEY}" ]]; then
   sed -i "s|/etc/letsencrypt/live/app.vspphone.com/privkey.pem|${WILDCARD_KEY}|g" "${AVAILABLE}"
   sed -i "s|/etc/letsencrypt/live/admin.vspphone.com/fullchain.pem|${WILDCARD_CERT}|g" "${AVAILABLE}"
   sed -i "s|/etc/letsencrypt/live/admin.vspphone.com/privkey.pem|${WILDCARD_KEY}|g" "${AVAILABLE}"
+  sed -i "s|/etc/letsencrypt/live/tenant.vspphone.com/fullchain.pem|${WILDCARD_CERT}|g" "${AVAILABLE}"
+  sed -i "s|/etc/letsencrypt/live/tenant.vspphone.com/privkey.pem|${WILDCARD_KEY}|g" "${AVAILABLE}"
 fi
 
 # Fallback: use first available certbot cert if per-host paths missing
-for pair in "api.vspphone.com" "app.vspphone.com" "admin.vspphone.com" "vspphone.com"; do
+for pair in "api.vspphone.com" "app.vspphone.com" "admin.vspphone.com" "tenant.vspphone.com" "vspphone.com"; do
   if [[ ! -f "/etc/letsencrypt/live/${pair}/fullchain.pem" ]]; then
     echo "WARN: missing cert for ${pair} — run certbot or adjust ssl_certificate paths"
   fi

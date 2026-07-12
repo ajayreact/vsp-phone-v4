@@ -18,6 +18,7 @@ import {
   Voicemail,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { formatExtensionLabel } from '../../lib/extensions/format-extension-label';
 import { usePermissions } from '../../lib/auth/AuthProvider';
 import {
   useBlfLamps,
@@ -183,6 +184,7 @@ export function ReceptionConsole() {
                       const lineId = String(lamp.lineId ?? '');
                       const name = String(lamp.displayName ?? lamp.lineName ?? `Ext ${idx + 1}`);
                       const ext = String(lamp.extension ?? '—');
+                      const extLabel = ext !== '—' ? formatExtensionLabel(ext, name) : '—';
                       const state = String(lamp.lampState ?? lamp.status ?? 'idle');
                       return (
                         <button
@@ -195,7 +197,7 @@ export function ReceptionConsole() {
                           <GripVertical className="absolute right-1 top-1 h-3 w-3 text-muted-foreground/50" />
                           <div className={`mb-2 h-2 w-2 rounded-full ${PRESENCE_COLORS[String(lamp.presence ?? lamp.status ?? 'OFFLINE')] ?? 'bg-muted'}`} />
                           <p className="truncate text-sm font-medium">{name}</p>
-                          <p className="font-mono text-xs text-muted-foreground">{ext}</p>
+                          <p className="font-mono text-xs text-muted-foreground">{extLabel}</p>
                           <div className="mt-1 flex flex-wrap gap-1">
                             {lamp.ringing ? <span className="text-[10px] text-sky-500">Ring</span> : null}
                             {lamp.forwarded ? <span className="text-[10px] text-amber-500">FWD</span> : null}

@@ -19,8 +19,9 @@ Deployment procedures for RC1 staging and production pilot environments.
 ## Quick start (development)
 
 ```bash
-cp .env.example .env
-npm ci
+cp .env.example .env          # local development
+cp .env.production.template .env   # production server
+```
 npm run docker:core          # postgres + redis
 npm run prisma:generate
 npx nx serve api
@@ -47,16 +48,25 @@ npm run telecom:validate:remediation
 
 ### 2. Environment configuration
 
-Copy `.env.example` → `.env` and set production-oriented values:
+Copy templates to `.env`:
+
+```bash
+cp .env.production.template .env    # production server
+# Optional tuning: merge keys from .env.optional.template
+```
+
+See **[ENVIRONMENT.md](./ENVIRONMENT.md)** for the full variable catalog and audit report.
 
 | Category | Key variables |
 |----------|---------------|
 | Profile | `VSP_ENV=production`, `NODE_ENV=production` |
 | Secrets | `JWT_SECRET`, `TELECOM_SERVICE_AUTH_TOKEN`, `TELNYX_WEBHOOK_SECRET` |
+| Telnyx admin | `TELNYX_API_KEY`, `VSP_PLATFORM_INVENTORY_TENANT_ID` |
 | Database | `DATABASE_URL`, optional `DATABASE_READ_URL` |
 | Redis | `REDIS_URL` |
 | TLS | `TLS_ENABLED=true`, cert/key file paths |
-| Security | `SECURITY_ENFORCE_TELECOM=true`, `KAMAILIO_REQUIRE_SERVICE_AUTH=true` |
+| Admin | `NEXT_PUBLIC_API_URL` (build-time), `API_INTERNAL_URL` (runtime BFF) |
+| Security | `SECURITY_ENFORCE_TELECOM=true`, `CORS_ORIGINS`, `KAMAILIO_REQUIRE_SERVICE_AUTH=true` |
 | Backup | `BACKUP_LOCATION`, `BACKUP_SCHEDULE` |
 | Kamailio | `KAMAILIO_USRLOC_PERSISTENCE=postgres`, `KAMAILIO_USRLOC_DB_URL` |
 

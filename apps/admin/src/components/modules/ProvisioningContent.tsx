@@ -23,6 +23,7 @@ import { Input } from '../ui/Input';
 import { SlideOver } from '../ui/SlideOver';
 import { ModuleAccessGate, ModuleListShell, withRowIds } from './shared/ModuleShell';
 import { WriteCreateButton } from './shared/TenantCreateForms';
+import { formatExtensionLabel } from '../../lib/extensions/format-extension-label';
 
 type Tab = 'devices' | 'templates' | 'firmware';
 type DeviceRow = Record<string, unknown> & { id: string };
@@ -105,7 +106,11 @@ export function ProvisioningContent() {
 
   const deviceRows = withRowIds(devicesQuery.data ?? []) as DeviceRow[];
   const templateRows = withRowIds(templatesQuery.data ?? []) as TemplateRow[];
-  const extensions = (extensionsQuery.data ?? []) as { line?: { id?: string }; extension?: string; lineId?: string }[];
+  const extensions = (extensionsQuery.data ?? []) as {
+    line?: { id?: string; name?: string };
+    extension?: string;
+    lineId?: string;
+  }[];
 
   const handleEnroll = async () => {
     setError(null);
@@ -331,7 +336,7 @@ export function ProvisioningContent() {
                   <option value="">Select line…</option>
                   {extensions.map((ext, i) => (
                     <option key={i} value={ext.line?.id ?? ext.lineId ?? ''}>
-                      {ext.extension} — line
+                      {formatExtensionLabel(String(ext.extension ?? ''), ext.line?.name)}
                     </option>
                   ))}
                 </select>

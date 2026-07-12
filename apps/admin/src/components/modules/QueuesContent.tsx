@@ -16,6 +16,7 @@ import {
   useUpdateQueue,
 } from '../../lib/hooks/queries/use-queue-ring-mutations';
 import { useTenantExtensions, useTenantQueues } from '../../lib/hooks/queries/use-tenant';
+import { formatExtensionLabel } from '../../lib/extensions/format-extension-label';
 import { queueRingRepository } from '../../lib/repositories/queue-ring.repository';
 import { PERMISSIONS, hasPermission } from '../../lib/rbac/permissions';
 import { usePermissions } from '../../lib/auth/AuthProvider';
@@ -263,7 +264,13 @@ export function QueuesContent() {
                   <ul className="space-y-1">
                     {((detailRow.members as { id: string; status?: string; line?: { name?: string; extension?: { extension?: string } } }[]) ?? []).map((m) => (
                       <li key={m.id} className="flex items-center justify-between rounded-lg border border-border px-3 py-2">
-                        <span>{m.line?.name ?? 'Agent'} · {m.line?.extension?.extension ?? '—'} · {m.status}</span>
+                        <span>
+                          {formatExtensionLabel(
+                            String(m.line?.extension?.extension ?? ''),
+                            m.line?.name,
+                          )}{' '}
+                          · {m.status}
+                        </span>
                         {canWrite ? (
                           <div className="flex gap-1">
                             <Button variant="ghost" size="sm" onClick={() => agentAction.mutate({ action: 'pause', queueId: detailRow.id, memberId: m.id, reason: 'Break' })}><Pause className="h-4 w-4" /></Button>
@@ -279,7 +286,14 @@ export function QueuesContent() {
                         <option value="">Add agent line…</option>
                         {extensions.map((ext, i) => {
                           const lineId = ext.line?.id ?? ext.lineId ?? '';
-                          return <option key={i} value={lineId}>{ext.extension} — {ext.line?.name ?? 'Line'}</option>;
+                          return (
+                            <option key={i} value={lineId}>
+                              {formatExtensionLabel(
+                                String(ext.extension ?? ''),
+                                (ext.line as { name?: string })?.name,
+                              )}
+                            </option>
+                          );
                         })}
                       </select>
                       <Button disabled={!memberLineId} onClick={async () => {

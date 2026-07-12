@@ -182,10 +182,11 @@ export function useUpdatePlatformSettings() {
   });
 }
 
-export function usePlatformApiKeys(tenantId?: string) {
+export function usePlatformApiKeys(tenantId?: string, enabled = true) {
   return useQuery({
     queryKey: queryKeys.platform.apiKeys(tenantId),
     queryFn: () => platformRepository.listApiKeys(tenantId),
+    enabled,
   });
 }
 

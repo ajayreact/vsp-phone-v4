@@ -40,10 +40,19 @@ export const PORTAL_ROUTE_PREFIXES: Record<PortalType, string[]> = {
   ],
   tenant: [
     '/dashboard',
+    // Tenant Portal V2
+    '/organization',
+    '/people',
+    '/phone-numbers',
+    '/call-flow',
+    '/communication',
+    '/reports',
+    '/settings',
+    '/contact-center',
+    // Legacy (backward compatible)
     '/supervisor',
     '/reception',
     '/paging-intercom',
-    '/organization',
     '/users',
     '/extensions',
     '/devices',
@@ -59,8 +68,9 @@ export const PORTAL_ROUTE_PREFIXES: Record<PortalType, string[]> = {
     '/conferences',
     '/cdr',
     '/call-recordings',
+    '/number-requests',
     '/reports',
-    '/settings',
+    '/api-keys',
     '/softphone',
   ],
 };
@@ -114,13 +124,11 @@ export function resolvePortalFromRequest(options: ResolvePortalFromRequestOption
   const fromHost = hostnameFromHostHeader(options.host);
   const fromUrl = hostnameFromHostHeader(options.urlHostname);
 
-  // Any recognized production vhost wins immediately (admin.* / app.* / tenant.*).
   for (const candidate of [fromForwarded, fromHost, fromUrl]) {
     const portal = portalFromHostname(candidate);
     if (portal) return portal;
   }
 
-  // Local dev / loopback: fall back to env portal or ops default.
   const hostname = fromForwarded || fromHost || fromUrl || 'localhost';
   return resolvePortal(hostname, options.envPortal);
 }

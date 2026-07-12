@@ -23,6 +23,38 @@ export const tenantRepository = {
     return httpGet<{ data: Record<string, unknown>[] }>(`/v1/tenant/extensions${q}`).then(normalizeList);
   },
 
+  listExtensionHub(search?: string) {
+    const q = search ? `?search=${encodeURIComponent(search)}` : '';
+    return httpGet<{ data: import('../hooks/queries/use-extension-hub').ExtensionHubRow[] }>(
+      `/v1/tenant/extensions/hub${q}`,
+    ).then(normalizeList);
+  },
+
+  getExtensionHubStats(): Promise<import('../hooks/queries/use-extension-hub').ExtensionHubStats> {
+    return httpGet<import('../hooks/queries/use-extension-hub').ExtensionHubStats>(
+      '/v1/tenant/extensions/hub/stats',
+    );
+  },
+
+  renameExtensionDisplayName(
+    id: string,
+    payload: { displayName: string; description?: string; departmentId?: string },
+  ): Promise<Record<string, unknown>> {
+    return httpPatch<Record<string, unknown>>(`/v1/tenant/extensions/${id}/display-name`, payload);
+  },
+
+  createExtensionMobileQr(id: string): Promise<import('../hooks/queries/use-extension-hub').ExtensionMobileQrResult> {
+    return httpPost(`/v1/tenant/extensions/${id}/mobile-qr`, {});
+  },
+
+  unassignExtensionDid(id: string): Promise<{ ok: boolean }> {
+    return httpPost(`/v1/tenant/extensions/${id}/unassign-did`, {});
+  },
+
+  restartExtensionRegistration(id: string): Promise<Record<string, unknown>> {
+    return httpPost(`/v1/tenant/extensions/${id}/restart-registration`, {});
+  },
+
   listDids(search?: string): Promise<Record<string, unknown>[]> {
     const q = search ? `?search=${encodeURIComponent(search)}` : '';
     return httpGet<{ data: Record<string, unknown>[] }>(`/v1/tenant/dids${q}`).then(normalizeList);
@@ -114,5 +146,108 @@ export const tenantRepository = {
 
   deleteExtension(id: string): Promise<Record<string, unknown>> {
     return httpDelete<Record<string, unknown>>(`/v1/tenant/extensions/${id}`);
+  },
+
+  listDidDestinations(type: string): Promise<{ id: string; label: string }[]> {
+    return httpGet<{ data: { id: string; label: string }[] }>(
+      `/v1/tenant/dids/destinations?type=${encodeURIComponent(type)}`,
+    ).then(normalizeList);
+  },
+
+  assignDid(
+    id: string,
+    payload: { destinationType: string; destinationId: string; callerIdName?: string; siteId?: string },
+  ): Promise<Record<string, unknown>> {
+    return httpPost<Record<string, unknown>>(`/v1/tenant/dids/${id}/assign`, payload);
+  },
+
+  search(q: string): Promise<{ id: string; type: string; label: string; subtitle: string; href: string }[]> {
+    return httpGet<{ data: { id: string; type: string; label: string; subtitle: string; href: string }[] }>(
+      `/v1/tenant/search?q=${encodeURIComponent(q)}`,
+    ).then(normalizeList);
+  },
+
+  createProvisionSession(): Promise<Record<string, unknown>> {
+    return httpPost<{ data: Record<string, unknown> }>('/v1/tenant/provision/session', {}).then((r) =>
+      'data' in r && r.data ? r.data : (r as Record<string, unknown>),
+    );
+  },
+
+  patchProvisionStep(
+    sessionId: string,
+    step: 'user' | 'extension' | 'device' | 'did' | 'voicemail',
+    payload: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> {
+    return httpPatch<{ data: Record<string, unknown> }>(
+      `/v1/tenant/provision/session/${sessionId}/${step}`,
+      payload,
+    ).then((r) => ('data' in r && r.data ? r.data : (r as Record<string, unknown>)));
+  },
+
+  commitProvisionSession(sessionId: string): Promise<Record<string, unknown>> {
+    return httpPost<{ data: Record<string, unknown> }>(
+      `/v1/tenant/provision/session/${sessionId}/commit`,
+      {},
+    ).then((r) => ('data' in r && r.data ? r.data : (r as Record<string, unknown>)));
+  },
+
+  getCompany(): Promise<Record<string, unknown>> {
+    return httpGet<{ data: Record<string, unknown> }>('/v1/tenant/organization/company').then(
+      (r) => r.data ?? r,
+    );
+  },
+
+  updateCompany(payload: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return httpPatch<{ data: Record<string, unknown> }>('/v1/tenant/organization/company', payload).then(
+      (r) => r.data ?? r,
+    );
+  },
+
+  listSites(search?: string): Promise<Record<string, unknown>[]> {
+    const q = search ? `?search=${encodeURIComponent(search)}` : '';
+    return httpGet<{ data: Record<string, unknown>[] }>(`/v1/tenant/organization/sites${q}`).then(normalizeList);
+  },
+
+  createSite(payload: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return httpPost<Record<string, unknown>>('/v1/tenant/organization/sites', payload);
+  },
+
+  updateSite(id: string, payload: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return httpPatch<Record<string, unknown>>(`/v1/tenant/organization/sites/${id}`, payload);
+  },
+
+  deleteSite(id: string): Promise<Record<string, unknown>> {
+    return httpDelete<Record<string, unknown>>(`/v1/tenant/organization/sites/${id}`);
+  },
+
+  listDepartments(search?: string): Promise<Record<string, unknown>[]> {
+    const q = search ? `?search=${encodeURIComponent(search)}` : '';
+    return httpGet<{ data: Record<string, unknown>[] }>(`/v1/tenant/organization/departments${q}`).then(
+      normalizeList,
+    );
+  },
+
+  createDepartment(payload: { name: string }): Promise<Record<string, unknown>> {
+    return httpPost<Record<string, unknown>>('/v1/tenant/organization/departments', payload);
+  },
+
+  updateDepartment(id: string, payload: { name: string }): Promise<Record<string, unknown>> {
+    return httpPatch<Record<string, unknown>>(`/v1/tenant/organization/departments/${id}`, payload);
+  },
+
+  deleteDepartment(id: string): Promise<Record<string, unknown>> {
+    return httpDelete<Record<string, unknown>>(`/v1/tenant/organization/departments/${id}`);
+  },
+
+  listApiKeys(): Promise<Record<string, unknown>[]> {
+    return httpGet<{ data: Record<string, unknown>[] }>('/v1/tenant/api-keys').then(normalizeList);
+  },
+
+  createApiKey(payload: { name: string; scopes?: string[] }): Promise<Record<string, unknown>> {
+    return httpPost<Record<string, unknown>>('/v1/tenant/api-keys', payload);
+  },
+
+  revokeApiKey(id: string): Promise<Record<string, unknown>> {
+    return httpDelete<Record<string, unknown>>(`/v1/tenant/api-keys/${id}`);
   },
 };

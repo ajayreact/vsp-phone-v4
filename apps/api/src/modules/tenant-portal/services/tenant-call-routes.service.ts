@@ -422,9 +422,12 @@ export class TenantCallRoutesService {
       step: 'destination',
       type: matched.destinationType,
       lineId: matched.destinationLineId,
+      extensionId: matched.destinationExtensionId,
       queueId: matched.destinationQueueId,
       ivrId: matched.destinationIvrId,
       ringGroupId: matched.destinationRingGroupId,
+      voicemailId: matched.destinationVoicemailId,
+      conferenceId: matched.destinationConferenceId,
       external: matched.externalDestination,
     });
 

@@ -24,6 +24,7 @@ import {
 import {
   BulkImportExtensionsDto,
   CreateExtensionDto,
+  RenameExtensionDisplayNameDto,
   UpdateExtensionDto,
 } from '../dto/tenant-extensions.dto';
 import { TenantExtensionsService } from '../services/tenant-extensions.service';
@@ -41,6 +42,23 @@ export class TenantExtensionsController {
   async list(@Query('search') search: string | undefined, @Req() req: Request) {
     const user = getJwtUser(req);
     const data = await this.extensions.list(user.tenantId, search);
+    return { data };
+  }
+
+  @Get('hub/stats')
+  @RequirePermission(PERMISSIONS.TENANT_EXTENSIONS_READ)
+  @ApiOperation({ summary: 'Extension hub KPI statistics' })
+  async hubStats(@Req() req: Request) {
+    const user = getJwtUser(req);
+    return this.extensions.hubStats(user.tenantId);
+  }
+
+  @Get('hub')
+  @RequirePermission(PERMISSIONS.TENANT_EXTENSIONS_READ)
+  @ApiOperation({ summary: 'Extension hub rows with DID, device, status, and display names' })
+  async listHub(@Query('search') search: string | undefined, @Req() req: Request) {
+    const user = getJwtUser(req);
+    const data = await this.extensions.listHub(user.tenantId, search);
     return { data };
   }
 
@@ -65,7 +83,7 @@ export class TenantExtensionsController {
 
   @Post()
   @RequirePermission(PERMISSIONS.TENANT_EXTENSIONS_WRITE)
-  @ApiOperation({ summary: 'Create extension (auto-provisions line when userId provided)' })
+  @ApiOperation({ summary: 'Create extension (user optional — auto-provisions standalone line)' })
   create(@Body() dto: CreateExtensionDto, @Req() req: Request) {
     const user = getJwtUser(req);
     return this.extensions.create(user.tenantId, user.sub, dto);
@@ -77,6 +95,42 @@ export class TenantExtensionsController {
   bulkImport(@Body() dto: BulkImportExtensionsDto, @Req() req: Request) {
     const user = getJwtUser(req);
     return this.extensions.bulkImport(user.tenantId, user.sub, dto);
+  }
+
+  @Post(':id/restart-registration')
+  @RequirePermission(PERMISSIONS.TENANT_EXTENSIONS_WRITE)
+  @ApiOperation({ summary: 'Restart SIP registration (regenerate mobile QR or reset desk phone)' })
+  restartRegistration(@Param('id') id: string, @Req() req: Request) {
+    const user = getJwtUser(req);
+    return this.extensions.restartRegistration(user.tenantId, user.sub, id);
+  }
+
+  @Post(':id/unassign-did')
+  @RequirePermission(PERMISSIONS.TENANT_EXTENSIONS_WRITE)
+  @ApiOperation({ summary: 'Remove assigned DID from extension' })
+  unassignDid(@Param('id') id: string, @Req() req: Request) {
+    const user = getJwtUser(req);
+    return this.extensions.unassignDid(user.tenantId, user.sub, id);
+  }
+
+  @Post(':id/mobile-qr')
+  @RequirePermission(PERMISSIONS.TENANT_EXTENSIONS_WRITE)
+  @ApiOperation({ summary: 'Generate mobile app QR with WebRTC enroll token and deep link' })
+  mobileQr(@Param('id') id: string, @Req() req: Request) {
+    const user = getJwtUser(req);
+    return this.extensions.mobileQr(user.tenantId, user.sub, id);
+  }
+
+  @Patch(':id/display-name')
+  @RequirePermission(PERMISSIONS.TENANT_EXTENSIONS_WRITE)
+  @ApiOperation({ summary: 'Rename extension display name (Line.name)' })
+  renameDisplayName(
+    @Param('id') id: string,
+    @Body() dto: RenameExtensionDisplayNameDto,
+    @Req() req: Request,
+  ) {
+    const user = getJwtUser(req);
+    return this.extensions.renameDisplayName(user.tenantId, user.sub, id, dto);
   }
 
   @Patch(':id')

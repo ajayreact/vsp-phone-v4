@@ -42,6 +42,12 @@ export type OpsDashboardSnapshot = {
   activeQueues: number;
   queueWaiting?: number;
   onlineTenants: number;
+  onboarding?: {
+    checklist: { id: string; label: string; done: boolean }[];
+    completed: number;
+    total: number;
+    percent: number;
+  } | null;
   redis: { available: boolean };
   postgres: { connected: boolean };
   infrastructure: {
@@ -266,6 +272,8 @@ export type BulkAssignPayload = {
   tenantId: string;
   siteId?: string;
   extension?: string;
+  startExtension?: string;
+  extensions?: string[];
 };
 
 export type AssignTelnyxNumberPayload = {

@@ -48,6 +48,7 @@ import { LiveIndicator } from '../ui/LiveIndicator';
 import { Badge, StatusBadge } from '../ui/Badge';
 import { Skeleton } from '../ui/Skeleton';
 import { cn } from '../../lib/utils/cn';
+import { formatExtensionLabel } from '../../lib/extensions/format-extension-label';
 
 type TabId = 'dashboard' | 'wallboard' | 'agents' | 'queues' | 'calls' | 'recordings' | 'reports' | 'coaching';
 
@@ -191,7 +192,7 @@ function AgentsTab({
 
   const columns: Column<SupervisorAgent & { id: string }>[] = [
     { key: 'agent', header: 'Agent', cell: (r) => r.agentName },
-    { key: 'ext', header: 'Extension', cell: (r) => r.extension ?? '—' },
+    { key: 'ext', header: 'Extension', cell: (r) => (r.extension ? formatExtensionLabel(r.extension, r.agentName) : '—') },
     { key: 'queue', header: 'Queue', cell: (r) => r.queueName },
     { key: 'status', header: 'Status', cell: (r) => <StatusBadge status={presenceBadge(r.status)} /> },
     { key: 'presence', header: 'Presence', cell: (r) => r.presence },

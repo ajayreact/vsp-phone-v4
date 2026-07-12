@@ -67,6 +67,7 @@ services:
     container_name: vsp-api
     restart: unless-stopped
     logging: *default-logging
+    # All variables from host .env; keys in `environment` below override env_file.
     env_file: [.env]
     environment:
       NODE_ENV: ${NODE_ENV:-development}

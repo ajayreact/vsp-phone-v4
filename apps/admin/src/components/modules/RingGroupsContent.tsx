@@ -10,6 +10,7 @@ import {
   useUpdateRingGroup,
 } from '../../lib/hooks/queries/use-queue-ring-mutations';
 import { useTenantExtensions, useTenantRingGroups } from '../../lib/hooks/queries/use-tenant';
+import { formatExtensionLabel } from '../../lib/extensions/format-extension-label';
 import { queueRingRepository } from '../../lib/repositories/queue-ring.repository';
 import { PERMISSIONS, hasPermission } from '../../lib/rbac/permissions';
 import { usePermissions } from '../../lib/auth/AuthProvider';
@@ -226,7 +227,13 @@ export function RingGroupsContent() {
                   <ul className="space-y-1">
                     {((detailRow.members as { id: string; extension?: { extension?: string }; priority?: number; enabled?: boolean }[]) ?? []).map((m) => (
                       <li key={m.id} className="flex items-center justify-between rounded-lg border border-border px-3 py-2">
-                        <span>Ext {m.extension?.extension ?? '—'} · priority {m.priority ?? 0}</span>
+                        <span>
+                          {formatExtensionLabel(
+                            String(m.extension?.extension ?? ''),
+                            (m.extension as { line?: { name?: string } })?.line?.name,
+                          )}{' '}
+                          · priority {m.priority ?? 0}
+                        </span>
                         {canWrite ? (
                           <Button variant="ghost" size="sm" onClick={async () => {
                             await queueRingRepository.removeRingGroupMember(detailRow.id, m.id);
@@ -240,7 +247,14 @@ export function RingGroupsContent() {
                     <div className="mt-3 flex gap-2">
                       <select className="h-10 flex-1 rounded-xl border border-border bg-background px-3" value={memberExtId} onChange={(e) => setMemberExtId(e.target.value)}>
                         <option value="">Add extension…</option>
-                        {extensions.map((ext) => <option key={ext.id} value={ext.id}>{ext.extension} — {ext.line?.name ?? 'Line'}</option>)}
+                        {extensions.map((ext) => (
+                          <option key={ext.id} value={ext.id}>
+                            {formatExtensionLabel(
+                              String(ext.extension ?? ''),
+                              (ext.line as { name?: string })?.name,
+                            )}
+                          </option>
+                        ))}
                       </select>
                       <Button disabled={!memberExtId} onClick={async () => {
                         await queueRingRepository.addRingGroupMember(detailRow.id, { extensionId: memberExtId });

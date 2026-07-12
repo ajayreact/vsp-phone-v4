@@ -51,10 +51,12 @@ export class TenantLinesService {
   }
 
   async create(tenantId: string, actorUserId: string, dto: CreateLineDto) {
-    const user = await this.prisma.user.findFirst({
-      where: { id: dto.userId, tenantId, deletedAt: null },
-    });
-    if (!user) throw new NotFoundException('User not found');
+    if (dto.userId) {
+      const user = await this.prisma.user.findFirst({
+        where: { id: dto.userId, tenantId, deletedAt: null },
+      });
+      if (!user) throw new NotFoundException('User not found');
+    }
 
     const lineId = randomUUID();
     const line = await this.prisma.line.create({
@@ -62,7 +64,7 @@ export class TenantLinesService {
         id: lineId,
         publicId: newPublicId('line'),
         tenantId,
-        userId: dto.userId,
+        userId: dto.userId ?? null,
         name: dto.name,
         status: LineStatus.ACTIVE,
         createdBy: actorUserId,
@@ -122,7 +124,7 @@ export class TenantLinesService {
       action: 'pbx.line.create',
       entityType: 'Line',
       entityId: line.id,
-      metadata: { name: line.name, userId: dto.userId },
+      metadata: { name: line.name, userId: dto.userId ?? null },
     });
 
     return line;

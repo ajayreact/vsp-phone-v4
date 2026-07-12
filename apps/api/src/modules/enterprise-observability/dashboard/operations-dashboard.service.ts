@@ -122,6 +122,36 @@ export class OperationsDashboardService {
       ? await this.prisma.tenant.count({ where: { deletedAt: null, status: 'ACTIVE' } })
       : 0;
 
+    let onboarding = null;
+    if (tenantId && this.prisma.connected) {
+      const [userCount, extensionCount, deviceCount, ivrCount, timeConditionCount, settings] =
+        await Promise.all([
+          this.prisma.user.count({ where: { tenantId, deletedAt: null } }),
+          this.prisma.extension.count({ where: { tenantId, deletedAt: null } }),
+          this.prisma.device.count({ where: { tenantId, deletedAt: null } }),
+          this.prisma.iVR.count({ where: { tenantId, deletedAt: null } }),
+          this.prisma.timeCondition.count({ where: { tenantId, deletedAt: null } }),
+          this.prisma.tenantSettings.findFirst({ where: { tenantId } }),
+        ]);
+
+      const checklist = [
+        { id: 'company', label: 'Company Profile', done: Boolean(settings?.businessEmail || settings?.logoUrl) },
+        { id: 'user', label: 'First User', done: userCount > 0 },
+        { id: 'extension', label: 'First Extension', done: extensionCount > 0 },
+        { id: 'device', label: 'First Device', done: deviceCount > 0 },
+        { id: 'did', label: 'First DID', done: assignedDids > 0 },
+        { id: 'hours', label: 'Business Hours', done: timeConditionCount > 0 },
+        { id: 'ivr', label: 'IVR', done: ivrCount > 0 },
+      ];
+      const completed = checklist.filter((c) => c.done).length;
+      onboarding = {
+        checklist,
+        completed,
+        total: checklist.length,
+        percent: Math.round((completed / checklist.length) * 100),
+      };
+    }
+
     const infra = await this.health.checkAll();
 
     const dashboardKey = tenantId
@@ -144,6 +174,7 @@ export class OperationsDashboardService {
       activeQueues,
       queueWaiting: activeQueues,
       onlineTenants,
+      onboarding,
       redis: { available: this.redis.isAvailable() },
       postgres: { connected: this.prisma.connected },
       infrastructure: infra,

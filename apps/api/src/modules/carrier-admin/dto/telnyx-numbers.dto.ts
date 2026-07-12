@@ -193,6 +193,18 @@ export class BulkAssignTelnyxNumbersDto {
   @IsOptional()
   @IsString()
   extension?: string;
+
+  @ApiPropertyOptional({ description: 'Starting extension for bulk mapping (auto-increments per sorted id)' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(32)
+  startExtension?: string;
+
+  @ApiPropertyOptional({ type: [String], description: 'Explicit extension per sorted id' })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  extensions?: string[];
 }
 
 export class BulkReleaseTelnyxNumbersDto {

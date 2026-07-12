@@ -56,9 +56,10 @@ export class LineTelephonySettingsDto {
 }
 
 export class CreateLineDto {
-  @ApiProperty()
+  @ApiPropertyOptional({ description: 'Optional user link; omit for standalone extension lines' })
+  @IsOptional()
   @IsUUID()
-  userId!: string;
+  userId?: string;
 
   @ApiProperty()
   @IsString()

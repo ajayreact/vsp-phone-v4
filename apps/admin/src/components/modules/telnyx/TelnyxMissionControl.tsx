@@ -252,6 +252,7 @@ function InventoryTab({
   tenants: Array<{ id: string; name: string; displayName?: string }>;
 }) {
   const [bulkTenantId, setBulkTenantId] = useState('');
+  const [bulkStartExtension, setBulkStartExtension] = useState('101');
   const bulkAssign = useBulkAssignTelnyxNumbers();
   const bulkRelease = useBulkReleaseTelnyxNumbers();
 
@@ -287,7 +288,40 @@ function InventoryTab({
               <option key={t.id} value={t.id}>{t.displayName || t.name}</option>
             ))}
           </select>
-          <Button size="sm" variant="outline" disabled={!bulkTenantId || bulkAssign.isPending} onClick={() => bulkAssign.mutate({ ids: selectedIds, tenantId: bulkTenantId }, { onSuccess: () => setSelectedIds([]) })}>
+          <Input
+            className="h-8 w-24 text-sm"
+            placeholder="Start ext"
+            value={bulkStartExtension}
+            onChange={(e) => setBulkStartExtension(e.target.value)}
+            title="Starting extension (auto-increments per selected number)"
+          />
+          {bulkStartExtension && selectedIds.length ? (
+            <span className="text-xs text-muted-foreground">
+              Maps {selectedIds.length} number{selectedIds.length === 1 ? '' : 's'} →{' '}
+              {[...selectedIds]
+                .sort()
+                .map((_, i) => {
+                  const base = parseInt(bulkStartExtension, 10);
+                  return Number.isFinite(base) ? String(base + i) : bulkStartExtension;
+                })
+                .join(', ')}
+            </span>
+          ) : null}
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={!bulkTenantId || bulkAssign.isPending}
+            onClick={() =>
+              bulkAssign.mutate(
+                {
+                  ids: selectedIds,
+                  tenantId: bulkTenantId,
+                  startExtension: bulkStartExtension || undefined,
+                },
+                { onSuccess: () => setSelectedIds([]) },
+              )
+            }
+          >
             Bulk Assign
           </Button>
           <Button size="sm" variant="outline" disabled={bulkRelease.isPending} onClick={() => bulkRelease.mutate(selectedIds, { onSuccess: () => setSelectedIds([]) })}>

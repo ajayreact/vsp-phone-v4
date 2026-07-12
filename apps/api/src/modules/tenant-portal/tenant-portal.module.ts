@@ -4,16 +4,20 @@ import { CarrierAdminModule } from '../carrier-admin/carrier-admin.module';
 import { EnterpriseObservabilityCoreModule } from '../enterprise-observability/enterprise-observability-core.module';
 import { EnterpriseOpsCoreModule } from '../enterprise-ops/enterprise-ops-core.module';
 import { EnterpriseSecurityCoreModule } from '../enterprise-security/enterprise-security-core.module';
+import { PlatformAdminModule } from '../platform-admin/platform-admin.module';
 import { PresenceModule } from '../presence/module';
 import { ProvisioningCoreModule } from '../provisioning/provisioning-core.module';
 import { RecordingCoreModule } from '../recording/recording-core.module';
+import { TelecomModule } from '../telecom/module';
 import { TelecomInfrastructureModule } from '../telecom/telecom-infrastructure.module';
+import { ExtensionProvisionCoreModule } from './extension-provision-core.module';
 import { TenantAudioLibraryController } from './controllers/tenant-audio-library.controller';
 import { TenantCallRoutesController } from './controllers/tenant-call-routes.controller';
 import { TenantCdrController } from './controllers/tenant-cdr.controller';
 import { TenantDashboardController } from './controllers/tenant-dashboard.controller';
 import { TenantDevicesController } from './controllers/tenant-devices.controller';
 import { TenantDialPlansController } from './controllers/tenant-dial-plans.controller';
+import { TenantProvisionController } from './controllers/tenant-provision.controller';
 import { TenantProvisioningController } from './controllers/tenant-provisioning.controller';
 import { TenantDidsController } from './controllers/tenant-dids.controller';
 import { TenantExtensionsController } from './controllers/tenant-extensions.controller';
@@ -30,6 +34,7 @@ import { TenantRecordingPoliciesController } from './controllers/tenant-recordin
 import { TenantRecordingsController } from './controllers/tenant-recordings.controller';
 import { TenantRingGroupsController } from './controllers/tenant-ring-groups.controller';
 import { TenantRoutingController } from './controllers/tenant-routing.controller';
+import { TenantSearchController } from './controllers/tenant-search.controller';
 import { TenantTimeConditionsController } from './controllers/tenant-time-conditions.controller';
 import { TenantUsersController } from './controllers/tenant-users.controller';
 import { TenantBlfController } from './controllers/tenant-blf.controller';
@@ -38,6 +43,8 @@ import { TenantPresenceController } from './controllers/tenant-presence.controll
 import { TenantReceptionController } from './controllers/tenant-reception.controller';
 import { TenantPagingController } from './controllers/tenant-paging.controller';
 import { TenantVoicemailController } from './controllers/tenant-voicemail.controller';
+import { TenantOrganizationController } from './controllers/tenant-organization.controller';
+import { TenantApiKeysController } from './controllers/tenant-api-keys.controller';
 import { TenantPagingService } from './services/tenant-paging.service';
 import { TenantVoicemailService } from './services/tenant-voicemail.service';
 import { TenantAudioLibraryService } from './services/tenant-audio-library.service';
@@ -46,6 +53,7 @@ import { TenantCdrService } from './services/tenant-cdr.service';
 import { TenantDevicesService } from './services/tenant-devices.service';
 import { TenantDeviceProvisioningService } from './services/tenant-device-provisioning.service';
 import { TenantDialPlansService } from './services/tenant-dial-plans.service';
+import { TenantProvisionService } from './services/tenant-provision.service';
 import { TenantProvisioningTemplatesService } from './services/tenant-provisioning-templates.service';
 import { TenantDidsService } from './services/tenant-dids.service';
 import { TenantExtensionsService } from './services/tenant-extensions.service';
@@ -62,21 +70,26 @@ import { TenantRecordingsService } from './services/tenant-recordings.service';
 import { TenantRingGroupsService } from './services/tenant-ring-groups.service';
 import { TenantRoutingEventsService } from './services/tenant-routing-events.service';
 import { TenantRoutingService } from './services/tenant-routing.service';
+import { TenantSearchService } from './services/tenant-search.service';
 import { TenantTimeConditionsService } from './services/tenant-time-conditions.service';
 import { TenantBlfService } from './services/tenant-blf.service';
 import { TenantContactsService } from './services/tenant-contacts.service';
 import { TenantPresenceService } from './services/tenant-presence.service';
 import { TenantReceptionEventsService } from './services/tenant-reception-events.service';
 import { TenantReceptionService } from './services/tenant-reception.service';
+import { TenantOrganizationService } from './services/tenant-organization.service';
 
 @Module({
   imports: [
     TelecomInfrastructureModule,
+    TelecomModule,
+    ExtensionProvisionCoreModule,
     EnterpriseSecurityCoreModule,
     EnterpriseOpsCoreModule,
     PresenceModule,
     AuthModule,
     CarrierAdminModule,
+    PlatformAdminModule,
     EnterpriseObservabilityCoreModule,
     ProvisioningCoreModule,
     RecordingCoreModule,
@@ -94,6 +107,7 @@ import { TenantReceptionService } from './services/tenant-reception.service';
     TenantAudioLibraryController,
     TenantDialPlansController,
     TenantDevicesController,
+    TenantProvisionController,
     TenantProvisioningController,
     TenantRecordingsController,
     TenantRecordingPoliciesController,
@@ -105,11 +119,14 @@ import { TenantReceptionService } from './services/tenant-reception.service';
     TenantBlfController,
     TenantReceptionController,
     TenantPagingController,
+    TenantSearchController,
     TenantRoutingController,
     TenantDidsController,
     TenantMarketplaceController,
     TenantNumberRequestsController,
     TenantDashboardController,
+    TenantOrganizationController,
+    TenantApiKeysController,
   ],
   providers: [
     TenantLinesService,
@@ -126,6 +143,7 @@ import { TenantReceptionService } from './services/tenant-reception.service';
     TenantRoutingEventsService,
     TenantDevicesService,
     TenantDeviceProvisioningService,
+    TenantProvisionService,
     TenantProvisioningTemplatesService,
     TenantRecordingsService,
     TenantRecordingPoliciesService,
@@ -138,10 +156,12 @@ import { TenantReceptionService } from './services/tenant-reception.service';
     TenantReceptionService,
     TenantReceptionEventsService,
     TenantPagingService,
+    TenantSearchService,
     TenantRoutingService,
     TenantDidsService,
     TenantMarketplaceService,
     TenantNumberRequestsService,
+    TenantOrganizationService,
   ],
 })
 export class TenantPortalModule {}

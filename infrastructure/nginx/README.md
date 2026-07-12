@@ -7,9 +7,12 @@ Operator-owned reverse proxy. The application stack listens on localhost; nginx 
 | Public host | nginx `proxy_pass` | Backend |
 |-------------|-------------------|---------|
 | `api.vspphone.com` | `https://127.0.0.1:3000` | NestJS API (HTTPS in Docker) |
-| `app.vspphone.com` | `http://127.0.0.1:3001` | Next.js admin |
-| `admin.vspphone.com` | `http://127.0.0.1:3001` | Next.js admin (alias) |
+| `admin.vspphone.com` | `http://127.0.0.1:3001` | Platform Admin (`platform` portal) |
+| `app.vspphone.com` | `http://127.0.0.1:3001` | Operations Center (`ops` portal) |
+| `tenant.vspphone.com` | `http://127.0.0.1:3001` | Tenant Portal (`tenant` portal) |
 | `vspphone.com` / `www` | 301 → `app.vspphone.com` | — |
+
+**Single-container production:** One admin service on `:3001` serves all three hostnames. Portal selection is by **Host header** (`admin.*` → platform, `app.*` → ops, `tenant.*` → tenant). Do **not** set `NEXT_PUBLIC_PORTAL` in production `.env` unless running separate builds per portal.
 
 **502 root cause (common):** nginx proxies API with `http://127.0.0.1:3000` but RC1 API uses **HTTPS** on port 3000. Use `proxy_pass https://...` + `proxy_ssl_verify off`.
 

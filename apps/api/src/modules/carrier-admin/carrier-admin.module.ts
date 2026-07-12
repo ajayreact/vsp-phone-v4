@@ -3,6 +3,7 @@ import { AuthModule } from '../auth/auth.module';
 import { CarrierModule } from '../carrier/module';
 import { EnterpriseObservabilityCoreModule } from '../enterprise-observability/enterprise-observability-core.module';
 import { EnterpriseSecurityCoreModule } from '../enterprise-security/enterprise-security-core.module';
+import { ExtensionProvisionCoreModule } from '../tenant-portal/extension-provision-core.module';
 import { TelecomInfrastructureModule } from '../telecom/telecom-infrastructure.module';
 import { ExtensionsAdminController } from './controllers/extensions.controller';
 import { LiveCallsAdminController } from './controllers/live-calls.controller';
@@ -23,6 +24,7 @@ import { TelnyxApiClient } from './telnyx-api.client';
 @Module({
   imports: [
     TelecomInfrastructureModule,
+    ExtensionProvisionCoreModule,
     EnterpriseSecurityCoreModule,
     EnterpriseObservabilityCoreModule,
     AuthModule,

@@ -19,7 +19,7 @@ import { Input } from '../ui/Input';
 import { Skeleton } from '../ui/Skeleton';
 import { Badge } from '../ui/Badge';
 
-export function SettingsContent() {
+export function SettingsContent({ section }: { section?: 'pbx' | 'security' }) {
   const portal = usePortal();
   const { session } = useAuth();
   const platformDashboard = usePlatformDashboard();

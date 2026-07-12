@@ -28,6 +28,10 @@
 | `JWT_SECRET` | ✅ | Strong random secret |
 | `TELECOM_SERVICE_AUTH_TOKEN` | ✅ | Shared with Kamailio; **never commit** |
 | `TELNYX_WEBHOOK_SECRET` | ✅ | Telnyx webhook HMAC |
+| `TELNYX_API_KEY` | ✅ | Telnyx REST (carrier-admin inventory) |
+| `VSP_PLATFORM_INVENTORY_TENANT_ID` | ✅ | Platform tenant for unassigned numbers |
+| `NEXT_PUBLIC_API_URL` | ✅ | Admin build-time API URL (`/api` suffix) |
+| `API_INTERNAL_URL` | Recommended | Admin BFF server-side proxy (Compose: `http://api:3000/api`) |
 | `TLS_ENABLED` | ✅ | `true` |
 | `TLS_API_CERT_FILE` / `TLS_API_KEY_FILE` | ✅ | Valid certificates |
 | `DATABASE_URL` | ✅ | Primary PostgreSQL |

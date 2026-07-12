@@ -5,10 +5,12 @@ import {
   NumberReservationStatus,
   PhoneNumberStatus,
   Prisma,
+  RouteDestinationType,
 } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { normalizePhoneDigits, phoneMatchesDigitFilters } from '../../../common/query-param.util';
 import { EnterpriseAuditService } from '../../enterprise-observability/audit/enterprise-audit.service';
+import { ExtensionAutoProvisionService } from '../../tenant-portal/services/extension-auto-provision.service';
 import { PrismaService } from '../../telecom/prisma/prisma.service';
 import type {
   AssignTelnyxNumberDto,
@@ -113,6 +115,7 @@ export class TelnyxNumbersService {
     private readonly telnyx: TelnyxApiClient,
     private readonly config: ConfigService,
     private readonly audit: EnterpriseAuditService,
+    private readonly extensionAutoProvision: ExtensionAutoProvisionService,
   ) {}
 
   async getDashboard(): Promise<TelnyxDashboardDto> {
@@ -568,14 +571,22 @@ export class TelnyxNumbersService {
 
     let lineId: string | null = null;
     let assignedExtension: string | null = null;
+    let extensionId: string | null = null;
 
     if (dto.extension) {
-      const ext = await this.prisma.extension.findFirst({
+      let ext = await this.prisma.extension.findFirst({
         where: { tenantId: dto.tenantId, extension: dto.extension, deletedAt: null },
       });
-      if (!ext) throw new NotFoundException(`Extension ${dto.extension} not found for tenant`);
+      if (!ext) {
+        ext = await this.extensionAutoProvision.ensureExtension(
+          dto.tenantId,
+          dto.extension,
+          actorUserId,
+        );
+      }
       lineId = ext.lineId;
       assignedExtension = ext.extension;
+      extensionId = ext.id;
     }
 
     meta.assignedIvr = dto.ivr ?? null;
@@ -615,6 +626,43 @@ export class TelnyxNumbersService {
           createdBy: actorUserId,
         },
       });
+
+      if (lineId && extensionId) {
+        const phone = await tx.phoneNumber.findUnique({ where: { id } });
+        const existingRoute = await tx.inboundRoute.findFirst({
+          where: { tenantId: dto.tenantId, phoneNumberId: id, deletedAt: null },
+          orderBy: { priority: 'asc' },
+        });
+        const routeData = {
+          destinationType: RouteDestinationType.EXTENSION,
+          destinationLineId: lineId,
+          destinationExtensionId: extensionId,
+          destinationQueueId: null,
+          destinationIvrId: null,
+          destinationRingGroupId: null,
+          destinationVoicemailId: null,
+          destinationConferenceId: null,
+          openHoursDestinationType: null,
+          openHoursDestinationId: null,
+          updatedBy: actorUserId,
+        };
+        if (existingRoute) {
+          await tx.inboundRoute.update({ where: { id: existingRoute.id }, data: routeData });
+        } else {
+          await tx.inboundRoute.create({
+            data: {
+              id: randomUUID(),
+              tenantId: dto.tenantId,
+              name: `DID ${phone?.number ?? id}`,
+              phoneNumberId: id,
+              priority: 100,
+              enabled: true,
+              createdBy: actorUserId,
+              ...routeData,
+            },
+          });
+        }
+      }
     });
 
     await this.persistMeta(row.carrierId!, id, meta);
@@ -683,10 +731,17 @@ export class TelnyxNumbersService {
   async bulkAssign(dto: BulkAssignTelnyxNumbersDto, actorUserId?: string) {
     const succeeded: TelnyxNumberResponseDto[] = [];
     const failed: Array<{ id: string; error: string }> = [];
-    for (const id of dto.ids) {
+    const sortedIds = [...dto.ids].sort();
+    for (let i = 0; i < sortedIds.length; i += 1) {
+      const id = sortedIds[i]!;
+      const extension = resolveBulkExtension(dto, i);
       try {
         succeeded.push(
-          await this.assign(id, { tenantId: dto.tenantId, siteId: dto.siteId, extension: dto.extension }, actorUserId),
+          await this.assign(
+            id,
+            { tenantId: dto.tenantId, siteId: dto.siteId, extension },
+            actorUserId,
+          ),
         );
       } catch (err) {
         failed.push({ id, error: err instanceof Error ? err.message : String(err) });
@@ -1059,4 +1114,14 @@ export class TelnyxNumbersService {
       detail,
     });
   }
+}
+
+function resolveBulkExtension(dto: BulkAssignTelnyxNumbersDto, index: number): string | undefined {
+  if (dto.extensions?.[index]) return dto.extensions[index];
+  if (dto.startExtension) {
+    const base = parseInt(dto.startExtension, 10);
+    if (Number.isFinite(base)) return String(base + index);
+    return dto.startExtension;
+  }
+  return dto.extension;
 }

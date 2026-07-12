@@ -69,12 +69,20 @@ async function uploadToPresignedUrl(file: File, presign: Record<string, unknown>
   return objectKey;
 }
 
-export function AudioLibraryContent() {
+export function AudioLibraryContent({
+  defaultTab = 'announcements',
+  moduleId = 'audio-library',
+  hideTabs = false,
+}: {
+  defaultTab?: TabId;
+  moduleId?: string;
+  hideTabs?: boolean;
+}) {
   const permissions = usePermissions();
   const canWrite = hasPermission(permissions, PERMISSIONS.TENANT_IVR_WRITE);
   const audioRef = useRef<HTMLAudioElement>(null);
 
-  const [tab, setTab] = useState<TabId>('announcements');
+  const [tab, setTab] = useState<TabId>(defaultTab);
   const [categoryFilter, setCategoryFilter] = useState('');
   const [languageFilter, setLanguageFilter] = useState('');
   const [search, setSearch] = useState('');
@@ -331,12 +339,12 @@ export function AudioLibraryContent() {
   const reports = reportsQuery.data ?? {};
 
   return (
-    <ModuleAccessGate moduleId="audio-library">
+    <ModuleAccessGate moduleId={moduleId}>
       {() => (
       <PageContainer>
         <audio ref={audioRef} className="hidden" onEnded={() => setPlayingUrl(null)} />
         <PageHeader
-          title="Audio Library"
+          title={tab === 'announcements' ? 'Announcements' : 'Music on Hold'}
           description="Enterprise music on hold, announcements, prompts, and per-language playlists."
           actions={
             canWrite ? (
@@ -357,6 +365,7 @@ export function AudioLibraryContent() {
           <MetricCard label="Emergency" value={String(reports.emergencyCount ?? '—')} icon={AlertTriangle} />
         </div>
 
+        {!hideTabs ? (
         <div className="mb-4 flex flex-wrap gap-2">
           {(['announcements', 'moh'] as const).map((t) => (
             <button
@@ -372,6 +381,7 @@ export function AudioLibraryContent() {
             </button>
           ))}
         </div>
+        ) : null}
 
         <div className="mb-4 flex flex-wrap gap-3">
           <Input

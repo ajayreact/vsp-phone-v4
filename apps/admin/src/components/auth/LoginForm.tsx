@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Phone } from 'lucide-react';
 import { useAuth } from '../../lib/auth/AuthProvider';
+import { detectPortal } from '../../lib/portal/detect-portal';
+import { isExtensionHubEnabled } from '../../lib/feature-flags';
 import { Button } from '../ui/Button';
 import { Card, CardBody } from '../ui/Card';
 import { Input } from '../ui/Input';
@@ -23,7 +25,9 @@ export function LoginForm() {
     setSubmitting(true);
     try {
       await login(email, password);
-      router.replace('/dashboard');
+      const landing =
+        detectPortal() === 'tenant' && isExtensionHubEnabled() ? '/extensions' : '/dashboard';
+      router.replace(landing);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed');
     } finally {

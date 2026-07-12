@@ -1,7 +1,5 @@
-﻿'use client';
+﻿import { ExtensionsHubContent } from '../../../components/modules/extensions/ExtensionsHubContent';
 
-import { ExtensionsContent } from '../../../components/modules/ExtensionsContent';
-
-export default function ExtensionsPage() {
-  return <ExtensionsContent />;
+export default function Page() {
+  return <ExtensionsHubContent />;
 }

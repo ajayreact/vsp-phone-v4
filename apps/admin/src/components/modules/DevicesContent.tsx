@@ -23,6 +23,7 @@ import {
   useUpdateTenantDevice,
 } from '../../lib/hooks/queries/use-device-mutations';
 import { useTenantDevices, useTenantExtensions } from '../../lib/hooks/queries/use-tenant';
+import { formatExtensionLabel } from '../../lib/extensions/format-extension-label';
 import { deviceRepository } from '../../lib/repositories/device.repository';
 import { usePermissions } from '../../lib/auth/AuthProvider';
 import { PERMISSIONS, hasPermission } from '../../lib/rbac/permissions';
@@ -84,8 +85,10 @@ function userLabel(row: DeviceRow): string {
 }
 
 function extensionLabel(row: DeviceRow): string {
-  const line = row.line as { extension?: { extension?: string } } | undefined;
-  return line?.extension?.extension ?? '—';
+  const line = row.line as { extension?: { extension?: string }; name?: string } | undefined;
+  const ext = line?.extension?.extension;
+  if (!ext) return '—';
+  return formatExtensionLabel(ext, line?.name);
 }
 
 function registrationStatus(row: DeviceRow): string {
@@ -163,7 +166,7 @@ function DeviceFormFields({
               <option value="">Unassigned</option>
               {extensions.map((ext) => (
                 <option key={ext.id} value={ext.lineId ?? ext.id}>
-                  {ext.extension} — {ext.line?.name ?? 'Line'}
+                  {formatExtensionLabel(String(ext.extension ?? ''), (ext.line as { name?: string })?.name)}
                 </option>
               ))}
             </select>

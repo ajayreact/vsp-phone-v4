@@ -104,4 +104,17 @@ export class ProvisioningRedisService {
       return [];
     }
   }
+
+  async del(key: string): Promise<void> {
+    if (!this.client) return;
+    try {
+      await this.client.del(key);
+    } catch {
+      /* soft fail */
+    }
+  }
+
+  isAvailable(): boolean {
+    return this.client !== null;
+  }
 }

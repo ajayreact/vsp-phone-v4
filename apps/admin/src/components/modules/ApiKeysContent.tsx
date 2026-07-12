@@ -1,11 +1,17 @@
 'use client';
 
 import { useState } from 'react';
+import { usePortal } from '../../lib/portal/PortalProvider';
 import {
   useCreatePlatformApiKey,
   usePlatformApiKeys,
   useRevokePlatformApiKey,
 } from '../../lib/hooks/queries/use-platform';
+import {
+  useCreateTenantApiKey,
+  useRevokeTenantApiKey,
+  useTenantApiKeys,
+} from '../../lib/hooks/queries/use-tenant-organization';
 import type { PlatformApiKeyRecord } from '../../types/portal';
 import { Badge } from '../ui/Badge';
 import type { Column } from '../data/DataTable';
@@ -30,22 +36,35 @@ const columns: Column<ApiKeyRow>[] = [
 ];
 
 export function ApiKeysContent() {
+  const portal = usePortal();
+  const isTenant = portal === 'tenant';
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
   const [secret, setSecret] = useState<string | null>(null);
-  const query = usePlatformApiKeys();
-  const createKey = useCreatePlatformApiKey();
-  const revokeKey = useRevokePlatformApiKey();
-  const rows = withRowIds(query.data ?? []) as ApiKeyRow[];
+
+  const platformQuery = usePlatformApiKeys(undefined, !isTenant);
+  const tenantQuery = useTenantApiKeys(isTenant);
+  const createPlatformKey = useCreatePlatformApiKey();
+  const revokePlatformKey = useRevokePlatformApiKey();
+  const createTenantKey = useCreateTenantApiKey();
+  const revokeTenantKey = useRevokeTenantApiKey();
+
+  const query = isTenant ? tenantQuery : platformQuery;
+  const createKey = isTenant ? createTenantKey : createPlatformKey;
+  const revokeKey = isTenant ? revokeTenantKey : revokePlatformKey;
+  const rows = withRowIds((query.data ?? []) as PlatformApiKeyRecord[]) as ApiKeyRow[];
 
   const create = async () => {
-    const result = await createKey.mutateAsync({ name, scopes: ['platform:read'] });
-    setSecret(result.secret);
+    const result = await createKey.mutateAsync({
+      name,
+      scopes: isTenant ? ['tenant:read'] : ['platform:read'],
+    } as never);
+    setSecret((result as { secret?: string }).secret ?? null);
     setName('');
   };
 
   return (
-    <ModuleAccessGate moduleId="api-keys">
+    <ModuleAccessGate moduleId={isTenant ? 'settings-api-keys' : 'api-keys'}>
       {({ module }) => (
         <>
           <ModuleListShell
@@ -70,7 +89,11 @@ export function ApiKeysContent() {
               },
             ]}
             emptyTitle="No API keys"
-            emptyDescription="Create API keys for platform integrations and automation."
+            emptyDescription={
+              isTenant
+                ? 'Create API keys for tenant integrations and automation.'
+                : 'Create API keys for platform integrations and automation.'
+            }
             primaryAction={<CreateButton label="Create API Key" onClick={() => setOpen(true)} />}
           />
 
