@@ -37,6 +37,16 @@ Thumbs.db
 # Test / coverage
 coverage/
 .nyc_output/
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+
+# Runtime verification artifacts (Playwright screenshots/JSON/test-results) —
+# keep static/runtime-verification/*.md (deployment docs), ignore generated output
+static/runtime-verification/playwright/
+static/runtime-verification/*.json
+static/runtime-verification/**/test-results/
 
 # Docker
 *.local.yml

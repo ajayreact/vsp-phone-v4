@@ -14,5 +14,9 @@ export default defineConfig({
     screenshot: 'on',
   },
   outputDir: '../../static/runtime-verification/playwright/test-results',
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  projects: [
+    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+    { name: 'edge', use: { ...devices['Desktop Edge'], channel: 'msedge' } },
+    { name: 'firefox', use: { ...devices['Desktop Firefox'] } },
+  ],
 });

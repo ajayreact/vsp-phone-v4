@@ -102,21 +102,22 @@ Mark `[x]` when verified on **staging**.
 
 ## Browser QA
 
-- [ ] Chrome
-- [ ] Edge
-- [ ] Firefox
-- [ ] Responsive (tablet/mobile)
-- [ ] Dark mode (if enabled)
-- [ ] Keyboard navigation basics
+- [x] Chrome (Platform portal, 15/15 — see `BROWSER-QA-REPORT.md`)
+- [x] Edge (Platform portal, 15/15, identical to Chrome)
+- [x] Firefox (Platform portal, 15/15, identical to Chrome)
+- [x] Responsive (375/768/1024/1440/1920, Platform portal, 25/25, zero overflow)
+- [ ] Dark mode (if enabled) — not tested
+- [ ] Keyboard navigation basics — not tested
+- [ ] Tenant portal Edge/Firefox/responsive — not tested (only Platform portal covered in this pass)
 
 ## Security (pre-production)
 
 - [x] BFF routes require JWT + ops/platform permission (RC1-001 code fix)
 - [x] Local BFF verify: anonymous 401, tenant 403 (`verify-rc1-final.cjs` 2026-07-13)
-- [ ] Staging admin redeployed at release tip (supersedes `ee3f990`) — `admin.vspphone.com` BFF returns 502 until deploy
-- [ ] `verify-bff-security.cjs` PASS on staging admin URL
-- [ ] Platform admin BFF → 200 verified with platform JWT
-- [ ] Telnyx webhook secret configured on production host
+- [x] Staging admin redeployed at release tip (commit `f8482c3`, supersedes `ee3f990`)
+- [x] `verify-bff-security.cjs` PASS on staging admin URL (11/11)
+- [x] Platform admin BFF → 200 verified with platform JWT
+- [ ] Telnyx webhook secret configured on production host — not verified this pass
 
 ## Tenant Portal (verified 2026-07-13)
 
@@ -127,13 +128,16 @@ Mark `[x]` when verified on **staging**.
 
 ## Platform Portal
 
-- [ ] Login + dashboard + tenants + DID inventory + provisioning wizard
-- [ ] Provisioning batches: 1 / 5 / 25 DIDs
-- [ ] Requires `PLATFORM_EMAIL` / `PLATFORM_PASSWORD` in environment
+- [x] Login + dashboard + tenants (list) + users/roles/permissions/API keys/carriers/trunks/billing/audit-logs/settings/health — all render, all browsers
+- [ ] Tenant Detail (`/tenants/[id]`) — **route missing from RC1 build** (RC1-016, Critical)
+- [ ] DID Inventory (`/did-inventory`) — **unreachable, redirects to dashboard** (RC1-017, Critical)
+- [ ] Provisioning workspace (`/provisioning`) — **unreachable, redirects to dashboard** (RC1-017, Critical)
+- [ ] Provisioning batches: 1 / 5 / 25 DIDs — **Paused, external approval required** (staging `TELNYX_API_KEY` is live; would incur real carrier cost/irreversible release)
+- [x] Requires `PLATFORM_EMAIL` / `PLATFORM_PASSWORD` in environment — obtained, used for all runs above
 
 ## Database
 
-- [ ] `run-db-integrity.cjs` or SQL script on **staging** PostgreSQL — all counts zero
+- [ ] `run-db-integrity.cjs` or SQL script on **staging** PostgreSQL — **Blocked – Environment Access** (no SSH/DB network path from this workstation; script is read-only and unmodified, see `DATABASE-INTEGRITY-REPORT.md`)
 
 ## Documentation
 
