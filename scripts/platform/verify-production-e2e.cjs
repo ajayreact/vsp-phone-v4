@@ -8,8 +8,9 @@
  *   PLATFORM_EMAIL=... PLATFORM_PASSWORD=... \
  *   node scripts/platform/verify-production-e2e.cjs
  *
- * Soft-delete the verify-* tenant created by this run after all checks pass:
- *   node scripts/platform/verify-production-e2e.cjs --cleanup
+ * After successful verification the verify-* tenant is soft-deleted by default
+ * (DIDs returned, users/extensions/devices cleaned). Keep it with:
+ *   node scripts/platform/verify-production-e2e.cjs --keep-tenant
  *
  * On failure the tenant is kept and credentials are printed for debugging.
  * Never deletes Platform / VSP INTERNAL / inventory tenants.
@@ -19,7 +20,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { randomUUID } = require('node:crypto');
 const {
-  hasCleanupFlag,
+  wantCleanup,
   cleanupTempTenant,
   printKeepForDebug,
 } = require('./lib/e2e-tenant-cleanup.cjs');
@@ -27,7 +28,7 @@ const {
 const API_BASE = (process.env.API_BASE || 'https://api.vspphone.com/api').replace(/\/$/, '');
 const PLATFORM_EMAIL = process.env.PLATFORM_EMAIL || process.env.SUPER_ADMIN_EMAIL || '';
 const PLATFORM_PASSWORD = process.env.PLATFORM_PASSWORD || process.env.SUPER_ADMIN_PASSWORD || '';
-const WANT_CLEANUP = hasCleanupFlag();
+const WANT_CLEANUP = wantCleanup();
 
 const PLATFORM_MENUS = [
   { label: 'Dashboard', path: '/v1/platform/dashboard' },
@@ -366,7 +367,7 @@ async function main() {
       tenant: createdTenant,
       adminEmail: createdAdminEmail,
       adminPassword: createdAdminPassword,
-      reason: 'Verification passed without --cleanup — tenant retained',
+      reason: 'Verification passed with --keep-tenant — tenant retained',
     });
   }
 

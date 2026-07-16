@@ -2,7 +2,7 @@
 
 /**
  * Shared cleanup for temporary verification / sign-off tenants.
- * Soft-deletes only the tenant created by the current script run.
+ * Soft-deletes only verify-/signoff-/ext-e2e- tenants.
  * Preserves audit_logs. Never touches Platform / VSP INTERNAL / inventory tenants.
  */
 
@@ -24,8 +24,16 @@ const PROTECTED_NAME_RE =
 
 const TEMP_SLUG_RE = /^(verify|signoff|ext-e2e)-/i;
 
+/** Cleanup is ON by default. Pass --keep-tenant to retain the temp tenant. */
+function wantCleanup(argv = process.argv) {
+  if (argv.includes('--keep-tenant') || argv.includes('--no-cleanup')) return false;
+  if (argv.includes('--cleanup')) return true;
+  return true;
+}
+
+/** @deprecated use wantCleanup */
 function hasCleanupFlag(argv = process.argv) {
-  return argv.includes('--cleanup');
+  return wantCleanup(argv);
 }
 
 function isProtectedTenant(tenant) {
@@ -73,9 +81,10 @@ function sqlLiteral(value) {
  * @param {string} opts.platformToken
  * @param {string|null|undefined} opts.tenantToken
  * @param {{ id:string, slug?:string, name?:string, displayName?:string }} opts.tenant
- * @param {string} [opts.expectedSlug] - must match tenant.slug created this run
- * @param {string[]} [opts.knownDidIds] - DID ids assigned during this run
+ * @param {string} [opts.expectedSlug]
+ * @param {string[]} [opts.knownDidIds]
  * @param {string} [opts.reportPath]
+ * @param {boolean} [opts.allowMissingExpectedSlug] - purge mode: match TEMP_SLUG_RE only
  */
 async function cleanupTempTenant(opts) {
   const {
@@ -87,6 +96,7 @@ async function cleanupTempTenant(opts) {
     expectedSlug,
     knownDidIds = [],
     reportPath,
+    allowMissingExpectedSlug = false,
   } = opts;
 
   const report = {
@@ -108,20 +118,23 @@ async function cleanupTempTenant(opts) {
     report.errors.push({ step, error: err instanceof Error ? err.message : String(err) });
 
   if (!tenant?.id) {
-    pushRetained('tenant', null, 'No tenant id from this run');
+    pushRetained('tenant', null, 'No tenant id');
     return finalize(report, reportPath);
   }
 
-  if (!isTempScriptTenant(tenant, expectedSlug)) {
+  const slugOk = allowMissingExpectedSlug
+    ? isTempScriptTenant(tenant, undefined)
+    : isTempScriptTenant(tenant, expectedSlug);
+
+  if (!slugOk) {
     pushRetained(
       'tenant',
       `${tenant.id} (${tenant.slug || '?'})`,
-      'Safety block: not a verify-/signoff- tenant from this run, or protected Platform/VSP INTERNAL',
+      'Safety block: not a verify-/signoff- tenant, or protected Platform/VSP INTERNAL',
     );
     return finalize(report, reportPath);
   }
 
-  // Resolve inventory tenant (never delete it)
   let inventoryTenantId = null;
   try {
     const settings = unwrap(await api('GET', '/v1/platform/settings', { token: platformToken }));
@@ -135,7 +148,7 @@ async function cleanupTempTenant(opts) {
     return finalize(report, reportPath);
   }
 
-  // Collect DIDs owned by this tenant
+  // Collect DIDs
   let didIds = [...new Set(knownDidIds.filter(Boolean))];
   try {
     const listed = unwrap(
@@ -152,51 +165,104 @@ async function cleanupTempTenant(opts) {
     pushError('list_dids', err);
   }
 
-  // Soft-delete devices / extensions via tenant APIs when possible
+  // Prefer tenant APIs when we have a token; always fall back to SQL soft-delete
   if (tenantToken) {
     try {
       const devices = unwrap(await api('GET', '/v1/tenant/devices', { token: tenantToken })) || [];
       const deviceRows = Array.isArray(devices) ? devices : devices?.items ?? [];
       for (const d of deviceRows) {
-        const id = d.id;
-        if (!id) continue;
-        const del = await api('DELETE', `/v1/tenant/devices/${id}`, { token: tenantToken });
-        if (del.ok) pushRemoved('device', id);
-        else pushRetained('device', id, `DELETE failed HTTP ${del.status}`);
+        if (!d.id) continue;
+        const del = await api('DELETE', `/v1/tenant/devices/${d.id}`, { token: tenantToken });
+        if (del.ok) pushRemoved('device', d.id);
+        else pushRetained('device', d.id, `DELETE failed HTTP ${del.status}`);
       }
     } catch (err) {
-      pushError('delete_devices', err);
+      pushError('delete_devices_api', err);
     }
 
     try {
       const hub = unwrap(await api('GET', '/v1/tenant/extensions/hub', { token: tenantToken })) || [];
-      const rows = Array.isArray(hub) ? hub : [];
-      for (const ext of rows) {
-        const id = ext.id;
-        if (!id) continue;
+      for (const ext of Array.isArray(hub) ? hub : []) {
+        if (!ext.id) continue;
         try {
-          await api('POST', `/v1/tenant/extensions/${id}/unassign-did`, { token: tenantToken });
+          await api('POST', `/v1/tenant/extensions/${ext.id}/unassign-did`, { token: tenantToken });
         } catch {
           /* optional */
         }
-        const del = await api('DELETE', `/v1/tenant/extensions/${id}`, { token: tenantToken });
-        if (del.ok) pushRemoved('extension', `${id} (${ext.extension || ext.label || '?'})`);
-        else pushRetained('extension', id, `DELETE failed HTTP ${del.status}`);
+        const del = await api('DELETE', `/v1/tenant/extensions/${ext.id}`, { token: tenantToken });
+        if (del.ok) pushRemoved('extension', `${ext.id} (${ext.extension || '?'})`);
+        else pushRetained('extension', ext.id, `DELETE failed HTTP ${del.status}`);
       }
     } catch (err) {
-      pushError('delete_extensions', err);
+      pushError('delete_extensions_api', err);
     }
-  } else {
-    pushRetained('devices', null, 'No tenant token — skipped device delete');
-    pushRetained('extensions', null, 'No tenant token — skipped extension delete');
   }
 
-  // Return DIDs to platform inventory (SQL — no Nest telecom change)
+  // SQL soft-delete remaining devices / extensions / lines for this tenant
+  try {
+    runSql(
+      `UPDATE devices SET deleted_at = NOW(), updated_at = NOW(), status = 'INACTIVE' WHERE tenant_id = ${sqlLiteral(tenant.id)} AND deleted_at IS NULL`,
+    );
+    const devicesN = runSql(
+      `SELECT COUNT(*) FROM devices WHERE tenant_id = ${sqlLiteral(tenant.id)} AND deleted_at IS NOT NULL`,
+    );
+    pushRemoved('devices_sql', `soft-deleted (count=${devicesN || '0'})`);
+  } catch (err) {
+    pushError('soft_delete_devices_sql', err);
+  }
+
+  try {
+    runSql(
+      `UPDATE extensions SET deleted_at = NOW(), updated_at = NOW() WHERE tenant_id = ${sqlLiteral(tenant.id)} AND deleted_at IS NULL`,
+    );
+    const extN = runSql(
+      `SELECT COUNT(*) FROM extensions WHERE tenant_id = ${sqlLiteral(tenant.id)} AND deleted_at IS NOT NULL`,
+    );
+    pushRemoved('extensions_sql', `soft-deleted (count=${extN || '0'})`);
+  } catch (err) {
+    pushError('soft_delete_extensions_sql', err);
+  }
+
+  try {
+    runSql(
+      `UPDATE lines SET deleted_at = NOW(), updated_at = NOW() WHERE tenant_id = ${sqlLiteral(tenant.id)} AND deleted_at IS NULL`,
+    );
+    pushRemoved('lines_sql', 'soft-deleted where present');
+  } catch (err) {
+    pushError('soft_delete_lines_sql', err);
+  }
+
+  // Return DIDs to inventory before tenant delete
+  if (didIds.length === 0) {
+    // Also discover via SQL in case API list missed them
+    try {
+      const sqlIds = runSql(
+        `SELECT id FROM phone_numbers WHERE tenant_id = ${sqlLiteral(tenant.id)} AND deleted_at IS NULL`,
+      );
+      if (sqlIds) {
+        didIds = sqlIds.split('\n').map((s) => s.trim()).filter(Boolean);
+      }
+    } catch (err) {
+      pushError('list_dids_sql', err);
+    }
+  }
+
   if (didIds.length === 0) {
     pushRemoved('dids', 'none assigned');
   } else if (!inventoryTenantId) {
+    // Clear line binding even without inventory tenant id
     for (const id of didIds) {
-      pushRetained('did', id, 'No inventoryTenantId — cannot return to inventory');
+      try {
+        runSql(
+          `UPDATE number_assignments SET effective_to = NOW(), updated_at = NOW() WHERE phone_number_id = ${sqlLiteral(id)} AND tenant_id = ${sqlLiteral(tenant.id)} AND effective_to IS NULL AND deleted_at IS NULL`,
+        );
+        runSql(
+          `UPDATE phone_numbers SET line_id = NULL, site_id = NULL, updated_at = NOW() WHERE id = ${sqlLiteral(id)} AND tenant_id = ${sqlLiteral(tenant.id)} AND deleted_at IS NULL`,
+        );
+        pushRetained('did', id, 'Cleared line binding; inventoryTenantId missing so tenant_id not moved');
+      } catch (err) {
+        pushError(`clear_did_${id}`, err);
+      }
     }
   } else {
     for (const id of didIds) {
@@ -220,22 +286,69 @@ async function cleanupTempTenant(opts) {
         }
       } catch (err) {
         pushError(`return_did_${id}`, err);
-        pushRetained('did', id, 'SQL return-to-inventory failed (is postgres reachable via compose?)');
+        pushRetained('did', id, 'SQL return-to-inventory failed');
       }
     }
   }
 
-  // Soft-delete tenant (preserves audit_logs)
+  // Soft-delete users (platform API + SQL fallback)
+  try {
+    const users = unwrap(
+      await api('GET', `/v1/platform/users?tenantId=${encodeURIComponent(tenant.id)}`, {
+        token: platformToken,
+      }),
+    );
+    const userRows = Array.isArray(users) ? users : [];
+    for (const u of userRows) {
+      if (!u.id) continue;
+      const del = await api('DELETE', `/v1/platform/users/${u.id}`, { token: platformToken });
+      if (del.ok) pushRemoved('user', `${u.id} (${u.email || '?'})`);
+      else pushRetained('user', u.id, `DELETE failed HTTP ${del.status}`);
+    }
+  } catch (err) {
+    pushError('soft_delete_users_api', err);
+  }
+
+  try {
+    runSql(
+      `UPDATE users SET deleted_at = NOW(), updated_at = NOW(), status = 'INACTIVE' WHERE tenant_id = ${sqlLiteral(tenant.id)} AND deleted_at IS NULL`,
+    );
+    const usersN = runSql(
+      `SELECT COUNT(*) FROM users WHERE tenant_id = ${sqlLiteral(tenant.id)} AND deleted_at IS NOT NULL`,
+    );
+    pushRemoved('users_sql', `soft-deleted (count=${usersN || '0'})`);
+  } catch (err) {
+    pushError('soft_delete_users_sql', err);
+  }
+
+  // Soft-delete tenant
   try {
     const del = await api('DELETE', `/v1/platform/tenants/${tenant.id}`, { token: platformToken });
     if (del.ok) {
       pushRemoved('tenant', `${tenant.id} (${tenant.slug}) soft-deleted`);
     } else {
-      pushRetained('tenant', tenant.id, `Soft-delete failed HTTP ${del.status}`);
+      // SQL fallback if API rejects (e.g. already partially cleaned)
+      try {
+        runSql(
+          `UPDATE tenants SET deleted_at = NOW(), updated_at = NOW(), status = 'INACTIVE' WHERE id = ${sqlLiteral(tenant.id)} AND deleted_at IS NULL`,
+        );
+        pushRemoved('tenant', `${tenant.id} (${tenant.slug}) soft-deleted via SQL`);
+      } catch (sqlErr) {
+        pushError('soft_delete_tenant_sql', sqlErr);
+        pushRetained('tenant', tenant.id, `Soft-delete failed HTTP ${del.status}`);
+      }
     }
   } catch (err) {
     pushError('soft_delete_tenant', err);
-    pushRetained('tenant', tenant.id, 'Soft-delete threw');
+    try {
+      runSql(
+        `UPDATE tenants SET deleted_at = NOW(), updated_at = NOW(), status = 'INACTIVE' WHERE id = ${sqlLiteral(tenant.id)} AND deleted_at IS NULL`,
+      );
+      pushRemoved('tenant', `${tenant.id} (${tenant.slug}) soft-deleted via SQL`);
+    } catch (sqlErr) {
+      pushError('soft_delete_tenant_sql', sqlErr);
+      pushRetained('tenant', tenant.id, 'Soft-delete threw');
+    }
   }
 
   return finalize(report, reportPath);
@@ -298,10 +411,14 @@ function printKeepForDebug({ tenant, adminEmail, adminPassword, reason }) {
 }
 
 module.exports = {
+  wantCleanup,
   hasCleanupFlag,
   isProtectedTenant,
   isTempScriptTenant,
   cleanupTempTenant,
   printKeepForDebug,
   printCleanupReport,
+  TEMP_SLUG_RE,
+  runSql,
+  sqlLiteral,
 };

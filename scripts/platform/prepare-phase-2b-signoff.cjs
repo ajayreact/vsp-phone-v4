@@ -12,8 +12,9 @@
  *   $env:TENANT_EMAIL=(Get-Content static/runtime-verification/2b-signoff-env.json | ConvertFrom-Json).email
  *   $env:TENANT_PASSWORD=(Get-Content static/runtime-verification/2b-signoff-env.json | ConvertFrom-Json).password
  *
- * Soft-delete the signoff-* tenant created by this run after prep succeeds:
- *   node scripts/platform/prepare-phase-2b-signoff.cjs --cleanup
+ * After successful prep the signoff-* tenant is soft-deleted by default.
+ * Keep it for Playwright browser sign-off with:
+ *   node scripts/platform/prepare-phase-2b-signoff.cjs --keep-tenant
  *
  * On failure the tenant is kept and credentials are printed for debugging.
  * Never deletes Platform / VSP INTERNAL / inventory tenants.
@@ -23,7 +24,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { randomUUID } = require('node:crypto');
 const {
-  hasCleanupFlag,
+  wantCleanup,
   cleanupTempTenant,
   printKeepForDebug,
 } = require('./lib/e2e-tenant-cleanup.cjs');
@@ -37,7 +38,7 @@ const API_BASE = (process.env.API_BASE || process.env.NEXT_PUBLIC_API_URL || 'ht
 const PLATFORM_EMAIL = process.env.PLATFORM_EMAIL || '';
 const PLATFORM_PASSWORD = process.env.PLATFORM_PASSWORD || '';
 const OUT = path.join(process.cwd(), 'static', 'runtime-verification', '2b-signoff-env.json');
-const WANT_CLEANUP = hasCleanupFlag();
+const WANT_CLEANUP = wantCleanup();
 
 async function api(method, urlPath, { token, body } = {}) {
   const res = await fetch(`${API_BASE}${urlPath}`, {
@@ -223,14 +224,14 @@ async function main() {
       expectedSlug: slug,
       knownDidIds: assignedDidIds,
     });
-    console.log('Note: --cleanup removed the sign-off tenant. Omit --cleanup when preparing for Playwright.');
+    console.log('Note: tenant cleaned up by default. Use --keep-tenant when preparing for Playwright.');
   } else {
     console.log('Run Playwright with TENANT_EMAIL / TENANT_PASSWORD from that file.');
     printKeepForDebug({
       tenant: createdTenant,
       adminEmail,
       adminPassword,
-      reason: 'Prep succeeded without --cleanup — tenant retained for browser sign-off',
+      reason: 'Prep succeeded with --keep-tenant — tenant retained for browser sign-off',
     });
   }
 }
