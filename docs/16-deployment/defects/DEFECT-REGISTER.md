@@ -4,31 +4,35 @@
 |-------|-------|
 | Governance | [RC1-GOVERNANCE.md](../RC1-GOVERNANCE.md) |
 | Updated | 2026-07-17 |
-| Certification target | **AWS EC2 only** (localhost discarded) |
-| Agent posture | **Standing by** for operator EC2 command output |
+| Certification target | **AWS EC2 only** |
+| Stopped at | `npx prisma migrate deploy` → **ENV-03** |
 
 ## Closed
 
 | ID | Sev | Status | Summary |
 |----|-----|--------|---------|
-| **ENV-01** | P0 | **CLOSED** | Local Windows Postgres — discarded from RC; do not reopen |
+| **ENV-01** | P0 | **CLOSED** | Local Windows Postgres — discarded; do not reopen |
 
-## Operator access (not an application defect)
+## Operator access (not an app defect)
 
-| ID | Sev | Status | Summary |
-|----|-----|--------|---------|
-| **ENV-02** | — | **Operator access limitation** | Agent cannot SSH / lacks AWS session; not an app bug. Certification proceeds when operator runs the sequence **on EC2** and pastes output. |
+| ID | Status | Summary |
+|----|--------|---------|
+| ENV-02 | Acknowledged | Agent SSH limitation — operator running on EC2 |
 
-## Application / environment defects (from AWS runs)
+## Active blockers
 
-| ID | Sev | Status | Summary |
-|----|-----|--------|---------|
-| — | — | **None yet** | Awaiting operator EC2 execution |
+| ID | Sev | Status | Summary | Detail |
+|----|-----|--------|---------|--------|
+| **ENV-03** | **P0** | **Open** | Host `npx prisma migrate deploy` → P1001 `localhost:5432` unreachable; DB is on Docker network | [20260717-ENV-03-prisma-migrate-localhost.md](./20260717-ENV-03-prisma-migrate-localhost.md) |
 
-## Process
+## Progress (AWS)
 
-When operator pastes AWS command output:
+| Step | Status |
+|------|--------|
+| `npm run platform:ensure-inventory` | PASS |
+| `npx prisma migrate deploy` (host) | **FAIL** → ENV-03 |
+| Remaining phases | Not started |
 
-1. If success → continue to next phase.  
-2. If failure → stop → new ENV-0x defect → root cause → minimum recovery → wait for rerun.  
-3. Never reopen ENV-01. Never use localhost.
+## Code defects
+
+None.
