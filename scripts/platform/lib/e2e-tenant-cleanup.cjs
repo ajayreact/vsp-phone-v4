@@ -22,7 +22,8 @@ const PROTECTED_SLUGS = new Set([
 const PROTECTED_NAME_RE =
   /^(platform|vsp\s*internal|vsp\s*platform|platform\s*inventory)$/i;
 
-const TEMP_SLUG_RE = /^(verify|signoff|ext-e2e)-/i;
+/** Temporary / verification tenants safe to soft-delete (never Platform / VSP INTERNAL). */
+const TEMP_SLUG_RE = /^(verify|signoff|ext-e2e|test|temp|tmp|demo|sandbox)-/i;
 
 /** Cleanup is ON by default. Pass --keep-tenant to retain the temp tenant. */
 function wantCleanup(argv = process.argv) {
@@ -130,7 +131,7 @@ async function cleanupTempTenant(opts) {
     pushRetained(
       'tenant',
       `${tenant.id} (${tenant.slug || '?'})`,
-      'Safety block: not a verify-/signoff- tenant, or protected Platform/VSP INTERNAL',
+      'Safety block: not a temp/verify tenant, or protected Platform/VSP INTERNAL',
     );
     return finalize(report, reportPath);
   }
@@ -198,6 +199,22 @@ async function cleanupTempTenant(opts) {
     }
   }
 
+  // Collect MACs before soft-delete so Redis enrollment index can be cleared
+  let macs = [];
+  try {
+    const macOut = runSql(
+      `SELECT mac_address FROM devices WHERE tenant_id = ${sqlLiteral(tenant.id)} AND deleted_at IS NULL AND mac_address IS NOT NULL AND mac_address <> ''`,
+    );
+    if (macOut) {
+      macs = macOut
+        .split(/\r?\n/)
+        .map((s) => s.trim().toLowerCase().replace(/[^a-f0-9]/g, ''))
+        .filter((m) => m.length === 12);
+    }
+  } catch (err) {
+    pushError('list_device_macs_sql', err);
+  }
+
   // SQL soft-delete remaining devices / extensions / lines for this tenant
   try {
     runSql(
@@ -209,6 +226,29 @@ async function cleanupTempTenant(opts) {
     pushRemoved('devices_sql', `soft-deleted (count=${devicesN || '0'})`);
   } catch (err) {
     pushError('soft_delete_devices_sql', err);
+  }
+
+  // Clear Redis MAC enrollment keys (prevents "MAC already enrolled" after purge)
+  if (macs.length) {
+    const repoRoot = process.env.REPO_ROOT || '/opt/vsp-phone-v4';
+    const compose =
+      process.env.COMPOSE ||
+      'docker compose -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.host-db.yml --env-file .env';
+    const cwd = fs.existsSync(repoRoot) ? repoRoot : process.cwd();
+    for (const mac of [...new Set(macs)]) {
+      for (const key of [`vsp:prov:mac:${mac}`, `vsp:prov:quarantine:${mac}`]) {
+        try {
+          execSync(`${compose} exec -T redis redis-cli DEL ${key}`, {
+            cwd,
+            encoding: 'utf8',
+            stdio: ['ignore', 'pipe', 'pipe'],
+          });
+          pushRemoved('redis_mac', key);
+        } catch (err) {
+          pushError(`redis_del_${mac}`, err);
+        }
+      }
+    }
   }
 
   try {

@@ -40,8 +40,13 @@ const FILTER_OPTIONS: { id: HubFilter; label: string }[] = [
 function matchesSearch(row: ExtensionHubRow, query: string): boolean {
   const q = query.trim().toLowerCase();
   if (!q) return true;
-  const did = row.did?.formatted ?? row.did?.number ?? '';
-  const digits = did.replace(/\D/g, '');
+  const didList = row.dids?.length
+    ? row.dids
+    : row.did
+      ? [row.did]
+      : [];
+  const didText = didList.map((d) => `${d.formatted} ${d.number}`).join(' ');
+  const digits = didText.replace(/\D/g, '');
   const qDigits = q.replace(/\D/g, '');
   const user = row.linkedUser?.displayName ?? row.linkedUser?.email ?? '';
   const device = row.device?.deviceLabel ?? row.device?.name ?? '';
@@ -49,11 +54,17 @@ function matchesSearch(row: ExtensionHubRow, query: string): boolean {
     row.extension.toLowerCase().includes(q) ||
     row.displayName.toLowerCase().includes(q) ||
     row.label.toLowerCase().includes(q) ||
-    did.toLowerCase().includes(q) ||
+    didText.toLowerCase().includes(q) ||
     user.toLowerCase().includes(q) ||
     device.toLowerCase().includes(q) ||
     (qDigits.length > 0 && digits.includes(qDigits))
   );
+}
+
+function assignedNumbers(row: ExtensionHubRow): Array<{ id: string; formatted: string }> {
+  if (row.dids?.length) return row.dids.map((d) => ({ id: d.id, formatted: d.formatted }));
+  if (row.did) return [{ id: row.did.id, formatted: row.did.formatted }];
+  return [];
 }
 
 function matchesFilter(row: ExtensionHubRow, filter: HubFilter): boolean {
@@ -186,15 +197,22 @@ export function ExtensionsHubContent() {
       },
       {
         key: 'did',
-        header: 'Assigned DID',
+        header: 'Assigned Numbers',
         sortable: true,
-        sortValue: (r) => r.did?.number ?? '',
-        cell: (row) =>
-          row.did ? (
-            <span className="font-mono text-xs sm:text-sm">{row.did.formatted}</span>
-          ) : (
-            <span className="text-muted-foreground">—</span>
-          ),
+        sortValue: (r) => assignedNumbers(r).map((d) => d.formatted).join(' '),
+        cell: (row) => {
+          const numbers = assignedNumbers(row);
+          if (!numbers.length) return <span className="text-muted-foreground">—</span>;
+          return (
+            <div className="flex flex-col gap-0.5">
+              {numbers.map((d) => (
+                <span key={d.id} className="font-mono text-xs sm:text-sm whitespace-nowrap">
+                  {d.formatted}
+                </span>
+              ))}
+            </div>
+          );
+        },
       },
       {
         key: 'user',

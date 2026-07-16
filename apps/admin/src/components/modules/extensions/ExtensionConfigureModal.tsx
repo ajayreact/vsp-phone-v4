@@ -807,12 +807,16 @@ export function ExtensionConfigureModal({
 
             {tab === 'did' && row ? (
               <div className="space-y-4 max-w-xl">
-                <Field label="Assigned DID">
-                  <Input
-                    value={row.did?.formatted ?? 'No DID assigned'}
-                    readOnly
-                    className="bg-muted/40 font-mono"
-                  />
+                <Field label="Assigned Numbers">
+                  {(row.dids?.length ? row.dids : row.did ? [row.did] : []).length ? (
+                    <ul className="space-y-1 rounded-xl border border-border bg-muted/40 px-3 py-2 font-mono text-sm">
+                      {(row.dids?.length ? row.dids : row.did ? [row.did] : []).map((d) => (
+                        <li key={d.id}>{d.formatted}</li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <Input value="No DID assigned" readOnly className="bg-muted/40 font-mono" />
+                  )}
                 </Field>
                 <Field label="Change DID">
                   <select

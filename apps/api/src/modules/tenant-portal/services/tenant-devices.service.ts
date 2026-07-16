@@ -297,11 +297,21 @@ export class TenantDevicesService {
   }
 
   async remove(tenantId: string, userId: string, id: string) {
-    await this.require(tenantId, id);
+    const existing = await this.require(tenantId, id);
     await this.prisma.device.update({
       where: { id },
       data: { deletedAt: new Date(), deletedBy: userId },
     });
+
+    // Clear global MAC enrollment index + device meta so the phone can re-enroll.
+    const mac = existing.macAddress ? normalizeMac(String(existing.macAddress)) : '';
+    if (mac.length === 12) {
+      await this.redis.del(this.redis.macIndexKey(mac));
+      await this.redis.del(this.redis.quarantineKey(mac));
+    }
+    await this.redis.del(this.redis.deviceMetaKey(tenantId, id));
+    await this.redis.del(this.redis.artifactHistoryKey(tenantId, id));
+
     await auditPbxMutation(this.audit, {
       tenantId,
       actorUserId: userId,

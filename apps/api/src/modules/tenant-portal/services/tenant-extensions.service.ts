@@ -53,7 +53,10 @@ export type ExtensionHubRow = {
   label: string;
   description: string | null;
   department: { id: string; name: string } | null;
+  /** Primary / first DID (backward compatible). */
   did: { id: string; number: string; formatted: string } | null;
+  /** All DIDs assigned to this extension's line. */
+  dids: Array<{ id: string; number: string; formatted: string }>;
   device: {
     id: string;
     name: string;
@@ -89,7 +92,11 @@ const extensionInclude = {
       voicemail: { select: { id: true, status: true, pin: true } },
       callPolicy: true,
       recordingPolicy: true,
-      phoneNumbers: { where: { deletedAt: null }, select: { id: true, number: true }, take: 1 },
+      phoneNumbers: {
+        where: { deletedAt: null },
+        select: { id: true, number: true },
+        orderBy: { number: 'asc' as const },
+      },
       devices: {
         where: { deletedAt: null },
         include: {
@@ -174,7 +181,7 @@ export class TenantExtensionsService {
     const rows = await this.listHub(tenantId);
     return {
       totalExtensions: rows.length,
-      assignedDids: rows.filter((r) => r.did).length,
+      assignedDids: rows.filter((r) => (r.dids?.length ?? 0) > 0 || Boolean(r.did)).length,
       registeredDevices: rows.filter((r) => r.status === 'Registered').length,
       offlineDevices: rows.filter((r) => r.device && r.status !== 'Registered').length,
       // Needs Setup: business config incomplete (or legacy NoDevice)
@@ -860,7 +867,23 @@ export class TenantExtensionsService {
       devices.find((d) => d.deviceType === DeviceType.MOBILE || d.deviceType === DeviceType.WEBRTC) ??
       devices[0] ??
       null;
-    const did = line.phoneNumbers[0] ?? line.callerId?.phoneNumber ?? null;
+    const phoneRows = line.phoneNumbers ?? [];
+    const dids = phoneRows.map((p) => ({
+      id: p.id,
+      number: p.number,
+      formatted: this.formatPhoneDisplay(p.number),
+    }));
+    const fallbackCaller = line.callerId?.phoneNumber
+      ? {
+          id: line.callerId.phoneNumber.id,
+          number: line.callerId.phoneNumber.number,
+          formatted: this.formatPhoneDisplay(line.callerId.phoneNumber.number),
+        }
+      : null;
+    if (fallbackCaller && !dids.some((d) => d.id === fallbackCaller.id)) {
+      dids.unshift(fallbackCaller);
+    }
+    const did = dids[0] ?? null;
     const user = line.user;
     const profile = user?.profile;
 
@@ -913,13 +936,8 @@ export class TenantExtensionsService {
       label: formatExtensionLabel(row.extension, line.name),
       description: row.description,
       department: row.department ? { id: row.department.id, name: row.department.name } : null,
-      did: did
-        ? {
-            id: did.id,
-            number: did.number,
-            formatted: this.formatPhoneDisplay(did.number),
-          }
-        : null,
+      did,
+      dids,
       device: primary
         ? {
             id: primary.id,

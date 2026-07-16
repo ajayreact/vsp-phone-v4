@@ -25,6 +25,7 @@ export type ExtensionHubRow = {
   description: string | null;
   department: { id: string; name: string } | null;
   did: { id: string; number: string; formatted: string } | null;
+  dids?: Array<{ id: string; number: string; formatted: string }>;
   device: {
     id: string;
     name: string;
