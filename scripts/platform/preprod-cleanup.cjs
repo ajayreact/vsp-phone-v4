@@ -18,8 +18,11 @@
  *   # Preview only
  *   node scripts/platform/preprod-cleanup.cjs --dry-run
  *
- *   # Execute (required)
+ *   # Execute (required) — needs PLATFORM_EMAIL / PLATFORM_PASSWORD in env
  *   node scripts/platform/preprod-cleanup.cjs --confirm
+ *
+ *   # No API login (SQL + Redis only) — use when .env has no platform password
+ *   node scripts/platform/preprod-cleanup.cjs --confirm --sql-only
  *
  *   # Skip device/provisioning reset (tenants/users only)
  *   node scripts/platform/preprod-cleanup.cjs --confirm --skip-provisioning-reset
@@ -240,27 +243,176 @@ function resetProvisioningSql({ dryRun }) {
   }
 }
 
+function listTempTenantsFromSql() {
+  const out = runSql(
+    `SELECT id || '|' || COALESCE(slug,'') || '|' || COALESCE(name,'') FROM tenants WHERE deleted_at IS NULL AND slug ~* '^(verify|signoff|ext-e2e|test|temp|tmp|demo|sandbox)-' ORDER BY slug`,
+  );
+  if (!out) return [];
+  return out
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const [id, slug, name] = line.split('|');
+      return { id, slug, name, displayName: name };
+    });
+}
+
+function softDeleteTempTenantSql(tenant, { dryRun }) {
+  const id = sqlLiteral(tenant.id);
+  const steps = [
+    `UPDATE devices SET deleted_at = NOW(), updated_at = NOW(), status = 'INACTIVE' WHERE tenant_id = ${id} AND deleted_at IS NULL`,
+    `UPDATE extensions SET deleted_at = NOW(), updated_at = NOW() WHERE tenant_id = ${id} AND deleted_at IS NULL`,
+    `UPDATE lines SET deleted_at = NOW(), updated_at = NOW() WHERE tenant_id = ${id} AND deleted_at IS NULL`,
+    `UPDATE users SET deleted_at = NOW(), updated_at = NOW(), status = 'INACTIVE' WHERE tenant_id = ${id} AND deleted_at IS NULL`,
+    `UPDATE number_assignments SET effective_to = NOW(), updated_at = NOW() WHERE tenant_id = ${id} AND effective_to IS NULL AND deleted_at IS NULL`,
+    `UPDATE phone_numbers SET line_id = NULL, site_id = NULL, updated_at = NOW() WHERE tenant_id = ${id} AND deleted_at IS NULL`,
+    `UPDATE inbound_routes SET deleted_at = NOW(), updated_at = NOW(), enabled = false WHERE tenant_id = ${id} AND deleted_at IS NULL`,
+    `UPDATE tenants SET deleted_at = NOW(), updated_at = NOW(), status = 'INACTIVE' WHERE id = ${id} AND deleted_at IS NULL`,
+  ];
+  for (const sql of steps) {
+    if (dryRun) {
+      console.log(`  [dry-run] ${sql.slice(0, 80)}…`);
+      continue;
+    }
+    runSql(sql);
+  }
+}
+
+function softDeleteTempUsersSql({ dryRun }) {
+  const sql = `
+UPDATE users SET deleted_at = NOW(), updated_at = NOW(), status = 'INACTIVE'
+WHERE deleted_at IS NULL
+  AND (
+    email ~* '(verify|signoff|temporary|\\\\+e2e|sandbox)'
+    OR email ~* '^test[.@]'
+    OR email ~* '\\\\.test@'
+  )
+  AND email !~* '(platform\\\\.admin|super\\\\.admin|vsp\\\\.admin)'
+  AND tenant_id IN (
+    SELECT id FROM tenants
+    WHERE deleted_at IS NULL
+      AND lower(COALESCE(slug,'')) IN ('platform','vsp-internal','vsp_internal','inventory','platform-inventory')
+  )`;
+  if (dryRun) {
+    console.log('  [dry-run] soft-delete test users on kept tenants');
+    return;
+  }
+  try {
+    runSql(sql.replace(/\s+/g, ' ').trim());
+    console.log('  OK soft-deleted matching test users on kept tenants');
+  } catch (err) {
+    console.warn(`  WARN test users SQL: ${err.message || err}`);
+  }
+}
+
+function printCredentialHelp() {
+  console.error('Missing PLATFORM_EMAIL / PLATFORM_PASSWORD (or SUPER_ADMIN_*) in environment.');
+  console.error('');
+  console.error('Option A — SQL-only cleanup (no login):');
+  console.error('  node scripts/platform/preprod-cleanup.cjs --confirm --sql-only');
+  console.error('');
+  console.error('Option B — export credentials then re-run (do NOT use source .env if it errors):');
+  console.error('  grep -E "^(PLATFORM_|SUPER_ADMIN_)" .env || true');
+  console.error('  export PLATFORM_EMAIL="your-platform-admin@example.com"');
+  console.error('  export PLATFORM_PASSWORD="your-password"');
+  console.error('  node scripts/platform/preprod-cleanup.cjs --confirm');
+}
+
+async function runSqlOnlyCleanup({ dryRun, skipProv, redisOnly }) {
+  console.log('Mode: SQL + Redis only (no platform API login)\n');
+
+  const keep = runSql(
+    `SELECT slug || ' | ' || COALESCE(name,'') FROM tenants WHERE deleted_at IS NULL AND lower(COALESCE(slug,'')) IN ('platform','vsp-internal','vsp_internal','inventory','platform-inventory') ORDER BY slug`,
+  );
+  console.log('Keep (protected):');
+  console.log(keep ? keep.split(/\r?\n/).map((s) => `  ✓ ${s}`).join('\n') : '  (none found)');
+
+  const targets = listTempTenantsFromSql();
+  console.log(`\nPurge targets: ${targets.length}`);
+  for (const t of targets) console.log(`  ✗ ${t.slug} | ${t.name} | ${t.id}`);
+
+  console.log('\n--- 1) Soft-delete temp tenants (SQL) ---');
+  if (!targets.length) console.log('  None matched.');
+  for (const t of targets) {
+    console.log(`  ${dryRun ? '[dry-run] ' : ''}Cleaning ${t.slug}`);
+    softDeleteTempTenantSql(t, { dryRun });
+  }
+
+  console.log('\n--- 2) Soft-delete test users on kept tenants (SQL) ---');
+  softDeleteTempUsersSql({ dryRun });
+
+  console.log('\n--- 3) Clear device provisioning / MAC enrollment ---');
+  const macs = listActiveDeviceMacs();
+  console.log(`Active device MAC rows: ${macs.length}`);
+  if (skipProv) {
+    console.log('  Skipped (--skip-provisioning-reset).');
+  } else if (redisOnly) {
+    clearRedisMacKeys(macs, { dryRun });
+  } else {
+    resetProvisioningSql({ dryRun });
+    clearRedisMacKeys(macs, { dryRun });
+  }
+
+  console.log('\n--- 4) Verification snapshot ---');
+  try {
+    const activeTemp = runSql(
+      `SELECT slug FROM tenants WHERE deleted_at IS NULL AND slug ~* '^(verify|signoff|ext-e2e|test|temp|tmp|demo|sandbox)-' ORDER BY slug`,
+    );
+    console.log(
+      activeTemp
+        ? `  Remaining temp tenants:\n${activeTemp
+            .split(/\r?\n/)
+            .map((s) => `    - ${s}`)
+            .join('\n')}`
+        : '  Remaining temp tenants: (none)',
+    );
+  } catch (err) {
+    console.warn(`  WARN: ${err.message || err}`);
+  }
+  try {
+    const activeDevices = runSql(`SELECT COUNT(*) FROM devices WHERE deleted_at IS NULL`);
+    console.log(`  Active devices remaining: ${String(activeDevices).trim() || '0'}`);
+  } catch (err) {
+    console.warn(`  WARN: ${err.message || err}`);
+  }
+  try {
+    const macKeys = redisCli(`KEYS vsp:prov:mac:*`);
+    const n = macKeys && macKeys !== '' ? macKeys.split(/\r?\n/).filter(Boolean).length : 0;
+    console.log(`  Redis vsp:prov:mac:* keys remaining: ${n}`);
+  } catch (err) {
+    console.warn(`  WARN redis: ${err.message || err}`);
+  }
+}
+
 async function main() {
   const dryRun = argvHas('--dry-run');
   const confirm = argvHas('--confirm');
   const skipProv = argvHas('--skip-provisioning-reset');
   const redisOnly = argvHas('--redis-mac-only');
+  const sqlOnly = argvHas('--sql-only');
 
   console.log('\n=== VSP Phone 5 Pre-Production Cleanup ===');
   console.log(`API: ${API_BASE}`);
-  console.log(`Mode: ${dryRun ? 'DRY-RUN' : confirm ? 'LIVE (--confirm)' : 'PREVIEW (pass --dry-run or --confirm)'}\n`);
+  console.log(`Mode: ${dryRun ? 'DRY-RUN' : confirm ? 'LIVE (--confirm)' : 'PREVIEW (pass --dry-run or --confirm)'}${sqlOnly ? ' + SQL-ONLY' : ''}\n`);
 
   if (!dryRun && !confirm) {
     console.log('Refusing to mutate without --dry-run or --confirm.');
-    console.log('Recommended first pass:');
-    console.log('  node scripts/platform/preprod-cleanup.cjs --dry-run');
-    console.log('Then:');
-    console.log('  node scripts/platform/preprod-cleanup.cjs --confirm');
+    console.log('Recommended:');
+    console.log('  node scripts/platform/preprod-cleanup.cjs --dry-run --sql-only');
+    console.log('  node scripts/platform/preprod-cleanup.cjs --confirm --sql-only');
     process.exit(1);
   }
 
+  if (sqlOnly) {
+    await runSqlOnlyCleanup({ dryRun, skipProv, redisOnly });
+    console.log('\n=== Pre-production cleanup finished ===\n');
+    if (dryRun) console.log('This was a dry-run. Re-run with --confirm --sql-only to apply.\n');
+    return;
+  }
+
   if (!PLATFORM_EMAIL || !PLATFORM_PASSWORD) {
-    console.error('Missing PLATFORM_EMAIL / PLATFORM_PASSWORD (or SUPER_ADMIN_*) in .env');
+    printCredentialHelp();
     process.exit(1);
   }
 

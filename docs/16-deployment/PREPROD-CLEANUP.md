@@ -20,27 +20,38 @@ cd /opt/vsp-phone-v4
 git fetch origin && git checkout release/v4.0.0-rc1 && git pull origin release/v4.0.0-rc1
 
 set -a && source .env && set +a
-# Requires PLATFORM_EMAIL / PLATFORM_PASSWORD (or SUPER_ADMIN_*)
+# API mode needs PLATFORM_EMAIL / PLATFORM_PASSWORD (or SUPER_ADMIN_*)
+# If those are missing, use --sql-only (recommended on EC2)
 ```
+
+Do **not** rely on `source .env` if it prints `command not found` — that means `.env` has invalid bash syntax. The Node script loads `.env` itself; for `--sql-only` no login is required.
 
 Deploy API/admin first if you also need multi-DID UI (see below).
 
 ## 1. Preview
 
 ```bash
-node scripts/platform/preprod-cleanup.cjs --dry-run
+# Preferred when platform password is not in .env
+node scripts/platform/preprod-cleanup.cjs --dry-run --sql-only
 ```
 
 Review:
 
 - Keep list (Platform / VSP INTERNAL)
 - Purge targets
-- Test users
 - Active device MAC count
 
 ## 2. Execute
 
 ```bash
+node scripts/platform/preprod-cleanup.cjs --confirm --sql-only
+```
+
+Or, if credentials are exported:
+
+```bash
+export PLATFORM_EMAIL="…"
+export PLATFORM_PASSWORD="…"
 node scripts/platform/preprod-cleanup.cjs --confirm
 ```
 
