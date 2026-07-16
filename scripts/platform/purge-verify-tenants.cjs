@@ -25,7 +25,35 @@ const {
   runSql,
 } = require('./lib/e2e-tenant-cleanup.cjs');
 
-require('dotenv').config({ path: path.resolve(process.cwd(), '.env') });
+function loadEnvFile(filePath) {
+  if (!require('node:fs').existsSync(filePath)) return;
+  const text = require('node:fs').readFileSync(filePath, 'utf8');
+  for (const line of text.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    const eq = trimmed.indexOf('=');
+    if (eq <= 0) continue;
+    const key = trimmed.slice(0, eq).trim();
+    let val = trimmed.slice(eq + 1).trim();
+    if (
+      (val.startsWith('"') && val.endsWith('"')) ||
+      (val.startsWith("'") && val.endsWith("'"))
+    ) {
+      val = val.slice(1, -1);
+    }
+    if (process.env[key] === undefined || process.env[key] === '') {
+      process.env[key] = val;
+    }
+  }
+}
+
+// Prefer repo .env; dotenv may be unavailable in the host Node install.
+try {
+  require('dotenv').config({ path: path.resolve(process.cwd(), '.env') });
+} catch {
+  /* optional */
+}
+loadEnvFile(path.resolve(process.cwd(), '.env'));
 
 const API_BASE = (process.env.API_BASE || process.env.NEXT_PUBLIC_API_URL || 'https://api.vspphone.com/api').replace(
   /\/$/,
@@ -73,7 +101,12 @@ async function main() {
   console.log(`\n=== Purge verify/signoff tenants ===\nAPI: ${API_BASE}\n`);
 
   if (!PLATFORM_EMAIL || !PLATFORM_PASSWORD) {
-    console.error('Set PLATFORM_EMAIL and PLATFORM_PASSWORD in .env');
+    console.error('Missing platform login credentials.');
+    console.error('Add to /opt/vsp-phone-v4/.env (or export before running):');
+    console.error('  PLATFORM_EMAIL=<super-admin-email>');
+    console.error('  PLATFORM_PASSWORD=<password>');
+    console.error('Also accepted: SUPER_ADMIN_EMAIL / SUPER_ADMIN_PASSWORD');
+    console.error('Check: grep -E "^(PLATFORM_|SUPER_ADMIN_)" .env');
     process.exit(1);
   }
 
