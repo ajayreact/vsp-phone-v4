@@ -988,7 +988,17 @@ export class RoutingService {
           ...(tenantHint ? { tenantId: tenantHint } : {}),
         },
         include: {
-          device: {
+          line: {
+            include: {
+              callPolicy: true,
+              callerId: { include: { phoneNumber: true } },
+              extension: true,
+              devices: { include: { sipEndpoint: true } },
+            },
+          },
+          devices: {
+            where: { deletedAt: null },
+            take: 1,
             include: {
               line: {
                 include: {
@@ -1002,8 +1012,9 @@ export class RoutingService {
           },
         },
       });
-      if (ep?.device?.line && ep.device.line.status === LineStatus.ACTIVE) {
-        return this.toLineCtx(ep.device.line, ep.aor);
+      const line = ep?.line ?? ep?.devices[0]?.line;
+      if (line && line.status === LineStatus.ACTIVE) {
+        return this.toLineCtx(line, ep!.aor);
       }
     }
 

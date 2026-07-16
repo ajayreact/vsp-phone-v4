@@ -1,5 +1,4 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import {
   DeviceStatus,
   DeviceType,
@@ -7,7 +6,6 @@ import {
   PresenceStatus,
   Prisma,
   ProvisioningStatus,
-  SIPEndpointStatus,
   VoicemailMailboxType,
   VoicemailStatus,
   type Extension,
@@ -21,6 +19,7 @@ import {
   nextAvailableExtensionNumber,
 } from '../utils/extension-auto-provision.util';
 import { newPublicId, tenantScope } from '../utils/tenant.util';
+import { LineSipEndpointService } from './line-sip-endpoint.service';
 
 export type EnsureExtensionOptions = {
   displayName?: string;
@@ -38,15 +37,11 @@ export {
 
 @Injectable()
 export class ExtensionAutoProvisionService {
-  private readonly platformDomain: string;
-
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: EnterpriseAuditService,
-    private readonly config: ConfigService,
-  ) {
-    this.platformDomain = config.get<string>('SIP_PLATFORM_DOMAIN', 'vsp.internal');
-  }
+    private readonly lineSip: LineSipEndpointService,
+  ) {}
 
   defaultDisplayName(extension: string): string {
     return defaultExtensionDisplayName(extension);
@@ -234,47 +229,34 @@ export class ExtensionAutoProvisionService {
         });
       }
 
-      const existingSipDevice = await client.device.findFirst({
+      const endpoint = await this.lineSip.resolveOrCreateForLine(
+        { tenantId, lineId: ext.lineId, actorUserId },
+        client,
+      );
+
+      const existingWebrtc = await client.device.findFirst({
         where: {
           lineId: ext.lineId,
           tenantId,
           deletedAt: null,
-          sipEndpointId: { not: null },
+          deviceType: DeviceType.WEBRTC,
         },
       });
 
-      if (!existingSipDevice) {
-        const tenant = await client.tenant.findFirst({
-          where: { id: tenantId, deletedAt: null },
-          select: { slug: true },
+      if (!existingWebrtc) {
+        const line = await client.line.findFirst({
+          where: { id: ext.lineId, tenantId, deletedAt: null },
+          select: { userId: true },
         });
-        if (!tenant) throw new NotFoundException('Tenant not found');
-
-        const sipEndpointId = randomUUID();
         const deviceId = randomUUID();
-        const realm = `${tenant.slug}.sip.${this.platformDomain}`;
-        const aor = `sip:${ext.extension}@${realm}`;
-
-        await client.sIPEndpoint.create({
-          data: {
-            id: sipEndpointId,
-            publicId: newPublicId('sip'),
-            tenantId,
-            aor,
-            authUsername: ext.extension,
-            registrationStatus: SIPEndpointStatus.UNREGISTERED,
-            createdBy: actorUserId,
-          },
-        });
-
         await client.device.create({
           data: {
             id: deviceId,
             publicId: newPublicId('dev'),
             tenantId,
             lineId: ext.lineId,
-            userId: options.userId ?? null,
-            sipEndpointId,
+            userId: options.userId ?? line?.userId ?? null,
+            sipEndpointId: endpoint.id,
             name: `Softphone — Extension ${ext.extension}`,
             deviceType: DeviceType.WEBRTC,
             status: DeviceStatus.PROVISIONING,
@@ -282,6 +264,21 @@ export class ExtensionAutoProvisionService {
             createdBy: actorUserId,
           },
         });
+
+        const assignmentUserId = options.userId ?? line?.userId;
+        if (assignmentUserId) {
+          await client.deviceAssignment.create({
+            data: {
+              id: randomUUID(),
+              tenantId,
+              deviceId,
+              userId: assignmentUserId,
+              lineId: ext.lineId,
+              effectiveFrom: new Date(),
+              createdBy: actorUserId,
+            },
+          });
+        }
       }
 
       return ext;

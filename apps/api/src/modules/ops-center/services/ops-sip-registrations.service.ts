@@ -26,7 +26,10 @@ export class OpsSipRegistrationsService {
       take: Math.min(params.limit ?? 500, 500),
       include: {
         tenant: { select: { name: true } },
-        device: {
+        line: { include: { extension: true } },
+        devices: {
+          where: { deletedAt: null },
+          take: 1,
           include: {
             line: { include: { extension: true } },
           },
@@ -45,8 +48,8 @@ export class OpsSipRegistrationsService {
     const mapped = rows.map((r) => {
       const cfg = (r.registrationConfig ?? {}) as Record<string, unknown>;
       const contact = kamailioContacts.get(r.aor.toLowerCase()) ?? kamailioContacts.get(r.authUsername.toLowerCase());
-      const device = r.device;
-      const ext = device?.line?.extension?.extension ?? null;
+      const device = r.devices[0];
+      const ext = r.line?.extension?.extension ?? device?.line?.extension?.extension ?? null;
 
       return {
         id: r.id,

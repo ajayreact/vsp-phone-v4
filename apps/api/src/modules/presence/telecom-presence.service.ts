@@ -21,15 +21,23 @@ export class TelecomPresenceService {
         aor: { equals: aor, mode: 'insensitive' },
         ...(dto.tenantId ? { tenantId: dto.tenantId } : {}),
       },
-      include: { device: true },
+      include: {
+        line: true,
+        devices: { where: { deletedAt: null }, take: 5 },
+      },
     });
-    if (!endpoint?.device?.lineId) {
+    const lineId = endpoint?.line?.id ?? endpoint?.devices.find((d) => d.lineId)?.lineId;
+    if (!endpoint || !lineId) {
       throw new NotFoundException('Line not found for AoR');
     }
+    const deviceId =
+      dto.deviceId ??
+      endpoint.devices.find((d) => d.id === dto.deviceId)?.id ??
+      endpoint.devices[0]?.id;
     await this.presence.setLinePresence({
       tenantId: endpoint.tenantId,
-      lineId: endpoint.device.lineId,
-      deviceId: dto.deviceId ?? endpoint.device.id,
+      lineId,
+      deviceId,
       status: mapTelecomPresence(dto.status),
       source: 'device',
       customMessage: dto.note ?? null,

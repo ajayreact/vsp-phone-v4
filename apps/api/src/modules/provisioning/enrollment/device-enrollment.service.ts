@@ -9,12 +9,12 @@ import {
   DeviceStatus,
   DeviceType,
   ProvisioningStatus,
-  SIPEndpointStatus,
   TenantStatus,
   type DeviceManufacturer,
 } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import type { JwtPayload } from '../../auth/jwt.util';
+import { LineSipEndpointService } from '../../tenant-portal/services/line-sip-endpoint.service';
 import { PrismaService } from '../../telecom/prisma/prisma.service';
 import { ProvisioningAuditService } from '../audit/provisioning-audit.service';
 import type { FirmwareChannel } from '../firmware/firmware-catalog.service';
@@ -62,6 +62,7 @@ export class DeviceEnrollmentService {
     private readonly vault: ProvisioningVaultService,
     private readonly generator: ConfigGeneratorService,
     private readonly audit: ProvisioningAuditService,
+    private readonly lineSip: LineSipEndpointService,
     private readonly config: ConfigService,
   ) {
     this.platformDomain = config.get<string>('SIP_PLATFORM_DOMAIN', 'vsp.internal');
@@ -90,13 +91,9 @@ export class DeviceEnrollmentService {
     }
 
     const deviceId = randomUUID();
-    const sipEndpointId = randomUUID();
     const assignmentId = randomUUID();
     const publicDeviceId = `dev_${deviceId.replace(/-/g, '').slice(0, 16)}`;
-    const publicSipId = `sip_${sipEndpointId.replace(/-/g, '').slice(0, 16)}`;
     const realm = `${line.tenant.slug}.sip.${this.platformDomain}`;
-    const aor = `sip:${line.extension.extension}@${realm}`;
-    const authUsername = line.extension.extension;
     const modelFamily = (input.modelFamily ?? this.defaultModelFamily(input.manufacturer)).toLowerCase();
     const firmwareChannel = input.firmwareChannel ?? 'stable';
     const manufacturer = input.manufacturer ?? this.inferManufacturer(modelFamily);
@@ -108,26 +105,12 @@ export class DeviceEnrollmentService {
       if (!template) throw new NotFoundException('Provisioning template not found');
     }
 
-    const deskSecret = this.vault.issueDeskSip({
-      sipEndpointId,
-      authUsername,
-      realm,
-    });
-    const provHttp = this.vault.issueProvHttp(mac);
-    this.vault.issueAdminPassword(deviceId);
+    const endpoint = await this.prisma.$transaction(async (tx) => {
+      const sipEndpoint = await this.lineSip.resolveOrCreateForLine(
+        { tenantId: user.tenantId, lineId: line.id, actorUserId: user.sub },
+        tx,
+      );
 
-    await this.prisma.$transaction(async (tx) => {
-      await tx.sIPEndpoint.create({
-        data: {
-          id: sipEndpointId,
-          publicId: publicSipId,
-          tenantId: user.tenantId,
-          aor,
-          authUsername,
-          registrationStatus: SIPEndpointStatus.UNREGISTERED,
-          createdBy: user.sub,
-        },
-      });
       await tx.device.create({
         data: {
           id: deviceId,
@@ -135,7 +118,7 @@ export class DeviceEnrollmentService {
           tenantId: user.tenantId,
           lineId: line.id,
           userId: line.userId,
-          sipEndpointId,
+          sipEndpointId: sipEndpoint.id,
           name: input.name,
           deviceType: DeviceType.DESK_PHONE,
           status: DeviceStatus.PROVISIONING,
@@ -156,18 +139,39 @@ export class DeviceEnrollmentService {
           createdBy: user.sub,
         },
       });
-      await tx.deviceAssignment.create({
-        data: {
-          id: assignmentId,
-          tenantId: user.tenantId,
-          deviceId,
-          userId: line.userId ?? user.sub,
-          lineId: line.id,
-          effectiveFrom: new Date(),
-          createdBy: user.sub,
-        },
+
+      const assignmentUserId = line.userId ?? user.sub;
+      const assignmentUser = await tx.user.findFirst({
+        where: { id: assignmentUserId, tenantId: user.tenantId, deletedAt: null },
+        select: { id: true },
       });
+      if (assignmentUser) {
+        await tx.deviceAssignment.create({
+          data: {
+            id: assignmentId,
+            tenantId: user.tenantId,
+            deviceId,
+            userId: assignmentUser.id,
+            lineId: line.id,
+            effectiveFrom: new Date(),
+            createdBy: user.sub,
+          },
+        });
+      }
+
+      return sipEndpoint;
     });
+
+    const sipEndpointId = endpoint.id;
+    const authUsername = endpoint.authUsername;
+    const aor = endpoint.aor;
+    // Do not rotate shared endpoint password when attaching another device.
+    let deskSecretVersion = 'shared';
+    if (!this.vault.resolveDeskSipPassword(sipEndpointId)) {
+      deskSecretVersion = this.vault.issueDeskSip({ sipEndpointId, authUsername, realm }).version;
+    }
+    const provHttp = this.vault.resolveProvHttp(mac) ?? this.vault.issueProvHttp(mac);
+    this.vault.issueAdminPassword(deviceId);
 
     const timezone = line.tenant.settings?.timezone ?? 'America/New_York';
     const language = line.tenant.settings?.defaultLanguage ?? 'en';
@@ -213,7 +217,7 @@ export class DeviceEnrollmentService {
       objectKey: rendered.objectKey,
       templateVersion: rendered.templateVersion,
       sipEndpointId,
-      deskSecretVersion: deskSecret.version,
+      deskSecretVersion,
       provHttpVersion: provHttp.version,
     });
 
@@ -253,24 +257,41 @@ export class DeviceEnrollmentService {
     if (!line) throw new NotFoundException('Line not found');
 
     await this.prisma.$transaction(async (tx) => {
+      const endpoint = await this.lineSip.resolveOrCreateForLine(
+        { tenantId: user.tenantId, lineId: line.id, actorUserId: user.sub },
+        tx,
+      );
       await tx.deviceAssignment.updateMany({
         where: { deviceId, tenantId: user.tenantId, effectiveTo: null, deletedAt: null },
         data: { effectiveTo: new Date(), updatedBy: user.sub },
       });
-      await tx.deviceAssignment.create({
-        data: {
-          id: randomUUID(),
-          tenantId: user.tenantId,
-          deviceId,
-          userId: line.userId ?? user.sub,
-          lineId: line.id,
-          effectiveFrom: new Date(),
-          createdBy: user.sub,
-        },
-      });
+      const assignmentUser = line.userId
+        ? await tx.user.findFirst({
+            where: { id: line.userId, tenantId: user.tenantId, deletedAt: null },
+            select: { id: true },
+          })
+        : null;
+      if (assignmentUser) {
+        await tx.deviceAssignment.create({
+          data: {
+            id: randomUUID(),
+            tenantId: user.tenantId,
+            deviceId,
+            userId: assignmentUser.id,
+            lineId: line.id,
+            effectiveFrom: new Date(),
+            createdBy: user.sub,
+          },
+        });
+      }
       await tx.device.update({
         where: { id: deviceId },
-        data: { lineId: line.id, userId: line.userId, updatedBy: user.sub },
+        data: {
+          lineId: line.id,
+          userId: line.userId,
+          sipEndpointId: endpoint.id,
+          updatedBy: user.sub,
+        },
       });
     });
 

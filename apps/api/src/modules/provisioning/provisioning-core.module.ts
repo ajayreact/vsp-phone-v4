@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
+import { ExtensionProvisionCoreModule } from '../tenant-portal/extension-provision-core.module';
 import { TelecomModule } from '../telecom/module';
 import { ProvisioningAuditService } from './audit/provisioning-audit.service';
 import { ConfigGeneratorService } from './generator/config-generator.service';
@@ -14,7 +15,7 @@ import { ProvMacAuthGuard } from './guards/prov-mac-auth.guard';
 
 /** Shared provisioning providers (no HTTP controllers). */
 @Module({
-  imports: [TelecomModule, AuthModule],
+  imports: [TelecomModule, AuthModule, ExtensionProvisionCoreModule],
   providers: [
     ProvisioningRedisService,
     ProvisioningVaultService,

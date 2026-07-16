@@ -20,6 +20,17 @@ import {
   type RegistrationCreatedPayload,
   type RegistrationRemovedPayload,
 } from '../events/registration.events';
+import { pickRegistrableDevice } from '../sip/sip-endpoint-devices.util';
+
+const devicesInclude = {
+  where: { deletedAt: null },
+  include: {
+    assignments: {
+      where: { deletedAt: null, effectiveTo: null },
+      take: 1,
+    },
+  },
+};
 
 @Injectable()
 export class RegistrationService {
@@ -68,20 +79,14 @@ export class RegistrationService {
         ...(dto.tenantId ? { tenantId: dto.tenantId } : {}),
       },
       include: {
-        device: {
-          include: {
-            assignments: {
-              where: { deletedAt: null, effectiveTo: null },
-              take: 1,
-            },
-          },
-        },
+        devices: devicesInclude,
       },
     });
 
-    if (!endpoint?.device) {
+    const device = pickRegistrableDevice(endpoint?.devices, dto.deviceId);
+    if (!endpoint || !device) {
       this.logger.warn(
-        JSON.stringify({ event: 'telecom.reg.unknown_aor', aor }),
+        JSON.stringify({ event: 'telecom.reg.unknown_aor', aor, deviceId: dto.deviceId }),
       );
       return {
         accepted: false,
@@ -101,16 +106,8 @@ export class RegistrationService {
       };
     }
 
-    if (dto.deviceId && dto.deviceId !== endpoint.device.id) {
-      return {
-        accepted: false,
-        placeholder: false,
-        timeoutGuidanceMs: TELECOM_TIMEOUTS_MS.register,
-        idempotencyKey: meta.idempotencyKey,
-      };
-    }
-
-    if (!endpoint.device.assignments.length) {
+    // Line-bound devices may register without DeviceAssignment.
+    if (!(device.assignments?.length) && !device.lineId) {
       return {
         accepted: false,
         placeholder: false,
@@ -128,7 +125,7 @@ export class RegistrationService {
       expiresSec,
       userAgent: dto.userAgent,
       srcIp: dto.srcIp,
-      deviceId: endpoint.device.id,
+      deviceId: device.id,
     };
 
     const regKey = this.redis.registrationKey(endpoint.tenantId, aor);
@@ -157,7 +154,7 @@ export class RegistrationService {
     });
 
     await this.prisma.device.update({
-      where: { id: endpoint.device.id },
+      where: { id: device.id },
       data: { status: DeviceStatus.REGISTERED },
     });
 
@@ -169,9 +166,9 @@ export class RegistrationService {
       eventId: randomUUID(),
       type: eventType,
       tenantId: endpoint.tenantId,
-      deviceId: endpoint.device.id,
+      deviceId: device.id,
       sipEndpointId: endpoint.id,
-      lineId: endpoint.device.lineId ?? undefined,
+      lineId: device.lineId ?? undefined,
       aor,
       contact: contactUri,
       expiresAt,
@@ -187,7 +184,7 @@ export class RegistrationService {
         event: 'telecom.reg.accepted',
         type: eventType,
         tenantId: endpoint.tenantId,
-        deviceId: endpoint.device.id,
+        deviceId: device.id,
         aor,
         multiDeviceCount,
         requestId: meta.requestId,
@@ -196,7 +193,7 @@ export class RegistrationService {
 
     return {
       accepted: true,
-      deviceId: endpoint.device.id,
+      deviceId: device.id,
       expiresSec,
       placeholder: false,
       timeoutGuidanceMs: TELECOM_TIMEOUTS_MS.register,
@@ -224,7 +221,7 @@ export class RegistrationService {
         aor: { equals: aor, mode: 'insensitive' },
         ...(dto.tenantId ? { tenantId: dto.tenantId } : {}),
       },
-      include: { device: true },
+      include: { devices: devicesInclude },
     });
 
     if (!endpoint) {
@@ -235,6 +232,8 @@ export class RegistrationService {
         idempotencyKey: meta.idempotencyKey,
       };
     }
+
+    const device = pickRegistrableDevice(endpoint.devices, dto.deviceId);
 
     const regKey = this.redis.registrationKey(endpoint.tenantId, aor);
 
@@ -256,19 +255,24 @@ export class RegistrationService {
         where: { id: endpoint.id },
         data: { registrationStatus: SIPEndpointStatus.UNREGISTERED },
       });
-      if (endpoint.device) {
-        await this.prisma.device.update({
-          where: { id: endpoint.device.id },
+      if (endpoint.devices.length) {
+        await this.prisma.device.updateMany({
+          where: { id: { in: endpoint.devices.map((d) => d.id) } },
           data: { status: DeviceStatus.UNREGISTERED },
         });
       }
+    } else if (device) {
+      await this.prisma.device.update({
+        where: { id: device.id },
+        data: { status: DeviceStatus.UNREGISTERED },
+      });
     }
 
     const payload: RegistrationRemovedPayload = {
       eventId: randomUUID(),
       type: REGISTRATION_EVENTS.UNREGISTERED,
       tenantId: endpoint.tenantId,
-      deviceId: endpoint.device?.id,
+      deviceId: device?.id ?? dto.deviceId,
       sipEndpointId: endpoint.id,
       aor,
       contact: dto.contact ? extractContactUri(dto.contact) : undefined,

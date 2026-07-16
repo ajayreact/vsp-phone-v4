@@ -27,6 +27,7 @@ import {
   tombstoneExtensionNumber,
 } from '../utils/extension-auto-provision.util';
 import { ExtensionAutoProvisionService } from './extension-auto-provision.service';
+import { LineSipEndpointService } from './line-sip-endpoint.service';
 import { TenantLinesService } from './tenant-lines.service';
 import { auditPbxMutation } from '../utils/tenant-pbx-audit';
 import { formatExtensionLabel, formatRelativeTime } from '../utils/format-extension-label';
@@ -104,6 +105,7 @@ export class TenantExtensionsService {
     private readonly lines: TenantLinesService,
     private readonly audit: EnterpriseAuditService,
     private readonly autoProvision: ExtensionAutoProvisionService,
+    private readonly lineSip: LineSipEndpointService,
     private readonly vault: SipCredentialVaultService,
     private readonly redis: TelecomRedisService,
     private readonly config: ConfigService,
@@ -668,24 +670,25 @@ export class TenantExtensionsService {
     });
     if (!line?.extension) throw new NotFoundException('Line not found');
 
-    const deviceId = randomUUID();
-    const sipEndpointId = randomUUID();
-    const realm = `${line.tenant.slug}.sip.${this.platformDomain}`;
-    const aor = `sip:${line.extension.extension}@${realm}`;
-    const authUsername = line.extension.extension;
+    const existingMobile = await this.prisma.device.findFirst({
+      where: {
+        lineId: line.id,
+        tenantId,
+        deletedAt: null,
+        deviceType: DeviceType.MOBILE,
+      },
+      include: { sipEndpoint: true },
+    });
+    if (existingMobile?.sipEndpoint) {
+      return existingMobile;
+    }
 
+    const deviceId = randomUUID();
     await this.prisma.$transaction(async (tx) => {
-      await tx.sIPEndpoint.create({
-        data: {
-          id: sipEndpointId,
-          publicId: newPublicId('sip'),
-          tenantId,
-          aor,
-          authUsername,
-          registrationStatus: SIPEndpointStatus.UNREGISTERED,
-          createdBy: actorUserId,
-        },
-      });
+      const endpoint = await this.lineSip.resolveOrCreateForLine(
+        { tenantId, lineId: line.id, actorUserId },
+        tx,
+      );
       await tx.device.create({
         data: {
           id: deviceId,
@@ -693,12 +696,25 @@ export class TenantExtensionsService {
           tenantId,
           lineId: line.id,
           userId: line.userId,
-          sipEndpointId,
+          sipEndpointId: endpoint.id,
           name: `Mobile — ${line.name}`,
           deviceType: DeviceType.MOBILE,
           createdBy: actorUserId,
         },
       });
+      if (line.userId) {
+        await tx.deviceAssignment.create({
+          data: {
+            id: randomUUID(),
+            tenantId,
+            deviceId,
+            userId: line.userId,
+            lineId: line.id,
+            effectiveFrom: new Date(),
+            createdBy: actorUserId,
+          },
+        });
+      }
     });
 
     return this.prisma.device.findFirst({

@@ -1167,22 +1167,25 @@ model AuditLog {
 // ---------------------------------------------------------------------------
 
 model Line {
-  id        String     @id @db.Uuid
-  publicId  String     @unique @map("public_id")
-  tenantId  String     @map("tenant_id") @db.Uuid
-  userId    String?    @map("user_id") @db.Uuid
-  name      String
-  status    LineStatus @default(ACTIVE)
-  version   Int        @default(1)
-  createdAt DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt DateTime?  @map("deleted_at") @db.Timestamptz(6)
-  createdBy String?    @map("created_by") @db.Uuid
-  updatedBy String?    @map("updated_by") @db.Uuid
-  deletedBy String?    @map("deleted_by") @db.Uuid
+  id             String     @id @db.Uuid
+  publicId       String     @unique @map("public_id")
+  tenantId       String     @map("tenant_id") @db.Uuid
+  userId         String?    @map("user_id") @db.Uuid
+  /** Canonical SIP identity for this line/extension (shared by all devices). */
+  sipEndpointId  String?    @unique @map("sip_endpoint_id") @db.Uuid
+  name           String
+  status         LineStatus @default(ACTIVE)
+  version        Int        @default(1)
+  createdAt      DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime?  @map("deleted_at") @db.Timestamptz(6)
+  createdBy      String?    @map("created_by") @db.Uuid
+  updatedBy      String?    @map("updated_by") @db.Uuid
+  deletedBy      String?    @map("deleted_by") @db.Uuid
 
   tenant                 Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   user                   User?                   @relation(fields: [userId], references: [id], onDelete: Restrict)
+  sipEndpoint            SIPEndpoint?            @relation("LineSipEndpoint", fields: [sipEndpointId], references: [id], onDelete: Restrict)
   creator                User?                   @relation("LineCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
   updater                User?                   @relation("LineUpdatedBy", fields: [updatedBy], references: [id], onDelete: Restrict)
   deleter                User?                   @relation("LineDeletedBy", fields: [deletedBy], references: [id], onDelete: Restrict)
@@ -1264,7 +1267,8 @@ model Device {
   tenantId      String       @map("tenant_id") @db.Uuid
   lineId        String?      @map("line_id") @db.Uuid
   userId        String?      @map("user_id") @db.Uuid
-  sipEndpointId String?      @unique @map("sip_endpoint_id") @db.Uuid
+  /** Shared with sibling devices on the same line (not unique). */
+  sipEndpointId String?      @map("sip_endpoint_id") @db.Uuid
   name          String
   deviceType    DeviceType   @map("device_type")
   status        DeviceStatus @default(PROVISIONING)
@@ -1317,6 +1321,7 @@ model Device {
   @@index([tenantId, status])
   @@index([tenantId, siteId])
   @@index([tenantId, provisioningStatus])
+  @@index([sipEndpointId])
   @@index([deletedAt])
   @@map("devices")
 }
@@ -1501,7 +1506,10 @@ model SIPEndpoint {
   creator User?    @relation("SIPEndpointCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
   updater User?    @relation("SIPEndpointUpdatedBy", fields: [updatedBy], references: [id], onDelete: Restrict)
   deleter User?    @relation("SIPEndpointDeletedBy", fields: [deletedBy], references: [id], onDelete: Restrict)
-  device  Device?
+  /** Line that canonically owns this AoR (0..1). */
+  line    Line?    @relation("LineSipEndpoint")
+  /** All devices (WebRTC, desk, mobile) that register under this AoR. */
+  devices Device[]
 
   @@unique([tenantId, aor])
   @@index([tenantId])

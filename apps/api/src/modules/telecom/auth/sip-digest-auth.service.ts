@@ -15,8 +15,23 @@ import {
   REGISTRATION_EVENTS,
   type RegistrationAuthFailedPayload,
 } from '../events/registration.events';
+import {
+  hasActiveAssignment,
+  pickRegistrableDevice,
+} from '../sip/sip-endpoint-devices.util';
 
 const AUTH_CACHE_TTL_SEC = 30;
+
+const deviceInclude = {
+  where: { deletedAt: null },
+  include: {
+    assignments: {
+      where: { deletedAt: null, effectiveTo: null },
+      orderBy: { effectiveFrom: 'desc' as const },
+      take: 1,
+    },
+  },
+};
 
 @Injectable()
 export class SipDigestAuthService {
@@ -86,15 +101,7 @@ export class SipDigestAuthService {
       },
       include: {
         tenant: true,
-        device: {
-          include: {
-            assignments: {
-              where: { deletedAt: null, effectiveTo: null },
-              orderBy: { effectiveFrom: 'desc' },
-              take: 1,
-            },
-          },
-        },
+        devices: deviceInclude,
       },
     });
 
@@ -106,15 +113,7 @@ export class SipDigestAuthService {
         },
         include: {
           tenant: true,
-          device: {
-            include: {
-              assignments: {
-                where: { deletedAt: null, effectiveTo: null },
-                orderBy: { effectiveFrom: 'desc' },
-                take: 1,
-              },
-            },
-          },
+          devices: deviceInclude,
         },
       });
     }
@@ -146,16 +145,18 @@ export class SipDigestAuthService {
       return deny('username_mismatch');
     }
 
-    if (!endpoint.device || endpoint.device.deletedAt) {
+    const device = pickRegistrableDevice(endpoint.devices);
+    if (!device) {
       return deny('device_missing');
     }
 
-    const activeAssignment = endpoint.device.assignments[0];
-    if (!activeAssignment) {
+    const activeAssignment = device.assignments?.[0];
+    // Line-bound devices may authenticate without DeviceAssignment (Extension-First WEBRTC).
+    if (!activeAssignment && !device.lineId) {
       return deny('device_assignment_inactive');
     }
 
-    if (activeAssignment.tenantId !== endpoint.tenantId) {
+    if (activeAssignment && activeAssignment.tenantId !== endpoint.tenantId) {
       return deny('tenant_isolation_violation');
     }
 
@@ -182,8 +183,8 @@ export class SipDigestAuthService {
     const allow: AuthenticateResponseDto = {
       allow: true,
       tenantId: endpoint.tenantId,
-      deviceId: endpoint.device.id,
-      lineId: endpoint.device.lineId ?? activeAssignment.lineId ?? undefined,
+      deviceId: device.id,
+      lineId: device.lineId ?? activeAssignment?.lineId ?? undefined,
       expiresSec: Math.min(this.maxExpires, 3600),
       placeholder: false,
       timeoutGuidanceMs: TELECOM_TIMEOUTS_MS.authenticate,
@@ -198,6 +199,7 @@ export class SipDigestAuthService {
         tenantId: allow.tenantId,
         deviceId: allow.deviceId,
         sipEndpointId: endpoint.id,
+        hasAssignment: hasActiveAssignment(device),
         requestId: meta.requestId,
       }),
     );
