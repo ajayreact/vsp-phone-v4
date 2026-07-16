@@ -115,9 +115,9 @@ export function SettingsContent({ section }: { section?: 'pbx' | 'security' }) {
                         {platformDashboard.data ? (
                           <div className="grid grid-cols-2 gap-3 text-sm">
                             <div><p className="text-muted-foreground">Tenants</p><p className="text-lg font-semibold">{platformDashboard.data.totalTenants}</p></div>
-                            <div><p className="text-muted-foreground">Extensions</p><p className="text-lg font-semibold">{platformDashboard.data.totalExtensions}</p></div>
+                            <div><p className="text-muted-foreground">Active Tenants</p><p className="text-lg font-semibold">{platformDashboard.data.activeTenants ?? 0}</p></div>
                             <div><p className="text-muted-foreground">Active Alerts</p><p className="text-lg font-semibold">{platformDashboard.data.activeAlerts}</p></div>
-                            <div><p className="text-muted-foreground">Telnyx Numbers</p><p className="text-lg font-semibold">{platformDashboard.data.telnyxInventory}</p></div>
+                            <div><p className="text-muted-foreground">Purchased DIDs</p><p className="text-lg font-semibold">{platformDashboard.data.totalPurchasedDids ?? platformDashboard.data.telnyxInventory}</p></div>
                           </div>
                         ) : null}
                       </QueryState>

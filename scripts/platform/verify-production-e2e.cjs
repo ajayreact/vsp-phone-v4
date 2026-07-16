@@ -8,16 +8,26 @@
  *   PLATFORM_EMAIL=... PLATFORM_PASSWORD=... \
  *   node scripts/platform/verify-production-e2e.cjs
  *
- * Optional: TENANT_SLUG after onboard to verify tenant portal login.
+ * Soft-delete the verify-* tenant created by this run after all checks pass:
+ *   node scripts/platform/verify-production-e2e.cjs --cleanup
+ *
+ * On failure the tenant is kept and credentials are printed for debugging.
+ * Never deletes Platform / VSP INTERNAL / inventory tenants.
  */
 
 const fs = require('node:fs');
 const path = require('node:path');
 const { randomUUID } = require('node:crypto');
+const {
+  hasCleanupFlag,
+  cleanupTempTenant,
+  printKeepForDebug,
+} = require('./lib/e2e-tenant-cleanup.cjs');
 
 const API_BASE = (process.env.API_BASE || 'https://api.vspphone.com/api').replace(/\/$/, '');
 const PLATFORM_EMAIL = process.env.PLATFORM_EMAIL || process.env.SUPER_ADMIN_EMAIL || '';
 const PLATFORM_PASSWORD = process.env.PLATFORM_PASSWORD || process.env.SUPER_ADMIN_PASSWORD || '';
+const WANT_CLEANUP = hasCleanupFlag();
 
 const PLATFORM_MENUS = [
   { label: 'Dashboard', path: '/v1/platform/dashboard' },
@@ -71,7 +81,13 @@ function unwrap(res) {
 }
 
 async function main() {
-  console.log(`\n=== VSP Phone Production E2E ===\nAPI: ${API_BASE}\n`);
+  console.log(`\n=== VSP Phone Production E2E ===\nAPI: ${API_BASE}\ncleanup: ${WANT_CLEANUP ? 'ON' : 'OFF'}\n`);
+
+  /** @type {{ id: string, slug: string, name: string } | null} */
+  let createdTenant = null;
+  let createdAdminEmail = null;
+  let createdAdminPassword = null;
+  let createdTenantToken = null;
 
   // --- 1. Platform Admin ---
   if (!PLATFORM_EMAIL || !PLATFORM_PASSWORD) {
@@ -266,6 +282,17 @@ async function main() {
   const newAdminId = onboardData?.adminUserId;
   const newSubId = onboardData?.subscriptionId;
 
+  createdAdminEmail = adminEmail;
+  createdAdminPassword = adminPassword;
+  if (onboardData?.tenant?.id) {
+    createdTenant = {
+      id: onboardData.tenant.id,
+      slug: onboardData.tenant.slug || slug,
+      name: onboardData.tenant.name || onboardPayload.name,
+      displayName: onboardData.tenant.displayName || onboardPayload.displayName,
+    };
+  }
+
   record('Tenant Onboarding', 'Subscription created', Boolean(newSubId));
   record('Tenant Onboarding', 'Site ID returned', Boolean(newSiteId));
   record('Tenant Onboarding', 'Admin user ID returned', Boolean(newAdminId));
@@ -275,6 +302,7 @@ async function main() {
     body: { email: adminEmail, password: adminPassword },
   });
   const tenantToken = unwrap(tenantLogin)?.accessToken;
+  createdTenantToken = tenantToken || null;
   record('Tenant Portal', 'Authentication works', tenantLogin.ok && tenantToken, `HTTP ${tenantLogin.status}`);
   record('Tenant Portal', 'JWT issued', Boolean(tenantToken));
 
@@ -310,7 +338,39 @@ async function main() {
 
   printReport();
   const failed = results.filter((r) => !r.pass && !(r.detail || '').startsWith('SKIP')).length;
-  process.exit(failed > 0 ? 1 : 0);
+
+  if (failed > 0) {
+    if (createdTenant) {
+      printKeepForDebug({
+        tenant: createdTenant,
+        adminEmail: createdAdminEmail,
+        adminPassword: createdAdminPassword,
+        reason: 'Verification failed — tenant retained for debugging',
+      });
+    }
+    process.exit(1);
+  }
+
+  if (WANT_CLEANUP && createdTenant) {
+    await cleanupTempTenant({
+      api,
+      unwrap,
+      platformToken: token,
+      tenantToken: createdTenantToken,
+      tenant: createdTenant,
+      expectedSlug: slug,
+      knownDidIds: [],
+    });
+  } else if (createdTenant) {
+    printKeepForDebug({
+      tenant: createdTenant,
+      adminEmail: createdAdminEmail,
+      adminPassword: createdAdminPassword,
+      reason: 'Verification passed without --cleanup — tenant retained',
+    });
+  }
+
+  process.exit(0);
 }
 
 async function runDbVerify(tenantId, logoUrl) {

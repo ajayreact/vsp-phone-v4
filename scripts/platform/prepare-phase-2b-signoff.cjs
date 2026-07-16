@@ -11,18 +11,33 @@
  *   $env:BASE_URL='https://tenant.vspphone.com'
  *   $env:TENANT_EMAIL=(Get-Content static/runtime-verification/2b-signoff-env.json | ConvertFrom-Json).email
  *   $env:TENANT_PASSWORD=(Get-Content static/runtime-verification/2b-signoff-env.json | ConvertFrom-Json).password
+ *
+ * Soft-delete the signoff-* tenant created by this run after prep succeeds:
+ *   node scripts/platform/prepare-phase-2b-signoff.cjs --cleanup
+ *
+ * On failure the tenant is kept and credentials are printed for debugging.
+ * Never deletes Platform / VSP INTERNAL / inventory tenants.
  */
 
 const fs = require('node:fs');
 const path = require('node:path');
 const { randomUUID } = require('node:crypto');
+const {
+  hasCleanupFlag,
+  cleanupTempTenant,
+  printKeepForDebug,
+} = require('./lib/e2e-tenant-cleanup.cjs');
 
 require('dotenv').config({ path: path.resolve(process.cwd(), '.env') });
 
-const API_BASE = (process.env.API_BASE || process.env.NEXT_PUBLIC_API_URL || 'https://api.vspphone.com/api').replace(/\/$/, '');
+const API_BASE = (process.env.API_BASE || process.env.NEXT_PUBLIC_API_URL || 'https://api.vspphone.com/api').replace(
+  /\/$/,
+  '',
+);
 const PLATFORM_EMAIL = process.env.PLATFORM_EMAIL || '';
 const PLATFORM_PASSWORD = process.env.PLATFORM_PASSWORD || '';
 const OUT = path.join(process.cwd(), 'static', 'runtime-verification', '2b-signoff-env.json');
+const WANT_CLEANUP = hasCleanupFlag();
 
 async function api(method, urlPath, { token, body } = {}) {
   const res = await fetch(`${API_BASE}${urlPath}`, {
@@ -43,12 +58,18 @@ function unwrap(res) {
 }
 
 async function main() {
+  console.log(`\n=== Phase 2B sign-off prepare ===\nAPI: ${API_BASE}\ncleanup: ${WANT_CLEANUP ? 'ON' : 'OFF'}\n`);
+
   if (process.env.TENANT_EMAIL && process.env.TENANT_PASSWORD) {
-    console.log('TENANT_EMAIL already set — skipping onboard.');
+    console.log('TENANT_EMAIL already set — skipping onboard (no cleanup of external tenant).');
     fs.mkdirSync(path.dirname(OUT), { recursive: true });
     fs.writeFileSync(
       OUT,
-      JSON.stringify({ email: process.env.TENANT_EMAIL, source: 'env', preparedAt: new Date().toISOString() }, null, 2),
+      JSON.stringify(
+        { email: process.env.TENANT_EMAIL, source: 'env', preparedAt: new Date().toISOString() },
+        null,
+        2,
+      ),
     );
     return;
   }
@@ -70,6 +91,12 @@ async function main() {
   const slug = `signoff-${Date.now().toString(36)}`;
   const adminEmail = `admin+${slug}@verify.vspphone.com`;
   const adminPassword = `Signoff!${randomUUID().slice(0, 8)}`;
+
+  /** @type {{ id: string, slug: string, name: string, displayName?: string } | null} */
+  let createdTenant = null;
+  /** @type {string[]} */
+  let assignedDidIds = [];
+  let tenantToken = null;
 
   const plans = unwrap(await api('GET', '/v1/platform/billing/plans', { token: platformToken })) || [];
   const plan = plans.find((p) => p.name === 'Starter') || plans[0];
@@ -111,12 +138,25 @@ async function main() {
     process.exit(1);
   }
 
+  const onboardData = unwrap(onboard);
+  createdTenant = {
+    id: onboardData.tenant.id,
+    slug: onboardData.tenant.slug || slug,
+    name: onboardData.tenant.name || `Signoff ${slug}`,
+    displayName: onboardData.tenant.displayName || `Signoff ${slug}`,
+  };
+
   const tenantLogin = await api('POST', '/v1/auth/login', {
     body: { email: adminEmail, password: adminPassword },
   });
-  const tenantToken = unwrap(tenantLogin)?.accessToken;
+  tenantToken = unwrap(tenantLogin)?.accessToken || null;
   if (!tenantToken) {
-    console.error('Tenant login failed', tenantLogin.status);
+    printKeepForDebug({
+      tenant: createdTenant,
+      adminEmail,
+      adminPassword,
+      reason: 'Tenant login failed after onboard — tenant retained for debugging',
+    });
     process.exit(1);
   }
 
@@ -125,11 +165,21 @@ async function main() {
   );
   const numbers = Array.isArray(inventory) ? inventory : inventory?.items ?? [];
   if (numbers.length >= 3) {
-    const ids = numbers.slice(0, 3).map((n) => n.id || n.phoneNumberId);
-    await api('POST', '/v1/carriers/telnyx/numbers/bulk/assign', {
+    const ids = numbers.slice(0, 3).map((n) => n.id || n.phoneNumberId).filter(Boolean);
+    assignedDidIds = ids;
+    const assign = await api('POST', '/v1/carriers/telnyx/numbers/bulk/assign', {
       token: platformToken,
-      body: { tenantId: unwrap(onboard).tenant.id, ids, startExtension: '101' },
+      body: { tenantId: createdTenant.id, ids, startExtension: '101' },
     });
+    if (!assign.ok) {
+      printKeepForDebug({
+        tenant: createdTenant,
+        adminEmail,
+        adminPassword,
+        reason: `DID assign failed HTTP ${assign.status} — tenant retained for debugging`,
+      });
+      process.exit(1);
+    }
   }
 
   const hub = unwrap(await api('GET', '/v1/tenant/extensions/hub', { token: tenantToken })) || [];
@@ -149,10 +199,11 @@ async function main() {
         email: adminEmail,
         password: adminPassword,
         slug,
-        tenantId: unwrap(onboard).tenant?.id,
+        tenantId: createdTenant.id,
         extension101: ext101?.label ?? null,
         preparedAt: new Date().toISOString(),
         baseUrl: 'https://tenant.vspphone.com',
+        cleanup: WANT_CLEANUP,
       },
       null,
       2,
@@ -161,7 +212,27 @@ async function main() {
 
   console.log('Sign-off tenant prepared.');
   console.log('Wrote', OUT);
-  console.log('Run Playwright with TENANT_EMAIL / TENANT_PASSWORD from that file.');
+
+  if (WANT_CLEANUP) {
+    await cleanupTempTenant({
+      api,
+      unwrap,
+      platformToken,
+      tenantToken,
+      tenant: createdTenant,
+      expectedSlug: slug,
+      knownDidIds: assignedDidIds,
+    });
+    console.log('Note: --cleanup removed the sign-off tenant. Omit --cleanup when preparing for Playwright.');
+  } else {
+    console.log('Run Playwright with TENANT_EMAIL / TENANT_PASSWORD from that file.');
+    printKeepForDebug({
+      tenant: createdTenant,
+      adminEmail,
+      adminPassword,
+      reason: 'Prep succeeded without --cleanup — tenant retained for browser sign-off',
+    });
+  }
 }
 
 main().catch((err) => {

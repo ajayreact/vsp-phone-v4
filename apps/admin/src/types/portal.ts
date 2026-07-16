@@ -2,23 +2,40 @@ import type { InfraHealthCheck } from './telecom';
 
 export type ApiDataResponse<T> = { data: T };
 
+export type PlatformDashboardComponents = {
+  api: InfraHealthCheck;
+  postgres: InfraHealthCheck;
+  redis: InfraHealthCheck;
+  kamailio: InfraHealthCheck;
+  rtpengine: InfraHealthCheck;
+};
+
 export type PlatformDashboardSnapshot = {
   ts: string;
   totalTenants: number;
+  activeTenants: number;
+  pendingTenantApprovals: number;
+  /** Kept for API compatibility; not shown on Platform Dashboard. */
   totalExtensions: number;
   registeredDevices: number;
+  onlineDevices: number;
+  offlineDevices: number;
   concurrentCalls: number;
   sipRegistrations: number;
+  totalPurchasedDids: number;
   telnyxInventory: number;
   assignedDids: number;
   unassignedDids: number;
+  reservedDids: number;
   failedCallsToday: number;
+  todaysCallMinutes: number;
   mrrCents: number;
   carrierCostCents: number;
   grossMarginCents: number;
   recordingCount: number;
   storageBytesEstimate: number;
   carrierStatus: InfraHealthCheck;
+  components: PlatformDashboardComponents;
   activeAlerts: number;
 };
 
