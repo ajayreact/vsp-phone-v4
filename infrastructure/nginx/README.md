@@ -6,7 +6,7 @@ Operator-owned reverse proxy. The application stack listens on localhost; nginx 
 
 | Public host | nginx `proxy_pass` | Backend |
 |-------------|-------------------|---------|
-| `api.vspphone.com` | `https://127.0.0.1:3000` | NestJS API (HTTPS in Docker) |
+| `api.vspphone.com` | `http://127.0.0.1:3000` | NestJS API (HTTP; TLS at nginx) |
 | `admin.vspphone.com` | `http://127.0.0.1:3001` | Platform Admin (`platform` portal) |
 | `app.vspphone.com` | `http://127.0.0.1:3001` | Operations Center (`ops` portal) |
 | `tenant.vspphone.com` | `http://127.0.0.1:3001` | Tenant Portal (`tenant` portal) |

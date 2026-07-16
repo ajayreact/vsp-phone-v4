@@ -88,7 +88,7 @@ systemctl status nginx --no-pager | head -5
 
 echo ""
 echo "=== 7. Upstream connectivity (from host) ==="
-curl -sk -o /dev/null -w "API direct:  %{http_code}\n" https://127.0.0.1:3000/api/health || echo "API direct: FAIL"
+curl -sf -o /dev/null -w "API direct:  %{http_code}\n" http://127.0.0.1:3000/api/health || echo "API direct: FAIL"
 curl -s -o /dev/null -w "Admin direct: %{http_code}\n" http://127.0.0.1:3001/api/health || echo "Admin direct: FAIL"
 
 echo ""

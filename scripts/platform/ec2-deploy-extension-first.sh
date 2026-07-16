@@ -63,7 +63,7 @@ $COMPOSE up -d --force-recreate --no-deps api admin
 
 echo "=== Wait for API healthy ==="
 for i in $(seq 1 40); do
-  if curl -sk https://127.0.0.1:3000/api/health 2>/dev/null | grep -q '"status":"ok"'; then
+  if curl -sf http://127.0.0.1:3000/api/health 2>/dev/null | grep -q '"status":"ok"'; then
     echo "API healthy after ${i} attempts"
     break
   fi
@@ -117,14 +117,14 @@ echo "=== Container status ==="
 $COMPOSE ps api admin
 
 echo "=== Post-deploy health ==="
-curl -sk https://127.0.0.1:3000/api/health | tee "$LOG_DIR/post-health.json"
+curl -sf http://127.0.0.1:3000/api/health | tee "$LOG_DIR/post-health.json"
 echo ""
-curl -sk https://127.0.0.1:3000/api/ready | tee "$LOG_DIR/post-ready.json"
+curl -sf http://127.0.0.1:3000/api/ready | tee "$LOG_DIR/post-ready.json"
 echo ""
 
 echo "=== Hub routes (require tenant JWT — smoke 401/403 expected without token) ==="
-curl -sk -o /dev/null -w "hub:%{http_code}\n" https://127.0.0.1:3000/api/v1/tenant/extensions/hub
-curl -sk -o /dev/null -w "hub/stats:%{http_code}\n" https://127.0.0.1:3000/api/v1/tenant/extensions/hub/stats
+curl -sf -o /dev/null -w "hub:%{http_code}\n" http://127.0.0.1:3000/api/v1/tenant/extensions/hub || true
+curl -sf -o /dev/null -w "hub/stats:%{http_code}\n" http://127.0.0.1:3000/api/v1/tenant/extensions/hub/stats || true
 
 echo "=== Deploy complete ==="
 echo "Log: $LOG_FILE"

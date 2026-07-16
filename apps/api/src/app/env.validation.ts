@@ -164,6 +164,13 @@ function requirePort(env: NodeJS.ProcessEnv, key: string, fallback: string): num
   return port;
 }
 
+function productionTlsConfigured(env: NodeJS.ProcessEnv): boolean {
+  if ((env.TLS_ENABLED ?? 'false').toLowerCase() === 'true') return true;
+  const termination = (env.TLS_TERMINATION ?? '').toLowerCase().trim();
+  // Nest may listen on plain HTTP when nginx/edge terminates HTTPS.
+  return termination === 'nginx' || termination === 'edge' || termination === 'external';
+}
+
 function assertProductionSecurity(env: NodeJS.ProcessEnv): void {
   const vspEnv = env.VSP_ENV ?? 'development';
   if (vspEnv !== 'production') return;
@@ -173,8 +180,10 @@ function assertProductionSecurity(env: NodeJS.ProcessEnv): void {
   if (!env.TELNYX_WEBHOOK_SECRET?.trim()) {
     throw new Error('TELNYX_WEBHOOK_SECRET is required when VSP_ENV=production');
   }
-  if ((env.TLS_ENABLED ?? 'false').toLowerCase() !== 'true') {
-    throw new Error('TLS_ENABLED must be true when VSP_ENV=production');
+  if (!productionTlsConfigured(env)) {
+    throw new Error(
+      'Production requires TLS_ENABLED=true (Nest HTTPS) or TLS_TERMINATION=nginx|edge when TLS is terminated externally',
+    );
   }
 }
 

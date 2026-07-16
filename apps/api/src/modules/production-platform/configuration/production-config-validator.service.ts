@@ -67,8 +67,18 @@ export class ProductionConfigValidatorService implements OnModuleInit {
     if (policy.requireTelnyxWebhook && !this.hasSecret('TELNYX_WEBHOOK_SECRET')) {
       errors.push('TELNYX_WEBHOOK_SECRET is required');
     }
-    if (policy.requireTls && this.config.get<boolean>('TLS_ENABLED') !== true) {
-      errors.push('TLS_ENABLED must be true');
+    if (policy.requireTls) {
+      const tlsEnabled =
+        this.config.get<boolean>('TLS_ENABLED') === true ||
+        String(this.config.get('TLS_ENABLED')).toLowerCase() === 'true';
+      const termination = String(this.config.get('TLS_TERMINATION') ?? '')
+        .toLowerCase()
+        .trim();
+      const edgeTls =
+        termination === 'nginx' || termination === 'edge' || termination === 'external';
+      if (!tlsEnabled && !edgeTls) {
+        errors.push('TLS_ENABLED must be true, or TLS_TERMINATION=nginx|edge for edge HTTPS');
+      }
     }
     if (policy.requireBackupLocation && !this.config.get<string>('BACKUP_LOCATION')?.trim()) {
       errors.push('BACKUP_LOCATION is required');

@@ -22,8 +22,18 @@ export class SecretValidationService implements OnModuleInit {
     if (!this.config.get('TELNYX_WEBHOOK_SECRET')) {
       throw new Error('TELNYX_WEBHOOK_SECRET is required in production');
     }
-    if (this.config.get<boolean>('TLS_ENABLED') !== true) {
-      throw new Error('TLS_ENABLED must be true in production');
+    const tlsEnabled =
+      this.config.get<boolean>('TLS_ENABLED') === true ||
+      String(this.config.get('TLS_ENABLED')).toLowerCase() === 'true';
+    const termination = String(this.config.get('TLS_TERMINATION') ?? '')
+      .toLowerCase()
+      .trim();
+    const edgeTls =
+      termination === 'nginx' || termination === 'edge' || termination === 'external';
+    if (!tlsEnabled && !edgeTls) {
+      throw new Error(
+        'Production requires TLS_ENABLED=true or TLS_TERMINATION=nginx|edge (external HTTPS termination)',
+      );
     }
   }
 
