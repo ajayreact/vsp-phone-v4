@@ -11,6 +11,7 @@ import { PlatformBillingController } from './controllers/platform-billing.contro
 import { PlatformCarriersController } from './controllers/platform-carriers.controller';
 import { PlatformDashboardController } from './controllers/platform-dashboard.controller';
 import { PlatformOrganizationController } from './controllers/platform-organization.controller';
+import { PlatformProvisioningSettingsController } from './controllers/platform-provisioning-settings.controller';
 import { PlatformRolesController } from './controllers/platform-roles.controller';
 import { PlatformSearchController } from './controllers/platform-search.controller';
 import { PlatformSettingsController } from './controllers/platform-settings.controller';
@@ -26,6 +27,7 @@ import { PlatformBillingService } from './services/platform-billing.service';
 import { PlatformCarriersService } from './services/platform-carriers.service';
 import { PlatformDashboardService } from './services/platform-dashboard.service';
 import { PlatformOrganizationService } from './services/platform-organization.service';
+import { PlatformProvisioningSettingsService } from './services/platform-provisioning-settings.service';
 import { PlatformRolesService } from './services/platform-roles.service';
 import { PlatformSearchService } from './services/platform-search.service';
 import { PlatformSettingsService } from './services/platform-settings.service';
@@ -50,6 +52,7 @@ import { PlatformUsersService } from './services/platform-users.service';
     PlatformCarriersController,
     PlatformAuditController,
     PlatformSettingsController,
+    PlatformProvisioningSettingsController,
     PlatformUsersController,
     PlatformApiKeysController,
     PlatformSearchController,
@@ -64,6 +67,7 @@ import { PlatformUsersService } from './services/platform-users.service';
     PlatformCarriersService,
     PlatformAuditService,
     PlatformSettingsService,
+    PlatformProvisioningSettingsService,
     PlatformUsersService,
     PlatformApiKeysService,
     PlatformSearchService,
@@ -77,6 +81,7 @@ import { PlatformUsersService } from './services/platform-users.service';
     PlatformCarriersService,
     PlatformAuditService,
     PlatformSettingsService,
+    PlatformProvisioningSettingsService,
     PlatformUsersService,
     PlatformApiKeysService,
     PlatformSearchService,

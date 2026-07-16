@@ -3,7 +3,6 @@
 import {
   Download,
   Eye,
-  Pencil,
   Power,
   RefreshCw,
   RotateCcw,
@@ -18,6 +17,7 @@ import {
   useBulkRebootDevices,
   useCreateTenantDevice,
   useDeleteTenantDevice,
+  useRebootDevice,
   useReprovisionDevice,
   useRollbackDeviceConfig,
   useUpdateTenantDevice,
@@ -28,6 +28,7 @@ import { deviceRepository } from '../../lib/repositories/device.repository';
 import { usePermissions } from '../../lib/auth/AuthProvider';
 import { PERMISSIONS, hasPermission } from '../../lib/rbac/permissions';
 import { StatusBadge } from '../ui/Badge';
+import { ActionDropdown, type ActionItem } from '../data/ActionDropdown';
 import type { Column } from '../data/DataTable';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
@@ -43,7 +44,6 @@ import { WriteCreateButton } from './shared/TenantCreateForms';
 type DeviceRow = Record<string, unknown> & { id: string };
 
 const MANUFACTURERS = ['GRANDSTREAM', 'YEALINK', 'FANVIL', 'POLY', 'CISCO', 'SNOM', 'OTHER'] as const;
-const DEVICE_TYPES = ['DESK_PHONE', 'WEBRTC', 'MOBILE', 'SIP'] as const;
 
 type DeviceForm = {
   name: string;
@@ -123,20 +123,12 @@ function DeviceFormFields({
       </label>
       {!editMode ? (
         <>
+          <p className="rounded-xl border border-border bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+            Provision URLs are generated automatically from manufacturer + MAC
+            (e.g. <span className="font-mono">https://prov.vspphone.com/gs/&#123;mac&#125;/cfg.xml</span>).
+          </p>
           <label className="block space-y-1.5 text-sm">
-            <span className="font-medium">Device type *</span>
-            <select
-              className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm"
-              value={form.deviceType}
-              onChange={(e) => setForm({ ...form, deviceType: e.target.value })}
-            >
-              {DEVICE_TYPES.map((t) => (
-                <option key={t} value={t}>{t.replace('_', ' ')}</option>
-              ))}
-            </select>
-          </label>
-          <label className="block space-y-1.5 text-sm">
-            <span className="font-medium">Manufacturer</span>
+            <span className="font-medium">Manufacturer *</span>
             <select
               className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm"
               value={form.manufacturer}
@@ -148,12 +140,13 @@ function DeviceFormFields({
             </select>
           </label>
           <label className="block space-y-1.5 text-sm">
-            <span className="font-medium">MAC address</span>
+            <span className="font-medium">MAC address *</span>
             <Input
               value={form.macAddress}
               onChange={(e) => setForm({ ...form, macAddress: e.target.value })}
               placeholder="AA:BB:CC:DD:EE:FF"
               className="font-mono"
+              required
             />
           </label>
           <label className="block space-y-1.5 text-sm">
@@ -244,9 +237,51 @@ export function DevicesContent() {
   const bulkProvision = useBulkProvisionDevices();
   const bulkReboot = useBulkRebootDevices();
   const reprovision = useReprovisionDevice();
+  const rebootDevice = useRebootDevice();
   const rollback = useRollbackDeviceConfig();
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  const rows = withRowIds(query.data ?? []) as DeviceRow[];
+  const rows = withRowIds(
+    (query.data ?? []).filter((r) => String((r as DeviceRow).deviceType ?? 'DESK_PHONE') === 'DESK_PHONE'),
+  ) as DeviceRow[];
+
+  const copyProvUrl = async (row: DeviceRow) => {
+    const url = String(row.provUrl ?? '');
+    if (!url) return;
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopiedId(row.id);
+      window.setTimeout(() => setCopiedId((id) => (id === row.id ? null : id)), 1500);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Copy failed');
+    }
+  };
+
+  const regenerateConfig = async (deviceId: string) => {
+    try {
+      await reprovision.mutateAsync(deviceId);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Regenerate config failed');
+    }
+  };
+
+  const reProvision = async (deviceId: string) => {
+    try {
+      await reprovision.mutateAsync(deviceId);
+      await rebootDevice.mutateAsync(deviceId);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Re-provision failed');
+    }
+  };
+
+  const rebootPhone = async (deviceId: string) => {
+    try {
+      await rebootDevice.mutateAsync(deviceId);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Reboot failed');
+    }
+  };
+
   const extensions = (extensionsQuery.data ?? []) as {
     id: string;
     lineId?: string;
@@ -264,6 +299,26 @@ export function DevicesContent() {
       })),
     [extensions],
   );
+
+  const openEdit = (row: DeviceRow) => {
+    setForm({
+      name: String(row.name ?? ''),
+      deviceType: String(row.deviceType ?? 'DESK_PHONE'),
+      manufacturer: String(row.manufacturer ?? 'GRANDSTREAM'),
+      model: String(row.model ?? ''),
+      macAddress: String(row.macAddress ?? ''),
+      lineId: String((row.line as { id?: string })?.id ?? ''),
+      serialNumber: String(row.serialNumber ?? ''),
+      assetTag: String(row.assetTag ?? ''),
+      location: String(row.location ?? ''),
+      modelFamily: String((row.provisioningMeta as { modelFamily?: string })?.modelFamily ?? 'grp261x'),
+      transport: String(row.transport ?? 'UDP'),
+      tlsEnabled: Boolean(row.tlsEnabled),
+      srtpEnabled: Boolean(row.srtpEnabled),
+    });
+    setEditRow(row);
+    setError(null);
+  };
 
   const columns: Column<DeviceRow>[] = useMemo(
     () => [
@@ -288,8 +343,26 @@ export function DevicesContent() {
       { key: 'model', header: 'Model', cell: (r) => String(r.model ?? '—') },
       { key: 'mac', header: 'MAC', cell: (r) => <span className="font-mono text-xs">{String(r.macAddress ?? '—')}</span> },
       { key: 'extension', header: 'Extension', cell: (r) => extensionLabel(r) },
+      {
+        key: 'provUrl',
+        header: 'Provision URL',
+        cell: (r) => {
+          const url = String(r.provUrl ?? '');
+          if (!url) {
+            return (
+              <span className="text-muted-foreground" title="Add a valid MAC address to generate a URL">
+                —
+              </span>
+            );
+          }
+          return (
+            <span className="block max-w-[280px] truncate font-mono text-xs" title={url}>
+              {copiedId === r.id ? 'Copied!' : url}
+            </span>
+          );
+        },
+      },
       { key: 'user', header: 'User', cell: (r) => userLabel(r) },
-      { key: 'site', header: 'Site', cell: (r) => String((r.site as { name?: string })?.name ?? '—') },
       { key: 'status', header: 'Status', cell: (r) => <StatusBadge status={statusTone(String(r.status ?? ''))} /> },
       {
         key: 'provisioning',
@@ -297,59 +370,61 @@ export function DevicesContent() {
         cell: (r) => <StatusBadge status={statusTone(String(r.provisioningStatus ?? 'pending'))} />,
       },
       {
-        key: 'registration',
-        header: 'Registration',
-        cell: (r) => <StatusBadge status={statusTone(registrationStatus(r))} />,
-      },
-      {
         key: 'actions',
-        header: '',
-        cell: (r) => (
-          <div className="flex gap-1">
-            <Button variant="ghost" size="sm" onClick={() => setDetailRow(r)} title="Details">
-              <Eye className="h-4 w-4" />
-            </Button>
-            {canWrite ? (
-              <Button variant="ghost" size="sm" onClick={() => openEdit(r)} title="Edit">
-                <Pencil className="h-4 w-4" />
-              </Button>
-            ) : null}
-          </div>
-        ),
+        header: 'Actions',
+        cell: (r) => {
+          const hasUrl = Boolean(r.provUrl);
+          const items: ActionItem[] = [];
+          if (hasUrl) {
+            items.push({
+              id: 'copy',
+              label: copiedId === r.id ? 'Copied' : 'Copy URL',
+              onSelect: () => void copyProvUrl(r),
+            });
+          }
+          if (canProvision && hasUrl) {
+            items.push(
+              {
+                id: 'regenerate',
+                label: 'Regenerate Config',
+                onSelect: () => void regenerateConfig(r.id),
+              },
+              {
+                id: 'reprovision',
+                label: 'Re-Provision',
+                onSelect: () => void reProvision(r.id),
+              },
+            );
+          }
+          if (canProvision) {
+            items.push({
+              id: 'reboot',
+              label: 'Reboot Phone',
+              onSelect: () => void rebootPhone(r.id),
+            });
+          }
+          items.push(
+            { id: 'details', label: 'Details', onSelect: () => setDetailRow(r) },
+            ...(canWrite
+              ? [{ id: 'edit', label: 'Edit', onSelect: () => openEdit(r) } satisfies ActionItem]
+              : []),
+          );
+          return <ActionDropdown items={items} />;
+        },
       },
     ],
-    [canWrite, selected],
+    [canWrite, canProvision, selected, copiedId],
   );
-
-  const openEdit = (row: DeviceRow) => {
-    setForm({
-      name: String(row.name ?? ''),
-      deviceType: String(row.deviceType ?? 'DESK_PHONE'),
-      manufacturer: String(row.manufacturer ?? 'GRANDSTREAM'),
-      model: String(row.model ?? ''),
-      macAddress: String(row.macAddress ?? ''),
-      lineId: String((row.line as { id?: string })?.id ?? ''),
-      serialNumber: String(row.serialNumber ?? ''),
-      assetTag: String(row.assetTag ?? ''),
-      location: String(row.location ?? ''),
-      modelFamily: String((row.provisioningMeta as { modelFamily?: string })?.modelFamily ?? 'grp261x'),
-      transport: String(row.transport ?? 'UDP'),
-      tlsEnabled: Boolean(row.tlsEnabled),
-      srtpEnabled: Boolean(row.srtpEnabled),
-    });
-    setEditRow(row);
-    setError(null);
-  };
 
   const handleCreate = async () => {
     setError(null);
     try {
       await create.mutateAsync({
         name: form.name,
-        deviceType: form.deviceType,
+        deviceType: 'DESK_PHONE',
         manufacturer: form.manufacturer,
         model: form.model || undefined,
-        macAddress: form.macAddress || undefined,
+        macAddress: form.macAddress.trim(),
         lineId: form.lineId || undefined,
         serialNumber: form.serialNumber || undefined,
         assetTag: form.assetTag || undefined,
@@ -450,8 +525,8 @@ export function DevicesContent() {
             columns={columns}
             search={search}
             onSearchChange={setSearch}
-            emptyTitle="No devices in inventory"
-            emptyDescription="Add desk phones, softphones, or mobile endpoints to begin provisioning."
+            emptyTitle="No desk phones in inventory"
+            emptyDescription="Add desk phones with a MAC address to generate provisioning URLs."
             filterRows={(data, q) => defaultSearchFilter(data, q)}
             headerActions={
               canWrite ? (
@@ -495,7 +570,12 @@ export function DevicesContent() {
             <DeviceFormFields form={form} setForm={setForm} extensions={extOptions} />
             <div className="mt-6 flex justify-end gap-2">
               <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancel</Button>
-              <Button onClick={handleCreate} disabled={!form.name || create.isPending}>Create</Button>
+              <Button
+                onClick={handleCreate}
+                disabled={!form.name || !form.macAddress.trim() || create.isPending}
+              >
+                Create
+              </Button>
             </div>
           </SlideOver>
 
@@ -525,19 +605,45 @@ export function DevicesContent() {
                   <div><span className="text-muted-foreground">IP address</span><p className="font-mono">{String(detailMeta?.ipAddress ?? detailRow.ipAddress ?? '—')}</p></div>
                   <div><span className="text-muted-foreground">Transport</span><p>{String(detailRow.transport ?? 'UDP')} {detailRow.tlsEnabled ? '+ TLS' : ''} {detailRow.srtpEnabled ? '+ SRTP' : ''}</p></div>
                   <div><span className="text-muted-foreground">Config version</span><p>{String(detailMeta?.configVersion ?? '—')}</p></div>
-                  <div><span className="text-muted-foreground">Prov URL</span><p className="break-all font-mono text-xs">{String(detailRow.provUrl ?? '—')}</p></div>
+                  <div className="col-span-2">
+                    <span className="text-muted-foreground">Provision URL</span>
+                    <p className="break-all font-mono text-xs">{String(detailRow.provUrl ?? '—')}</p>
+                  </div>
                 </div>
 
                 {canProvision ? (
                   <div className="flex flex-wrap gap-2 border-t border-border pt-4">
-                    <Button size="sm" variant="outline" onClick={async () => {
-                      try {
-                        await reprovision.mutateAsync(detailRow.id);
-                      } catch (e) {
-                        setError(e instanceof Error ? e.message : 'Reprovision failed');
-                      }
-                    }}>
-                      <RefreshCw className="mr-1 h-4 w-4" /> Reprovision
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={!detailRow.provUrl}
+                      onClick={() => void copyProvUrl(detailRow)}
+                    >
+                      Copy URL
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={!detailRow.provUrl || reprovision.isPending}
+                      onClick={() => void regenerateConfig(detailRow.id)}
+                    >
+                      <RefreshCw className="mr-1 h-4 w-4" /> Regenerate Config
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={!detailRow.provUrl || reprovision.isPending || rebootDevice.isPending}
+                      onClick={() => void reProvision(detailRow.id)}
+                    >
+                      <RotateCcw className="mr-1 h-4 w-4" /> Re-Provision
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={rebootDevice.isPending}
+                      onClick={() => void rebootPhone(detailRow.id)}
+                    >
+                      <Power className="mr-1 h-4 w-4" /> Reboot Phone
                     </Button>
                     <Button size="sm" variant="outline" onClick={async () => {
                       try {
@@ -563,15 +669,6 @@ export function DevicesContent() {
                         <RotateCcw className="mr-1 h-4 w-4" /> Rollback
                       </Button>
                     ) : null}
-                    <Button size="sm" variant="outline" onClick={async () => {
-                      try {
-                        await deviceRepository.rebootDevice(detailRow.id);
-                      } catch (e) {
-                        setError(e instanceof Error ? e.message : 'Reboot failed');
-                      }
-                    }}>
-                      <Power className="mr-1 h-4 w-4" /> Reboot
-                    </Button>
                     {canWrite ? (
                       <Button size="sm" variant="destructive" onClick={async () => {
                         if (!confirm('Delete this device?')) return;

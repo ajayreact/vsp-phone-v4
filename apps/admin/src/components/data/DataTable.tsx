@@ -1,7 +1,7 @@
 'use client';
 
 import { ChevronDown } from 'lucide-react';
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { cn } from '../../lib/utils/cn';
 import { Button } from '../ui/Button';
 import { Skeleton } from '../ui/Skeleton';
@@ -13,6 +13,8 @@ export type Column<T> = {
   header: string;
   cell: (row: T) => ReactNode;
   sortable?: boolean;
+  /** Optional value used for client-side sorting when the cell is not a plain field. */
+  sortValue?: (row: T) => string | number | null | undefined;
   className?: string;
 };
 
@@ -46,10 +48,27 @@ export function DataTable<T extends { id: string }>({
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
 
   const pageCount = Math.max(1, Math.ceil(data.length / pageSize));
+
+  useEffect(() => {
+    if (page > pageCount - 1) setPage(0);
+  }, [page, pageCount]);
+
   const rows = useMemo(() => {
+    let sorted = data;
+    if (sortKey) {
+      const col = columns.find((c) => c.key === sortKey);
+      sorted = [...data].sort((a, b) => {
+        const av = col?.sortValue ? col.sortValue(a) : (a as Record<string, unknown>)[sortKey];
+        const bv = col?.sortValue ? col.sortValue(b) : (b as Record<string, unknown>)[sortKey];
+        const as = av == null ? '' : String(av);
+        const bs = bv == null ? '' : String(bv);
+        const cmp = as.localeCompare(bs, undefined, { numeric: true, sensitivity: 'base' });
+        return sortDir === 'asc' ? cmp : -cmp;
+      });
+    }
     const start = page * pageSize;
-    return data.slice(start, start + pageSize);
-  }, [data, page, pageSize]);
+    return sorted.slice(start, start + pageSize);
+  }, [columns, data, page, pageSize, sortKey, sortDir]);
 
   if (loading) {
     return (
@@ -70,7 +89,7 @@ export function DataTable<T extends { id: string }>({
   return (
     <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-[var(--shadow-card)]">
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[640px] text-sm">
+        <table className="w-full min-w-[1100px] text-sm">
           <thead className="sticky top-0 z-10 border-b border-border bg-muted/50 backdrop-blur-sm">
             <tr>
               {selectable ? (
@@ -94,7 +113,7 @@ export function DataTable<T extends { id: string }>({
                 <th
                   key={col.key}
                   className={cn(
-                    'px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground',
+                    'px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground whitespace-nowrap',
                     col.className,
                   )}
                 >
@@ -112,14 +131,24 @@ export function DataTable<T extends { id: string }>({
                       }}
                     >
                       {col.header}
-                      <ChevronDown className="h-3.5 w-3.5 opacity-50" />
+                      <ChevronDown
+                        className={cn(
+                          'h-3.5 w-3.5 opacity-40',
+                          sortKey === col.key && 'opacity-100',
+                          sortKey === col.key && sortDir === 'desc' && 'rotate-180',
+                        )}
+                      />
                     </button>
                   ) : (
                     col.header
                   )}
                 </th>
               ))}
-              <th className="w-12 px-4 py-3" />
+              {rowActions ? (
+                <th className="w-12 px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Actions
+                </th>
+              ) : null}
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
@@ -129,7 +158,7 @@ export function DataTable<T extends { id: string }>({
                 className="transition-colors hover:bg-muted/40"
               >
                 {selectable ? (
-                  <td className="px-4 py-3.5">
+                  <td className="px-3 py-2.5">
                     <input
                       type="checkbox"
                       aria-label={`Select ${row.id}`}
@@ -146,25 +175,15 @@ export function DataTable<T extends { id: string }>({
                   </td>
                 ) : null}
                 {columns.map((col) => (
-                  <td key={col.key} className={cn('px-4 py-3.5', col.className)}>
+                  <td key={col.key} className={cn('px-3 py-2.5 align-middle', col.className)}>
                     {col.cell(row)}
                   </td>
                 ))}
-                <td className="px-4 py-3.5">
-                  {rowActions ? (
-                    <ActionDropdown
-                      items={rowActions(row)}
-                    />
-                  ) : (
-                    <ActionDropdown
-                      items={[
-                        { id: 'view', label: 'View details' },
-                        { id: 'edit', label: 'Edit' },
-                        { id: 'delete', label: 'Delete', destructive: true },
-                      ]}
-                    />
-                  )}
-                </td>
+                {rowActions ? (
+                  <td className="px-3 py-2.5">
+                    <ActionDropdown items={rowActions(row)} />
+                  </td>
+                ) : null}
               </tr>
             ))}
           </tbody>

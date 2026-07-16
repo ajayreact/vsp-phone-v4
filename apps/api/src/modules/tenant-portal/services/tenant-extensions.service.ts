@@ -71,6 +71,10 @@ export type ExtensionHubRow = {
   registrationLabel: string;
   lastCallAt: string | null;
   lastCallRelative: string | null;
+  lastRegistrationAt: string | null;
+  provisionLabel: string;
+  recordingEnabled: boolean;
+  voicemailEnabled: boolean;
   linkedUser: { id: string; email: string; displayName: string | null } | null;
 };
 
@@ -88,7 +92,11 @@ const extensionInclude = {
       phoneNumbers: { where: { deletedAt: null }, select: { id: true, number: true }, take: 1 },
       devices: {
         where: { deletedAt: null },
-        include: { sipEndpoint: { select: { registrationStatus: true } } },
+        include: {
+          sipEndpoint: {
+            select: { registrationStatus: true, lastRegisteredAt: true, authUsername: true, aor: true },
+          },
+        },
         orderBy: { updatedAt: 'desc' as const },
       },
     },
@@ -337,6 +345,40 @@ export class TenantExtensionsService {
 
     if (Object.keys(linePatch).length) {
       await this.lines.update(tenantId, userId, existing.lineId, linePatch);
+    }
+
+    if (dto.inboundEnabled !== undefined || dto.outboundEnabled !== undefined) {
+      await this.prisma.callPolicy.updateMany({
+        where: { lineId: existing.lineId, tenantId, deletedAt: null },
+        data: {
+          ...(dto.inboundEnabled !== undefined ? { inboundEnabled: dto.inboundEnabled } : {}),
+          ...(dto.outboundEnabled !== undefined ? { outboundEnabled: dto.outboundEnabled } : {}),
+          updatedBy: userId,
+          version: { increment: 1 },
+        },
+      });
+    }
+
+    if (dto.recordingEnabled !== undefined) {
+      await this.prisma.recordingPolicy.updateMany({
+        where: { lineId: existing.lineId, tenantId, deletedAt: null },
+        data: {
+          recordingEnabled: dto.recordingEnabled,
+          updatedBy: userId,
+          version: { increment: 1 },
+        },
+      });
+    }
+
+    if (dto.voicemailEnabled !== undefined) {
+      await this.prisma.voicemail.updateMany({
+        where: { lineId: existing.lineId, tenantId, deletedAt: null },
+        data: {
+          status: dto.voicemailEnabled ? 'ACTIVE' : 'INACTIVE',
+          updatedBy: userId,
+          version: { increment: 1 },
+        },
+      });
     }
 
     await auditPbxMutation(this.audit, {
@@ -852,6 +894,16 @@ export class TenantExtensionsService {
       : '';
 
     const lastCallIso = lastCallAt ? lastCallAt.toISOString() : null;
+    const lastRegAt =
+      primary?.sipEndpoint?.lastRegisteredAt ?? primary?.lastSeenAt ?? primary?.updatedAt ?? null;
+    const provisionLabel =
+      status === 'Registered' || status === 'Provisioned'
+        ? 'Configured'
+        : status === 'RegistrationFailed'
+          ? 'Failed'
+          : 'Pending';
+    const recordingEnabled = Boolean(line.recordingPolicy?.recordingEnabled);
+    const voicemailEnabled = line.voicemail?.status === 'ACTIVE';
 
     return {
       id: row.id,
@@ -887,6 +939,10 @@ export class TenantExtensionsService {
       registrationLabel,
       lastCallAt: lastCallIso,
       lastCallRelative: formatRelativeTime(lastCallIso),
+      lastRegistrationAt: lastRegAt ? new Date(lastRegAt).toISOString() : null,
+      provisionLabel,
+      recordingEnabled,
+      voicemailEnabled,
       linkedUser,
     };
   }

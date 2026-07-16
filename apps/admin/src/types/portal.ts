@@ -164,6 +164,38 @@ export type PlatformSettingsRecord = {
   updatedAt: string;
 };
 
+export type PlatformProvisioningSettings = {
+  baseUrl: string;
+  vendors: Array<{
+    manufacturer: string;
+    label: string;
+    path: string;
+    exampleUrl: string;
+  }>;
+  status: {
+    status: 'up' | 'down' | 'degraded';
+    latencyMs?: number;
+    checkedAt: string;
+    healthUrl: string;
+    failureReason?: string;
+  };
+  templates: Array<{
+    id: string;
+    name: string;
+    manufacturer: string;
+    modelFamily: string | null;
+    templateKind: string;
+    isDefault: boolean;
+    tenantId: string;
+    tenantName: string;
+  }>;
+  builtInTemplateFamilies: Array<{
+    manufacturer: string;
+    label: string;
+    families: string[];
+  }>;
+};
+
 export type PlatformApiKeyRecord = {
   id: string;
   name: string;

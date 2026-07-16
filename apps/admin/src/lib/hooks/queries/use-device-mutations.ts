@@ -105,6 +105,14 @@ export function useReprovisionDevice() {
   });
 }
 
+export function useRebootDevice() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: deviceRepository.rebootDevice,
+    onSuccess: () => invalidateDeviceQueries(qc),
+  });
+}
+
 export function useRollbackDeviceConfig() {
   const qc = useQueryClient();
   return useMutation({

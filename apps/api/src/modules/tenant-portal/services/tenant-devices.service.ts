@@ -14,6 +14,7 @@ import type { JwtPayload } from '../../auth/jwt.util';
 import { EnterpriseAuditService } from '../../enterprise-observability/audit/enterprise-audit.service';
 import { DeviceEnrollmentService } from '../../provisioning/enrollment/device-enrollment.service';
 import { ProvisioningRedisService } from '../../provisioning/redis/provisioning-redis.service';
+import { buildProvConfigUrl } from '../../provisioning/url/prov-config-url';
 import { normalizeMac } from '../../provisioning/vault/provisioning-vault.service';
 import { PrismaService } from '../../telecom/prisma/prisma.service';
 import type {
@@ -517,23 +518,11 @@ export class TenantDevicesService {
         mos: meta.mos ? Number(meta.mos) : null,
       },
       configHistory,
-      provUrl: row.macAddress
-        ? `${process.env.PROV_PUBLIC_BASE_URL ?? 'https://prov.localhost:3444'}/${this.provVendorPath(String(row.manufacturer ?? 'GRANDSTREAM'))}/${String(row.macAddress)}/cfg.xml`
-        : null,
+      provUrl: buildProvConfigUrl(
+        String(row.manufacturer ?? 'GRANDSTREAM'),
+        row.macAddress ? String(row.macAddress) : null,
+      ),
     };
-  }
-
-  private provVendorPath(manufacturer: string): string {
-    const map: Record<string, string> = {
-      GRANDSTREAM: 'gs',
-      YEALINK: 'yealink',
-      FANVIL: 'fanvil',
-      POLY: 'poly',
-      CISCO: 'cisco',
-      SNOM: 'snom',
-      OTHER: 'sip',
-    };
-    return map[manufacturer] ?? 'gs';
   }
 
   private inferManufacturer(model?: string, modelFamily?: string): DeviceManufacturer | undefined {

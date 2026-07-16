@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { DeviceManufacturer } from '@prisma/client';
+import { provVendorPath, resolveProvPublicBaseUrl } from '../url/prov-config-url';
 
 export interface RenderContext {
   mac: string;
@@ -53,23 +54,17 @@ export class TemplateEngineService {
   }
 
   provBaseUrl(): string {
-    return (
-      this.config.get<string>('PROV_PUBLIC_BASE_URL') ||
-      `https://prov.localhost:${this.config.get('PROV_HTTPS_PORT') ?? '3444'}`
-    );
+    return resolveProvPublicBaseUrl({
+      ...process.env,
+      PROV_PUBLIC_BASE_URL: this.config.get<string>('PROV_PUBLIC_BASE_URL') ?? process.env.PROV_PUBLIC_BASE_URL,
+      PROV_HTTPS_PORT: String(this.config.get('PROV_HTTPS_PORT') ?? process.env.PROV_HTTPS_PORT ?? '3444'),
+      NODE_ENV: this.config.get<string>('NODE_ENV') ?? process.env.NODE_ENV,
+      VSP_ENV: this.config.get<string>('VSP_ENV') ?? process.env.VSP_ENV,
+    });
   }
 
   vendorPath(manufacturer: DeviceManufacturer | string): string {
-    const map: Record<string, string> = {
-      GRANDSTREAM: 'gs',
-      YEALINK: 'yealink',
-      FANVIL: 'fanvil',
-      POLY: 'poly',
-      CISCO: 'cisco',
-      SNOM: 'snom',
-      OTHER: 'sip',
-    };
-    return map[String(manufacturer)] ?? 'gs';
+    return provVendorPath(String(manufacturer));
   }
 
   private renderGrandstream(ctx: RenderContext): string {

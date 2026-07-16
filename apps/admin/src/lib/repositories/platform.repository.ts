@@ -9,6 +9,7 @@ import type {
   PlatformCarrierRecord,
   PlatformDashboardSnapshot,
   PlatformPermissionRecord,
+  PlatformProvisioningSettings,
   PlatformRoleRecord,
   PlatformSearchResult,
   PlatformSettingsRecord,
@@ -228,6 +229,12 @@ export const platformRepository = {
 
   getSettings(): Promise<PlatformSettingsRecord> {
     return httpGet<ApiDataResponse<PlatformSettingsRecord>>('/v1/platform/settings').then(unwrapData);
+  },
+
+  getProvisioningSettings(): Promise<PlatformProvisioningSettings> {
+    return httpGet<ApiDataResponse<PlatformProvisioningSettings>>('/v1/platform/provisioning/settings').then(
+      unwrapData,
+    );
   },
 
   updateSettings(payload: UpdatePlatformSettingsPayload): Promise<PlatformSettingsRecord> {

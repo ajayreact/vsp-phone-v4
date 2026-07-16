@@ -10,6 +10,7 @@ export const queryKeys = {
     audit: (params?: Record<string, string>) => ['platform', 'audit', params ?? {}] as const,
     users: (search?: string) => ['platform', 'users', search ?? ''] as const,
     settings: () => ['platform', 'settings'] as const,
+    provisioningSettings: () => ['platform', 'provisioning', 'settings'] as const,
     apiKeys: (tenantId?: string) => ['platform', 'api-keys', tenantId ?? 'all'] as const,
     search: (q: string) => ['platform', 'search', q] as const,
     organization: (tenantId: string) => ['platform', 'organization', tenantId] as const,

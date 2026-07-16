@@ -5,8 +5,6 @@ export const TENANT_LEGACY_REDIRECTS: Record<string, string> = {
   '/extensions': '/extensions',
   '/people/users': '/dashboard',
   '/people/extensions': '/extensions',
-  '/devices': '/extensions',
-  '/people/devices': '/extensions',
   '/people/provision': '/extensions',
   '/number-requests': '/phone-numbers/requests',
   '/call-routing': '/call-flow/incoming-routes',

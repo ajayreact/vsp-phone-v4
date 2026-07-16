@@ -19,6 +19,7 @@ export const PORTAL_ROUTE_PREFIXES: Record<PortalType, string[]> = {
     '/audit-logs',
     '/api-keys',
     '/settings',
+    '/provisioning-settings',
     '/system-health',
     '/softphone',
   ],

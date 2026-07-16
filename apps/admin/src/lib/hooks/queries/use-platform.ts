@@ -172,6 +172,13 @@ export function usePlatformSettings() {
   });
 }
 
+export function usePlatformProvisioningSettings() {
+  return useQuery({
+    queryKey: queryKeys.platform.provisioningSettings(),
+    queryFn: () => platformRepository.getProvisioningSettings(),
+  });
+}
+
 export function useUpdatePlatformSettings() {
   const qc = useQueryClient();
   return useMutation({

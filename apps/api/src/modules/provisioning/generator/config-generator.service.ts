@@ -5,6 +5,7 @@ import type { FirmwareChannel } from '../firmware/firmware-catalog.service';
 import { FirmwareCatalogService } from '../firmware/firmware-catalog.service';
 import { ArtifactStoreService } from '../store/artifact-store.service';
 import { TemplateEngineService } from '../templates/template-engine.service';
+import { buildProvConfigUrl } from '../url/prov-config-url';
 import { ProvisioningVaultService } from '../vault/provisioning-vault.service';
 
 export interface DeviceRenderInput {
@@ -77,7 +78,11 @@ export class ConfigGeneratorService {
       manufacturer: String(manufacturer),
     });
 
-    const provServerUrl = `${provBase}/${vendorPath}/${input.mac}/cfg.xml`;
+    const provServerUrl =
+      buildProvConfigUrl(manufacturer, input.mac, {
+        ...process.env,
+        PROV_PUBLIC_BASE_URL: provBase,
+      }) ?? `${provBase}/${vendorPath}/${input.mac}/cfg.xml`;
 
     const xml = this.template.render({
       mac: input.mac,

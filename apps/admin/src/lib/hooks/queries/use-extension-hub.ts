@@ -42,6 +42,10 @@ export type ExtensionHubRow = {
   registrationLabel: string;
   lastCallAt: string | null;
   lastCallRelative: string | null;
+  lastRegistrationAt: string | null;
+  provisionLabel: string;
+  recordingEnabled: boolean;
+  voicemailEnabled: boolean;
   linkedUser: { id: string; email: string; displayName: string | null } | null;
 };
 
@@ -120,30 +124,112 @@ export function useExtensionRestartRegistration() {
 }
 
 export type ConfigureTabId =
-  | 'overview'
   | 'general'
+  | 'sip'
+  | 'devices'
+  | 'desk'
+  | 'did'
+  | 'voicemail'
+  | 'callFeatures'
+  | 'recording'
+  | 'permissions'
+  | 'activity'
+  /** @deprecated legacy aliases mapped by the configure modal */
+  | 'overview'
   | 'phone'
   | 'mobile'
-  | 'desk'
-  | 'voicemail'
   | 'callHandling'
   | 'advanced';
 
-/** Form state for ExtensionConfigureDrawer — hydrated from GET /extensions/:id */
+export function normalizeConfigureTab(tab: ConfigureTabId | undefined): Exclude<
+  ConfigureTabId,
+  'overview' | 'phone' | 'mobile' | 'callHandling' | 'advanced'
+> {
+  switch (tab) {
+    case 'overview':
+    case undefined:
+      return 'general';
+    case 'phone':
+      return 'did';
+    case 'mobile':
+      return 'sip';
+    case 'callHandling':
+      return 'callFeatures';
+    case 'advanced':
+      return 'permissions';
+    default:
+      return tab as Exclude<ConfigureTabId, 'overview' | 'phone' | 'mobile' | 'callHandling' | 'advanced'>;
+  }
+}
+
+/** Form state for ExtensionConfigureModal — hydrated from GET /extensions/:id */
 export type ExtensionConfigureFormState = {
   displayName: string;
   description: string;
   departmentId: string;
   linkedUserId: string;
+  firstName: string;
+  lastName: string;
+  email: string;
   callerIdName: string;
+  outboundCallerId: string;
+  language: string;
+  timezone: string;
   pin: string;
+  voicemailEnabled: boolean;
+  voicemailNotifyEmail: string;
+  voicemailGreeting: string;
   callForwardEnabled: boolean;
   callForwardDestination: string;
   dndEnabled: boolean;
-  voicemailNotifyEmail: string;
+  callWaitingEnabled: boolean;
+  followMeEnabled: boolean;
+  ringTimeout: string;
   recordingEnabled: boolean;
   selectedDidId: string;
+  emergencyAddress: string;
+  cnam: string;
+  inboundEnabled: boolean;
+  outboundEnabled: boolean;
+  internationalCalling: boolean;
+  internalCalls: boolean;
+  emergencyCalls: boolean;
 };
+
+export function emptyExtensionConfigureForm(): ExtensionConfigureFormState {
+  return {
+    displayName: '',
+    description: '',
+    departmentId: '',
+    linkedUserId: '',
+    firstName: '',
+    lastName: '',
+    email: '',
+    callerIdName: '',
+    outboundCallerId: '',
+    language: 'en',
+    timezone: 'America/New_York',
+    pin: '',
+    voicemailEnabled: false,
+    voicemailNotifyEmail: '',
+    voicemailGreeting: '',
+    callForwardEnabled: false,
+    callForwardDestination: '',
+    dndEnabled: false,
+    callWaitingEnabled: true,
+    followMeEnabled: false,
+    ringTimeout: '30',
+    recordingEnabled: false,
+    selectedDidId: '',
+    emergencyAddress: '',
+    cnam: '',
+    inboundEnabled: true,
+    outboundEnabled: true,
+    internationalCalling: false,
+    internalCalls: true,
+    emergencyCalls: true,
+  };
+}
 
 export function mapExtensionDetailToForm(
   row: ExtensionHubRow,
@@ -153,25 +239,39 @@ export function mapExtensionDetailToForm(
   const ts = line?.telephonySettings as Record<string, unknown> | undefined;
   const callerId = line?.callerId as Record<string, unknown> | undefined;
   const recordingPolicy = line?.recordingPolicy as Record<string, unknown> | undefined;
-  const user = line?.user as { id?: string } | undefined;
+  const callPolicy = line?.callPolicy as Record<string, unknown> | undefined;
+  const user = line?.user as
+    | { id?: string; email?: string; profile?: { firstName?: string; lastName?: string; displayName?: string } }
+    | undefined;
   const dept = detail.department as { id?: string; name?: string } | null | undefined;
-  const vm = line?.voicemail as { pin?: string | null } | undefined;
-  const phoneNumbers = line?.phoneNumbers as { id?: string }[] | undefined;
+  const vm = line?.voicemail as { pin?: string | null; status?: string } | undefined;
+  const phoneNumbers = line?.phoneNumbers as { id?: string; number?: string }[] | undefined;
   const didFromLine = phoneNumbers?.[0]?.id ?? (callerId?.phoneNumber as { id?: string } | undefined)?.id;
+  const outbound = row.did?.formatted ?? phoneNumbers?.[0]?.number ?? '';
 
   return {
+    ...emptyExtensionConfigureForm(),
     displayName: String(line?.name ?? row.displayName),
     description: detail.description != null ? String(detail.description) : (row.description ?? ''),
     departmentId: dept?.id ?? row.department?.id ?? '',
     linkedUserId: user?.id ?? row.linkedUser?.id ?? '',
+    firstName: user?.profile?.firstName ?? '',
+    lastName: user?.profile?.lastName ?? '',
+    email: user?.email ?? row.linkedUser?.email ?? '',
     callerIdName: callerId?.callerIdName != null ? String(callerId.callerIdName) : '',
+    outboundCallerId: outbound,
     pin: ts?.pin != null ? String(ts.pin) : vm?.pin != null ? String(vm.pin) : '',
+    voicemailEnabled: vm?.status === 'ACTIVE' || row.voicemailEnabled,
+    voicemailNotifyEmail: ts?.voicemailNotifyEmail != null ? String(ts.voicemailNotifyEmail) : '',
     callForwardEnabled: Boolean(ts?.callForwardEnabled),
     callForwardDestination: ts?.callForwardDestination != null ? String(ts.callForwardDestination) : '',
     dndEnabled: Boolean(ts?.dndEnabled),
-    voicemailNotifyEmail: ts?.voicemailNotifyEmail != null ? String(ts.voicemailNotifyEmail) : '',
-    recordingEnabled: Boolean(recordingPolicy?.recordingEnabled),
+    followMeEnabled: Boolean(ts?.followMeEnabled),
+    recordingEnabled: Boolean(recordingPolicy?.recordingEnabled ?? row.recordingEnabled),
     selectedDidId: row.did?.id ?? didFromLine ?? '',
+    cnam: callerId?.callerIdName != null ? String(callerId.callerIdName) : '',
+    inboundEnabled: callPolicy?.inboundEnabled !== false,
+    outboundEnabled: callPolicy?.outboundEnabled !== false,
   };
 }
 

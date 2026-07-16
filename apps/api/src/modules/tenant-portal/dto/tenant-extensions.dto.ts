@@ -2,6 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
   IsArray,
+  IsBoolean,
   IsOptional,
   IsString,
   IsUUID,
@@ -146,6 +147,26 @@ export class UpdateExtensionDto {
   @IsOptional()
   @IsUUID()
   userId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  inboundEnabled?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  outboundEnabled?: boolean;
+
+  @ApiPropertyOptional({ description: 'Enable/disable call recording for this line' })
+  @IsOptional()
+  @IsBoolean()
+  recordingEnabled?: boolean;
+
+  @ApiPropertyOptional({ description: 'Enable/disable voicemail mailbox for this line' })
+  @IsOptional()
+  @IsBoolean()
+  voicemailEnabled?: boolean;
 }
 
 export class BulkExtensionRowDto {

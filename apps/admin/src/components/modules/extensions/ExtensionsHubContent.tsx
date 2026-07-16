@@ -1,64 +1,41 @@
 'use client';
 
-import {
-  ArrowDownAZ,
-  ChevronDown,
-  Monitor,
-  MoreHorizontal,
-  Phone,
-  Plus,
-  QrCode,
-  Search,
-  Settings,
-  Smartphone,
-} from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Plus, RefreshCw, Search, Settings } from 'lucide-react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   useExtensionHub,
   useExtensionRestartRegistration,
-  useRenameExtensionDisplayName,
   type ConfigureTabId,
   type ExtensionHubRow,
-  type ExtensionHubStatus,
 } from '../../../lib/hooks/queries/use-extension-hub';
 import { useCreateTenantExtension } from '../../../lib/hooks/queries/use-tenant-mutations';
 import { PERMISSIONS } from '../../../lib/rbac/permissions';
 import { hasPermission } from '../../../lib/rbac/permissions';
 import { usePermissions } from '../../../lib/auth/AuthProvider';
 import { formatExtensionLabel } from '../../../lib/extensions/format-extension-label';
+import { DataTable, type Column } from '../../data/DataTable';
+import type { ActionItem } from '../../data/ActionDropdown';
 import { QueryState } from '../../feedback/QueryState';
 import { PageContainer, PageHeader } from '../../layout/PageHeader';
 import { Button } from '../../ui/Button';
 import { Input } from '../../ui/Input';
-import { SlideOver } from '../../ui/SlideOver';
+import { Modal } from '../../ui/Modal';
 import { Skeleton } from '../../ui/Skeleton';
 import { ModuleAccessGate } from '../shared/ModuleShell';
-import { ExtensionConfigureDrawer } from './ExtensionConfigureDrawer';
+import { ExtensionConfigureModal } from './ExtensionConfigureModal';
 import { ExtensionHubStats } from './ExtensionHubStats';
 import { ExtensionStatusChip } from './ExtensionStatusChip';
 
-type HubFilter = 'all' | 'online' | 'offline' | 'no-device';
-type HubSort = 'extension' | 'displayName' | 'registration';
+type HubFilter = 'all' | 'online' | 'offline' | 'no-device' | 'configured' | 'pending';
 
 const FILTER_OPTIONS: { id: HubFilter; label: string }[] = [
   { id: 'all', label: 'All' },
   { id: 'online', label: 'Online' },
   { id: 'offline', label: 'Offline' },
+  { id: 'configured', label: 'Configured' },
+  { id: 'pending', label: 'Pending' },
   { id: 'no-device', label: 'Needs Setup' },
 ];
-
-const SORT_OPTIONS: { id: HubSort; label: string }[] = [
-  { id: 'extension', label: 'Extension Number' },
-  { id: 'displayName', label: 'Display Name' },
-  { id: 'registration', label: 'Registration Status' },
-];
-
-const REGISTRATION_SORT: Record<ExtensionHubStatus, number> = {
-  RegistrationFailed: 0,
-  NoDevice: 1,
-  Provisioned: 2,
-  Registered: 3,
-};
 
 function matchesSearch(row: ExtensionHubRow, query: string): boolean {
   const q = query.trim().toLowerCase();
@@ -66,406 +43,49 @@ function matchesSearch(row: ExtensionHubRow, query: string): boolean {
   const did = row.did?.formatted ?? row.did?.number ?? '';
   const digits = did.replace(/\D/g, '');
   const qDigits = q.replace(/\D/g, '');
+  const user = row.linkedUser?.displayName ?? row.linkedUser?.email ?? '';
+  const device = row.device?.deviceLabel ?? row.device?.name ?? '';
   return (
     row.extension.toLowerCase().includes(q) ||
     row.displayName.toLowerCase().includes(q) ||
     row.label.toLowerCase().includes(q) ||
     did.toLowerCase().includes(q) ||
+    user.toLowerCase().includes(q) ||
+    device.toLowerCase().includes(q) ||
     (qDigits.length > 0 && digits.includes(qDigits))
-  );
-}
-
-function PhoneSetupSlideOver({
-  open,
-  onClose,
-  row,
-  onChoose,
-}: {
-  open: boolean;
-  onClose: () => void;
-  row: ExtensionHubRow | null;
-  onChoose: (choice: 'mobile' | 'desk') => void;
-}) {
-  return (
-    <SlideOver
-      open={open}
-      onClose={onClose}
-      title="Set Up Phone"
-      description={row ? `Connect ${row.label} to a phone` : undefined}
-    >
-      <p className="mb-4 text-sm text-muted-foreground">Choose how you want to use this extension.</p>
-      <div className="space-y-3">
-        <button
-          type="button"
-          className="flex w-full items-start gap-3 rounded-xl border border-border p-4 text-left transition-colors hover:bg-muted/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-          onClick={() => onChoose('mobile')}
-        >
-          <Smartphone className="mt-0.5 h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
-          <span>
-            <span className="block font-medium">Mobile App</span>
-            <span className="mt-0.5 block text-sm text-muted-foreground">
-              Scan a QR code to use this extension on your phone.
-            </span>
-          </span>
-        </button>
-        <button
-          type="button"
-          className="flex w-full items-start gap-3 rounded-xl border border-border p-4 text-left transition-colors hover:bg-muted/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-          onClick={() => onChoose('desk')}
-        >
-          <Monitor className="mt-0.5 h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
-          <span>
-            <span className="block font-medium">Desk Phone</span>
-            <span className="mt-0.5 block text-sm text-muted-foreground">
-              Set up a phone at your desk or reception area.
-            </span>
-          </span>
-        </button>
-      </div>
-    </SlideOver>
   );
 }
 
 function matchesFilter(row: ExtensionHubRow, filter: HubFilter): boolean {
   if (filter === 'all') return true;
   if (filter === 'no-device') {
-    // Needs Setup: business config incomplete (API statusLabel) or legacy NoDevice
     return row.statusLabel === 'Needs Setup' || row.status === 'NoDevice';
   }
   if (filter === 'online') return row.onlineStatus === 'Online';
   if (filter === 'offline') {
     return row.onlineStatus === 'Offline' && row.statusLabel !== 'Needs Setup' && row.status !== 'NoDevice';
   }
+  if (filter === 'configured') return (row.provisionLabel ?? '') === 'Configured';
+  if (filter === 'pending') return (row.provisionLabel ?? 'Pending') !== 'Configured';
   return true;
 }
 
-function sortRows(rows: ExtensionHubRow[], sort: HubSort): ExtensionHubRow[] {
-  const copy = [...rows];
-  copy.sort((a, b) => {
-    if (sort === 'extension') {
-      return a.extension.localeCompare(b.extension, undefined, { numeric: true });
-    }
-    if (sort === 'displayName') {
-      return a.displayName.localeCompare(b.displayName);
-    }
-    const regDiff = REGISTRATION_SORT[a.status] - REGISTRATION_SORT[b.status];
-    if (regDiff !== 0) return regDiff;
-    if (a.onlineStatus !== b.onlineStatus) {
-      return a.onlineStatus === 'Online' ? 1 : -1;
-    }
-    return a.extension.localeCompare(b.extension, undefined, { numeric: true });
-  });
-  return copy;
-}
-
-function deviceStatusLabel(row: ExtensionHubRow): string {
-  if (row.hasMobileApp && !row.hasDeskPhone) {
-    return 'Mobile App Registered';
-  }
-  if (row.device?.deviceLabel) {
-    return row.device.deviceLabel;
-  }
+function deviceLabel(row: ExtensionHubRow): string {
+  if (row.device?.deviceLabel) return row.device.deviceLabel;
+  if (row.hasMobileApp && !row.hasDeskPhone) return 'Mobile App';
   if (row.hasDeskPhone && row.device?.model) {
-    const make = row.device.manufacturer ?? '';
-    return `${make} ${row.device.model}`.trim();
+    return `${row.device.manufacturer ?? ''} ${row.device.model}`.trim();
   }
-  if (row.hasMobileApp && row.hasDeskPhone) {
-    return row.device?.deviceLabel ?? 'Mobile App Registered';
-  }
-  return 'No device configured';
+  return '—';
 }
 
-function InlineDisplayName({
-  row,
-  canWrite,
-  onRenamed,
-}: {
-  row: ExtensionHubRow;
-  canWrite: boolean;
-  onRenamed: () => void;
-}) {
-  const [value, setValue] = useState(row.displayName);
-  const rename = useRenameExtensionDisplayName();
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    setValue(row.displayName);
-  }, [row.displayName, row.id]);
-
-  const commit = useCallback(
-    (next: string) => {
-      const trimmed = next.trim();
-      if (!trimmed || trimmed === row.displayName) return;
-      void rename.mutateAsync({ id: row.id, displayName: trimmed }).then(onRenamed);
-    },
-    [onRenamed, rename, row.displayName, row.id],
-  );
-
-  if (!canWrite) {
-    return <span className="text-lg font-semibold">{row.label}</span>;
+function formatLastReg(iso: string | null | undefined): string {
+  if (!iso) return '—';
+  try {
+    return new Date(iso).toLocaleString();
+  } catch {
+    return '—';
   }
-
-  return (
-    <span className="flex flex-wrap items-baseline gap-0 text-lg font-semibold">
-      <span className="font-mono">{row.extension}</span>
-      <span className="mx-1.5 text-muted-foreground" aria-hidden="true">
-        •
-      </span>
-      <Input
-        value={value}
-        onChange={(e) => {
-          setValue(e.target.value);
-          if (timer.current) clearTimeout(timer.current);
-          timer.current = setTimeout(() => commit(e.target.value), 600);
-        }}
-        onBlur={() => commit(value)}
-        className="h-8 min-w-[8rem] max-w-xs border-transparent bg-transparent px-0 text-lg font-semibold shadow-none focus-visible:border-border focus-visible:bg-background"
-        aria-label={`Display name for extension ${row.extension}`}
-      />
-    </span>
-  );
-}
-
-function ExtensionRowCard({
-  row,
-  canWrite,
-  onConfigure,
-  onSetUpPhone,
-  onRenamed,
-  onRefresh,
-  setupSkipped,
-  onSkipSetup,
-}: {
-  row: ExtensionHubRow;
-  canWrite: boolean;
-  onConfigure: (tab: ConfigureTabId) => void;
-  onSetUpPhone: () => void;
-  onRenamed: () => void;
-  onRefresh: () => void;
-  setupSkipped: boolean;
-  onSkipSetup: () => void;
-}) {
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
-  const menuButtonRef = useRef<HTMLButtonElement>(null);
-  const restartReg = useExtensionRestartRegistration();
-
-  const showNoDeviceGuide = row.status === 'NoDevice' && !setupSkipped;
-  const showNeedsSetupGuide =
-    !showNoDeviceGuide && row.statusLabel === 'Needs Setup' && !setupSkipped;
-  const deviceLabel = deviceStatusLabel(row);
-  const DeviceIcon = row.hasMobileApp && !row.hasDeskPhone ? Smartphone : Monitor;
-  const qrActionLabel = row.hasMobileApp ? 'View QR code' : 'Generate QR code';
-  const qrActionTitle = row.hasMobileApp
-    ? 'View current QR or regenerate'
-    : 'Generate a QR code for the mobile app';
-
-  useEffect(() => {
-    if (!menuOpen) return;
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        setMenuOpen(false);
-        menuButtonRef.current?.focus();
-      }
-    };
-    document.addEventListener('keydown', onKeyDown);
-    return () => document.removeEventListener('keydown', onKeyDown);
-  }, [menuOpen]);
-
-  const openCallHistory = () => {
-    window.location.href = `/reports/cdr?extension=${encodeURIComponent(row.extension)}`;
-  };
-
-  return (
-    <article
-      className="rounded-2xl border border-border bg-card p-4 transition-colors hover:bg-muted/20 sm:p-5"
-      aria-label={`Extension ${row.label}`}
-    >
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div className="min-w-0 flex-1 space-y-3">
-          <InlineDisplayName row={row} canWrite={canWrite} onRenamed={onRenamed} />
-
-          <dl className="space-y-2 text-sm">
-            <div className="flex items-start gap-2">
-              <Phone className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-              <div>
-                <dt className="sr-only">Phone number</dt>
-                <dd className={row.did ? 'font-mono font-medium' : 'text-muted-foreground'}>
-                  {row.did?.formatted ?? 'No phone number assigned'}
-                </dd>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-2">
-              <DeviceIcon className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-              <div>
-                <dt className="sr-only">Device</dt>
-                <dd className={deviceLabel === 'No device configured' ? 'text-muted-foreground' : ''}>
-                  {deviceLabel}
-                </dd>
-              </div>
-            </div>
-
-            <div>
-              <dt className="sr-only">Registration status</dt>
-              <dd>
-                <ExtensionStatusChip
-                  status={row.status}
-                  onlineStatus={row.onlineStatus}
-                  statusLabel={row.statusLabel}
-                />
-              </dd>
-            </div>
-
-            <div className="text-muted-foreground">
-              <dt className="sr-only">Last activity</dt>
-              <dd>
-                {row.lastCallRelative ? (
-                  <>
-                    Last call <span className="text-foreground">{row.lastCallRelative}</span>
-                  </>
-                ) : (
-                  'No calls yet'
-                )}
-              </dd>
-            </div>
-          </dl>
-
-          {showNoDeviceGuide ? (
-            <div
-              className="rounded-xl border border-dashed border-border bg-muted/20 p-4"
-              role="region"
-              aria-label="Phone setup guidance"
-            >
-              <p className="text-sm text-muted-foreground">
-                This extension isn&apos;t connected to a phone yet.
-              </p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <Button
-                  size="sm"
-                  onClick={onSetUpPhone}
-                  aria-label={`Set up phone for ${row.label}`}
-                >
-                  Set Up Phone
-                </Button>
-                <Button size="sm" variant="ghost" onClick={onSkipSetup} aria-label="Skip setup for now">
-                  Skip
-                </Button>
-              </div>
-            </div>
-          ) : null}
-
-          {showNeedsSetupGuide ? (
-            <div
-              className="rounded-xl border border-dashed border-border bg-muted/20 p-4"
-              role="region"
-              aria-label="Configuration guidance"
-            >
-              <p className="text-sm text-muted-foreground">
-                Ready to configure — set the display name, user, and voicemail PIN.
-              </p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <Button
-                  size="sm"
-                  onClick={() => onConfigure('general')}
-                  aria-label={`Configure ${row.label}`}
-                >
-                  Configure
-                </Button>
-                <Button size="sm" variant="ghost" onClick={onSkipSetup} aria-label="Skip setup for now">
-                  Skip
-                </Button>
-              </div>
-            </div>
-          ) : null}
-        </div>
-
-        <div className="flex shrink-0 flex-wrap items-center gap-2 lg:flex-col lg:items-stretch xl:flex-row xl:items-center">
-          <Button
-            size="sm"
-            onClick={() => onConfigure('overview')}
-            aria-label={`Configure ${row.label}`}
-            title="Configure extension settings"
-          >
-            <Settings className="h-4 w-4" aria-hidden="true" />
-            Configure
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => onConfigure('mobile')}
-            aria-label={`${qrActionLabel} for ${row.label}`}
-            title={qrActionTitle}
-          >
-            <QrCode className="h-4 w-4" aria-hidden="true" />
-            QR
-          </Button>
-          <div className="relative" ref={menuRef}>
-            <Button
-              ref={menuButtonRef}
-              size="sm"
-              variant="outline"
-              aria-label={`More actions for ${row.label}`}
-              aria-expanded={menuOpen}
-              aria-haspopup="menu"
-              title="More actions"
-              onClick={() => setMenuOpen((v) => !v)}
-            >
-              <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
-              More
-            </Button>
-            {menuOpen ? (
-              <>
-                <button
-                  type="button"
-                  className="fixed inset-0 z-10"
-                  aria-label="Close menu"
-                  tabIndex={-1}
-                  onClick={() => setMenuOpen(false)}
-                />
-                <div
-                  role="menu"
-                  className="absolute right-0 top-10 z-20 min-w-[220px] rounded-xl border border-border bg-background p-1 shadow-lg"
-                >
-                  <button
-                    type="button"
-                    role="menuitem"
-                    className="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-muted focus:bg-muted focus:outline-none"
-                    onClick={() => {
-                      setMenuOpen(false);
-                      openCallHistory();
-                    }}
-                  >
-                    Call History
-                  </button>
-                  <button
-                    type="button"
-                    role="menuitem"
-                    className="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-muted focus:bg-muted focus:outline-none"
-                    onClick={() => {
-                      setMenuOpen(false);
-                      void restartReg.mutateAsync(row.id).then(onRefresh);
-                    }}
-                  >
-                    Restart Registration
-                  </button>
-                  <button
-                    type="button"
-                    role="menuitem"
-                    disabled
-                    title="Archive will be available in a future update"
-                    className="block w-full cursor-not-allowed rounded-lg px-3 py-2 text-left text-sm text-muted-foreground opacity-60"
-                  >
-                    Archive
-                  </button>
-                </div>
-              </>
-            ) : null}
-          </div>
-        </div>
-      </div>
-    </article>
-  );
 }
 
 export function ExtensionsHubContent() {
@@ -474,41 +94,27 @@ export function ExtensionsHubContent() {
 
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<HubFilter>('all');
-  const [sort, setSort] = useState<HubSort>('extension');
   const [createOpen, setCreateOpen] = useState(false);
   const [newExtension, setNewExtension] = useState('');
   const [newDisplayName, setNewDisplayName] = useState('');
   const [configureRow, setConfigureRow] = useState<ExtensionHubRow | null>(null);
-  const [configureTab, setConfigureTab] = useState<ConfigureTabId>('overview');
-  const [setupChooserRow, setSetupChooserRow] = useState<ExtensionHubRow | null>(null);
-  const [skippedSetupIds, setSkippedSetupIds] = useState<Set<string>>(() => new Set());
+  const [configureTab, setConfigureTab] = useState<ConfigureTabId>('general');
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   const query = useExtensionHub();
   const create = useCreateTenantExtension();
+  const restartReg = useExtensionRestartRegistration();
 
   const rows = useMemo(() => {
     const all = query.data ?? [];
-    const filtered = all.filter((row) => matchesSearch(row, search) && matchesFilter(row, filter));
-    return sortRows(filtered, sort);
-  }, [query.data, search, filter, sort]);
+    return all.filter((row) => matchesSearch(row, search) && matchesFilter(row, filter));
+  }, [query.data, search, filter]);
 
-  const openConfigure = useCallback((row: ExtensionHubRow, tab: ConfigureTabId) => {
+  const openConfigure = useCallback((row: ExtensionHubRow, tab: ConfigureTabId = 'general') => {
     setConfigureTab(tab);
     setConfigureRow(row);
-  }, []);
-
-  const handleSetupChoice = useCallback(
-    (choice: 'mobile' | 'desk') => {
-      if (!setupChooserRow) return;
-      setSetupChooserRow(null);
-      openConfigure(setupChooserRow, choice === 'mobile' ? 'mobile' : 'desk');
-    },
-    [openConfigure, setupChooserRow],
-  );
-
-  const skipSetup = useCallback((id: string) => {
-    setSkippedSetupIds((prev) => new Set(prev).add(id));
   }, []);
 
   const refresh = useCallback(() => void query.refetch(), [query]);
@@ -532,6 +138,177 @@ export function ExtensionsHubContent() {
     }
   };
 
+  const bulkRestart = async () => {
+    if (!selectedIds.length) return;
+    setBulkBusy(true);
+    setError(null);
+    try {
+      await Promise.all(selectedIds.map((id) => restartReg.mutateAsync(id)));
+      setSelectedIds([]);
+      refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Bulk restart failed');
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
+  const columns = useMemo<Column<ExtensionHubRow>[]>(
+    () => [
+      {
+        key: 'configure',
+        header: 'Configure',
+        cell: (row) => (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => openConfigure(row, 'general')}
+            aria-label={`Configure ${row.label}`}
+          >
+            <Settings className="h-3.5 w-3.5" aria-hidden="true" />
+            Configure
+          </Button>
+        ),
+      },
+      {
+        key: 'extension',
+        header: 'Extension Number',
+        sortable: true,
+        sortValue: (r) => r.extension,
+        cell: (row) => <span className="font-mono font-medium">{row.extension}</span>,
+      },
+      {
+        key: 'displayName',
+        header: 'Extension Name',
+        sortable: true,
+        sortValue: (r) => r.displayName,
+        cell: (row) => <span className="font-medium">{row.displayName}</span>,
+      },
+      {
+        key: 'did',
+        header: 'Assigned DID',
+        sortable: true,
+        sortValue: (r) => r.did?.number ?? '',
+        cell: (row) =>
+          row.did ? (
+            <span className="font-mono text-xs sm:text-sm">{row.did.formatted}</span>
+          ) : (
+            <span className="text-muted-foreground">—</span>
+          ),
+      },
+      {
+        key: 'user',
+        header: 'User',
+        sortable: true,
+        sortValue: (r) => r.linkedUser?.displayName ?? r.linkedUser?.email ?? '',
+        cell: (row) =>
+          row.linkedUser ? (
+            <span>{row.linkedUser.displayName || row.linkedUser.email}</span>
+          ) : (
+            <span className="text-muted-foreground">—</span>
+          ),
+      },
+      {
+        key: 'device',
+        header: 'Device',
+        sortable: true,
+        sortValue: (r) => deviceLabel(r),
+        cell: (row) => {
+          const label = deviceLabel(row);
+          return label === '—' ? <span className="text-muted-foreground">—</span> : <span>{label}</span>;
+        },
+      },
+      {
+        key: 'registration',
+        header: 'Registration Status',
+        sortable: true,
+        sortValue: (r) => `${r.onlineStatus}-${r.statusLabel}`,
+        cell: (row) => (
+          <ExtensionStatusChip
+            status={row.status}
+            onlineStatus={row.onlineStatus}
+            statusLabel={row.statusLabel}
+          />
+        ),
+      },
+      {
+        key: 'provision',
+        header: 'Provision Status',
+        sortable: true,
+        sortValue: (r) => r.provisionLabel ?? 'Pending',
+        cell: (row) => {
+          const label = row.provisionLabel ?? 'Pending';
+          const tone =
+            label === 'Configured'
+              ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+              : label === 'Failed'
+                ? 'bg-destructive/10 text-destructive'
+                : 'bg-amber-500/10 text-amber-800 dark:text-amber-200';
+          return (
+            <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${tone}`}>
+              {label}
+            </span>
+          );
+        },
+      },
+      {
+        key: 'recording',
+        header: 'Call Recording',
+        sortable: true,
+        sortValue: (r) => (r.recordingEnabled ? 'On' : 'Off'),
+        cell: (row) => (
+          <span className={row.recordingEnabled ? 'text-foreground' : 'text-muted-foreground'}>
+            {row.recordingEnabled ? 'On' : 'Off'}
+          </span>
+        ),
+      },
+      {
+        key: 'voicemail',
+        header: 'Voicemail',
+        sortable: true,
+        sortValue: (r) => (r.voicemailEnabled ? 'On' : 'Off'),
+        cell: (row) => (
+          <span className={row.voicemailEnabled ? 'text-foreground' : 'text-muted-foreground'}>
+            {row.voicemailEnabled ? 'On' : 'Off'}
+          </span>
+        ),
+      },
+      {
+        key: 'lastRegistration',
+        header: 'Last Registration',
+        sortable: true,
+        sortValue: (r) => r.lastRegistrationAt ?? '',
+        cell: (row) => (
+          <span className="whitespace-nowrap text-xs text-muted-foreground">
+            {formatLastReg(row.lastRegistrationAt)}
+          </span>
+        ),
+      },
+    ],
+    [openConfigure],
+  );
+
+  const rowActions = useCallback(
+    (row: ExtensionHubRow): ActionItem[] => [
+      { id: 'configure', label: 'Configure', onSelect: () => openConfigure(row, 'general') },
+      { id: 'sip', label: 'SIP / QR', onSelect: () => openConfigure(row, 'sip') },
+      { id: 'desk', label: 'Desk Phone', onSelect: () => openConfigure(row, 'desk') },
+      {
+        id: 'history',
+        label: 'Call History',
+        onSelect: () => {
+          window.location.href = `/reports/cdr?extension=${encodeURIComponent(row.extension)}`;
+        },
+      },
+      {
+        id: 'restart',
+        label: 'Restart Registration',
+        onSelect: () => void restartReg.mutateAsync(row.id).then(refresh),
+      },
+    ],
+    [openConfigure, refresh, restartReg],
+  );
+
   return (
     <ModuleAccessGate moduleId="extensions">
       {({ module }) => (
@@ -540,68 +317,45 @@ export function ExtensionsHubContent() {
             title="Extensions"
             description={
               module.description ??
-              'See which extensions are ready, which need attention, and what to do next.'
+              'Manage all tenant extensions — DID-provisioned and manually created — from one table.'
             }
             actions={
-              canWrite ? (
-                <Button size="sm" onClick={() => setCreateOpen(true)}>
-                  <Plus className="h-4 w-4" aria-hidden="true" />
-                  Add Extension
+              <div className="flex flex-wrap items-center gap-2">
+                <Button variant="outline" size="sm" onClick={refresh} disabled={query.isFetching}>
+                  <RefreshCw className={`h-4 w-4 ${query.isFetching ? 'animate-spin' : ''}`} aria-hidden="true" />
+                  Refresh
                 </Button>
-              ) : null
+                {canWrite ? (
+                  <Button size="sm" onClick={() => setCreateOpen(true)}>
+                    <Plus className="h-4 w-4" aria-hidden="true" />
+                    Add Extension
+                  </Button>
+                ) : null}
+              </div>
             }
           />
 
           <ExtensionHubStats />
 
           <div className="mb-4 space-y-3">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-              <div className="relative max-w-md flex-1">
-                <Search
-                  className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
-                  aria-hidden="true"
-                />
-                <Input
-                  className="pl-9"
-                  placeholder="Search extensions, names, or phone numbers..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  aria-label="Search extensions"
-                />
-              </div>
-              <div className="flex items-center gap-2">
-                <ArrowDownAZ className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-                <label className="sr-only" htmlFor="extension-sort">
-                  Sort extensions
-                </label>
-                <div className="relative">
-                  <select
-                    id="extension-sort"
-                    className="h-9 appearance-none rounded-xl border border-border bg-background py-1 pl-3 pr-8 text-sm"
-                    value={sort}
-                    onChange={(e) => setSort(e.target.value as HubSort)}
-                  >
-                    {SORT_OPTIONS.map((o) => (
-                      <option key={o.id} value={o.id}>
-                        {o.label}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown
-                    className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
-                    aria-hidden="true"
-                  />
-                </div>
-                <Button variant="outline" size="sm" onClick={refresh} disabled={query.isFetching}>
-                  Refresh
-                </Button>
-              </div>
+            <div className="relative max-w-lg">
+              <Search
+                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+                aria-hidden="true"
+              />
+              <Input
+                className="pl-9"
+                placeholder="Search extensions, names, users, or phone numbers…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                aria-label="Search extensions"
+              />
             </div>
 
             <div
               className="flex flex-wrap gap-2"
               role="group"
-              aria-label="Filter extensions by registration status"
+              aria-label="Filter extensions"
             >
               {FILTER_OPTIONS.map((f) => (
                 <Button
@@ -615,6 +369,29 @@ export function ExtensionsHubContent() {
                 </Button>
               ))}
             </div>
+
+            {canWrite && selectedIds.length > 0 ? (
+              <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-muted/30 px-3 py-2 text-sm">
+                <span className="font-medium">{selectedIds.length} selected</span>
+                <Button size="sm" variant="outline" disabled={bulkBusy} onClick={() => void bulkRestart()}>
+                  Restart Registration
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={bulkBusy || selectedIds.length !== 1}
+                  onClick={() => {
+                    const row = rows.find((r) => r.id === selectedIds[0]);
+                    if (row) openConfigure(row, 'general');
+                  }}
+                >
+                  Configure
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => setSelectedIds([])}>
+                  Clear
+                </Button>
+              </div>
+            ) : null}
           </div>
 
           {error ? (
@@ -628,7 +405,7 @@ export function ExtensionsHubContent() {
             isError={query.isError}
             error={query.error}
             onRetry={refresh}
-            isEmpty={!rows.length}
+            isEmpty={!rows.length && !query.isLoading}
             empty={
               <div className="rounded-2xl border border-dashed border-border p-10 text-center text-sm text-muted-foreground">
                 {query.data?.length ? (
@@ -641,7 +418,8 @@ export function ExtensionsHubContent() {
                     <p className="mb-2 font-medium text-foreground">No extensions yet.</p>
                     <p>
                       When Platform Admin assigns phone numbers, extensions are provisioned
-                      automatically and appear here ready to configure.
+                      automatically and appear here. Use Add Extension only for internal
+                      extensions without a DID.
                     </p>
                   </>
                 )}
@@ -649,44 +427,43 @@ export function ExtensionsHubContent() {
             }
             skeleton={
               <div className="space-y-3">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <Skeleton key={i} className="h-40 rounded-2xl" />
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <Skeleton key={i} className="h-12 rounded-xl" />
                 ))}
               </div>
             }
           >
-            <div className="space-y-3">
-              {rows.map((row) => (
-                <ExtensionRowCard
-                  key={row.id}
-                  row={row}
-                  canWrite={canWrite}
-                  onConfigure={(tab) => openConfigure(row, tab)}
-                  onSetUpPhone={() => setSetupChooserRow(row)}
-                  onRenamed={refresh}
-                  onRefresh={refresh}
-                  setupSkipped={skippedSetupIds.has(row.id)}
-                  onSkipSetup={() => skipSetup(row.id)}
-                />
-              ))}
-            </div>
+            <DataTable
+              columns={columns}
+              data={rows}
+              pageSize={20}
+              selectable={canWrite}
+              selectedIds={selectedIds}
+              onSelectionChange={setSelectedIds}
+              rowActions={rowActions}
+              emptyTitle="No extensions"
+              emptyDescription="DID assignments create extensions automatically."
+            />
           </QueryState>
 
-          <SlideOver
+          <Modal
             open={createOpen}
             onClose={() => setCreateOpen(false)}
             title="Add extension"
+            description="Creates an internal extension without a DID. Platform-assigned numbers already create extensions automatically."
+            size="lg"
             footer={
-              <Button onClick={() => void submitCreate()} disabled={create.isPending || !newExtension.trim()}>
-                Create
-              </Button>
+              <div className="flex justify-end gap-2">
+                <Button variant="ghost" onClick={() => setCreateOpen(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={() => void submitCreate()} disabled={create.isPending || !newExtension.trim()}>
+                  Create
+                </Button>
+              </div>
             }
           >
             <div className="space-y-4">
-              <p className="text-sm text-muted-foreground">
-                Additional internal extension (no phone number required). Platform-provisioned numbers
-                already create extensions automatically.
-              </p>
               <label className="block space-y-1.5 text-sm">
                 <span className="font-medium">Extension number</span>
                 <Input value={newExtension} onChange={(e) => setNewExtension(e.target.value)} placeholder="104" />
@@ -704,24 +481,14 @@ export function ExtensionsHubContent() {
                 />
               </label>
             </div>
-          </SlideOver>
+          </Modal>
 
-          <PhoneSetupSlideOver
-            open={Boolean(setupChooserRow)}
-            onClose={() => setSetupChooserRow(null)}
-            row={setupChooserRow}
-            onChoose={handleSetupChoice}
-          />
-
-          <ExtensionConfigureDrawer
+          <ExtensionConfigureModal
             open={Boolean(configureRow)}
             onClose={() => setConfigureRow(null)}
             row={configureRow}
             initialTab={configureTab}
             onSaved={refresh}
-            onSetUpPhone={() => {
-              if (configureRow) setSetupChooserRow(configureRow);
-            }}
           />
         </PageContainer>
       )}

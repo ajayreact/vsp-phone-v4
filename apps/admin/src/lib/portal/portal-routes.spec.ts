@@ -141,6 +141,7 @@ describe('portal routing', () => {
       '/permissions',
       '/api-keys',
       '/settings',
+      '/provisioning-settings',
       '/telnyx-numbers',
       '/number-marketplace',
       '/number-requests',
