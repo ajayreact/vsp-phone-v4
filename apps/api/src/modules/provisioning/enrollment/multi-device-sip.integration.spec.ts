@@ -148,7 +148,7 @@ describe('multi-device SIP enroll (integration)', () => {
     return { svc, tx, createdDevices, getSipCreateCount: () => sipCreateCount, vault };
   }
 
-  const user = { sub: userId, tenantId, email: 'admin@acme.test' };
+  const user = { sub: userId, tenantId, email: 'admin@acme.test', portal: 'tenant' as const };
 
   it('attaches WebRTC + two desk phones to one SIP endpoint / AOR (no duplicate SIP create)', async () => {
     const { svc, createdDevices, getSipCreateCount, vault } = buildEnrollment();

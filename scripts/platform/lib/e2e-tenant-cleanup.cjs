@@ -23,7 +23,7 @@ const PROTECTED_NAME_RE =
   /^(platform|vsp\s*internal|vsp\s*platform|platform\s*inventory)$/i;
 
 /** Temporary / verification tenants safe to soft-delete (never Platform / VSP INTERNAL). */
-const TEMP_SLUG_RE = /^(verify|signoff|ext-e2e|test|temp|tmp|demo|sandbox)-/i;
+const TEMP_SLUG_RE = /^(verify|signoff|ext-e2e|test|temp|tmp|demo|sandbox|pilot)-/i;
 
 /** Cleanup is ON by default. Pass --keep-tenant to retain the temp tenant. */
 function wantCleanup(argv = process.argv) {

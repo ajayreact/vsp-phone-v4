@@ -34,11 +34,11 @@ Happy-path Automatic Extension-First Provisioning remains intact. The three prod
 
 ## Scenario results
 
-### Scenario 1 — Assign 3 DIDs → 101 / 102 / 103
+### Scenario 1 — Assign 3 DIDs → 100 / 101 / 102
 
 | Result | **PASS** |
 
-Unchanged happy path: omit extension → allocate from 101 under tenant advisory lock → full stub + DID + route in one transaction.
+Unchanged happy path: omit extension → allocate from **100** under tenant advisory lock → full stub + DID + route in one transaction.
 
 ---
 
@@ -89,7 +89,7 @@ Explicit `extension` or next-free landing on 104 reuses via idempotent `ensureFu
 **Fix:** `resolveBulkExtensionTarget` + allocate-under-lock:
 
 - `extensions[i]` → explicit target (intentional reuse allowed).
-- `startExtension` / blank → **next free ≥ base**, skipping taken numbers (e.g. 101–103 exist + start at 101 → 104, 105, …).
+- `startExtension` / blank → **next free ≥ base**, skipping taken numbers (e.g. 100–102 exist + start at 100 → 103, 104, …).
 
 Unit coverage: skips already-taken when start overlaps.
 

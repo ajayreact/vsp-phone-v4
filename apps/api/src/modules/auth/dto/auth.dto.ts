@@ -1,5 +1,13 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEmail, IsNotEmpty, IsString, MaxLength, MinLength } from 'class-validator';
+import {
+  IsEmail,
+  IsIn,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
 
 export class LoginRequestDto {
   @ApiProperty({ example: 'agent@vsp.local' })
@@ -12,6 +20,14 @@ export class LoginRequestDto {
   @MinLength(4)
   @MaxLength(128)
   password!: string;
+
+  @ApiPropertyOptional({
+    enum: ['platform', 'ops', 'tenant'],
+    description: 'Portal hostname context — required for production multi-portal isolation',
+  })
+  @IsOptional()
+  @IsIn(['platform', 'ops', 'tenant'])
+  portal?: 'platform' | 'ops' | 'tenant';
 }
 
 export class LoginResponseDto {
@@ -32,6 +48,41 @@ export class LoginResponseDto {
 
   @ApiProperty()
   email!: string;
+
+  @ApiProperty({ enum: ['platform', 'ops', 'tenant'] })
+  portal!: 'platform' | 'ops' | 'tenant';
+}
+
+export class ImpersonationExchangeDto {
+  @ApiProperty({ description: 'One-time handoff code from platform impersonation' })
+  @IsString()
+  @IsNotEmpty()
+  code!: string;
+}
+
+export class ImpersonationStartResponseDto {
+  @ApiProperty({ description: 'One-time code to redeem on tenant.vspphone.com' })
+  handoffCode!: string;
+
+  @ApiProperty()
+  expiresInSec!: number;
+
+  @ApiProperty({ format: 'uuid' })
+  tenantId!: string;
+
+  @ApiProperty()
+  tenantName!: string;
+
+  @ApiProperty()
+  tenantSlug!: string;
+}
+
+export class ImpersonationExitResponseDto {
+  @ApiProperty({ description: 'One-time code to redeem on admin.vspphone.com' })
+  handoffCode!: string;
+
+  @ApiProperty()
+  expiresInSec!: number;
 }
 
 export class RefreshRequestDto {
@@ -99,6 +150,12 @@ export class MeResponseDto {
 
   @ApiProperty()
   email!: string;
+
+  @ApiProperty({ enum: ['platform', 'ops', 'tenant'] })
+  portal!: 'platform' | 'ops' | 'tenant';
+
+  @ApiPropertyOptional({ format: 'uuid' })
+  impersonatorUserId?: string;
 
   @ApiProperty({ type: [String] })
   permissions!: string[];

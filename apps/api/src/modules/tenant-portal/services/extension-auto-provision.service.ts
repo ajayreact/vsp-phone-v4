@@ -6,6 +6,7 @@ import {
   PresenceStatus,
   Prisma,
   ProvisioningStatus,
+  RouteDestinationType,
   VoicemailMailboxType,
   VoicemailStatus,
   type Extension,
@@ -15,9 +16,14 @@ import { EnterpriseAuditService } from '../../enterprise-observability/audit/ent
 import { PrismaService } from '../../telecom/prisma/prisma.service';
 import { auditPbxMutation } from '../utils/tenant-pbx-audit';
 import {
+  DEFAULT_EXTENSION_START,
   defaultExtensionDisplayName,
   nextAvailableExtensionNumber,
 } from '../utils/extension-auto-provision.util';
+import {
+  assertCanBindDidToLine,
+  markLineActiveOnDidAttach,
+} from '../utils/did-extension-binding';
 import { newPublicId, tenantScope } from '../utils/tenant.util';
 import { LineSipEndpointService } from './line-sip-endpoint.service';
 
@@ -30,6 +36,7 @@ export type EnsureExtensionOptions = {
 };
 
 export {
+  DEFAULT_EXTENSION_START,
   defaultExtensionDisplayName,
   extensionNeedsBusinessSetup,
   nextAvailableExtensionNumber,
@@ -63,7 +70,7 @@ export class ExtensionAutoProvisionService {
 
   async allocateNextExtensionNumber(
     tenantId: string,
-    startFrom = 101,
+    startFrom = DEFAULT_EXTENSION_START,
     tx?: Prisma.TransactionClient,
   ): Promise<string> {
     const client = tx ?? this.prisma;
@@ -309,5 +316,109 @@ export class ExtensionAutoProvisionService {
     return this.prisma.extension.findFirst({
       where: { tenantId, extension, ...tenantScope(tenantId) },
     });
+  }
+
+  /**
+   * Backfill: tenant DIDs with no extension get the next free extension (100…).
+   * Idempotent — safe to call from hub list for tenants provisioned before Extension-First.
+   */
+  async syncOrphanDidsToExtensions(
+    tenantId: string,
+    actorUserId?: string,
+  ): Promise<{ created: number }> {
+    if (!this.prisma.connected) return { created: 0 };
+
+    const phones = await this.prisma.phoneNumber.findMany({
+      where: { tenantId, deletedAt: null },
+      select: { id: true, number: true, lineId: true },
+      orderBy: { createdAt: 'asc' },
+      take: 500,
+    });
+    if (!phones.length) return { created: 0 };
+
+    let created = 0;
+    for (const phone of phones) {
+      if (phone.lineId) {
+        const linked = await this.prisma.extension.findFirst({
+          where: { tenantId, lineId: phone.lineId, deletedAt: null },
+          select: { id: true },
+        });
+        if (linked) continue;
+      }
+
+      // Never re-create after unassign/reassign — any historical route or assignment means skip.
+      const previouslyWired = await this.prisma.inboundRoute.findFirst({
+        where: { phoneNumberId: phone.id },
+        select: { id: true },
+      });
+      if (previouslyWired) continue;
+
+      // Prior line binding (even ended) means this DID was already provisioned — do not duplicate.
+      const priorLineBinding = await this.prisma.numberAssignment.findFirst({
+        where: { phoneNumberId: phone.id, lineId: { not: null } },
+        select: { id: true },
+      });
+      if (priorLineBinding) continue;
+
+      await this.prisma.$transaction(
+        async (tx) => {
+          await this.lockTenantExtensionAllocation(tx, tenantId);
+          const extensionNumber = await this.allocateNextExtensionNumber(
+            tenantId,
+            DEFAULT_EXTENSION_START,
+            tx,
+          );
+          const ext = await this.ensureFullyProvisionedExtension(
+            tenantId,
+            extensionNumber,
+            actorUserId,
+            { phoneNumberId: phone.id },
+            tx,
+          );
+
+          await assertCanBindDidToLine(tx, {
+            tenantId,
+            phoneNumberId: phone.id,
+            lineId: ext.lineId,
+          });
+
+          await tx.phoneNumber.update({
+            where: { id: phone.id },
+            data: { lineId: ext.lineId, updatedBy: actorUserId },
+          });
+          await markLineActiveOnDidAttach(tx, ext.lineId, actorUserId);
+
+          await tx.inboundRoute.create({
+            data: {
+              id: randomUUID(),
+              tenantId,
+              name: `DID ${phone.number}`,
+              phoneNumberId: phone.id,
+              priority: 100,
+              enabled: true,
+              createdBy: actorUserId,
+              destinationType: RouteDestinationType.EXTENSION,
+              destinationLineId: ext.lineId,
+              destinationExtensionId: ext.id,
+            },
+          });
+
+          await tx.numberAssignment.create({
+            data: {
+              id: randomUUID(),
+              tenantId,
+              phoneNumberId: phone.id,
+              lineId: ext.lineId,
+              effectiveFrom: new Date(),
+              createdBy: actorUserId,
+            },
+          });
+        },
+        { timeout: 60_000 },
+      );
+      created += 1;
+    }
+
+    return { created };
   }
 }

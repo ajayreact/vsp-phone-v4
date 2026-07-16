@@ -13,7 +13,7 @@ import type {
   UpdateOutboundRouteDto,
 } from '../dto/tenant-call-routes.dto';
 import { auditPbxMutation } from '../utils/tenant-pbx-audit';
-import { tenantScope } from '../utils/tenant.util';
+import { assertPhoneNumberBelongsToTenant, tenantScope } from '../utils/tenant.util';
 import { TenantTimeConditionsService } from './tenant-time-conditions.service';
 import { TenantHolidayCalendarsService } from './tenant-holiday-calendars.service';
 
@@ -58,6 +58,7 @@ export class TenantCallRoutesService {
   }
 
   async createInbound(tenantId: string, userId: string, dto: CreateInboundRouteDto) {
+    await assertPhoneNumberBelongsToTenant(this.prisma, dto.phoneNumberId, tenantId);
     const route = await this.prisma.inboundRoute.create({
       data: {
         id: randomUUID(),
@@ -100,6 +101,9 @@ export class TenantCallRoutesService {
 
   async updateInbound(tenantId: string, userId: string, id: string, dto: UpdateInboundRouteDto) {
     await this.requireInbound(tenantId, id);
+    if (dto.phoneNumberId !== undefined) {
+      await assertPhoneNumberBelongsToTenant(this.prisma, dto.phoneNumberId, tenantId);
+    }
 
     const route = await this.prisma.inboundRoute.update({
       where: { id },

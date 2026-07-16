@@ -82,3 +82,67 @@ export function useBulkImportExtensions() {
     onSuccess: () => invalidateTenantLists(qc, ['extensions']),
   });
 }
+
+export function useCreateTenantUser() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: tenantRepository.createUser,
+    onSuccess: () => invalidateTenantLists(qc, ['users', 'extensions', 'extensionHub']),
+  });
+}
+
+export function useUpdateTenantUser() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      payload,
+    }: {
+      id: string;
+      payload: { email?: string; firstName?: string; lastName?: string; roleName?: string };
+    }) => tenantRepository.updateUser(id, payload),
+    onSuccess: () => invalidateTenantLists(qc, ['users', 'extensions', 'extensionHub']),
+  });
+}
+
+export function useDeleteTenantUser() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: tenantRepository.deleteUser,
+    onSuccess: () => invalidateTenantLists(qc, ['users', 'extensions', 'extensionHub']),
+  });
+}
+
+export function useSetTenantUserStatus() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, status }: { id: string; status: 'ACTIVE' | 'INACTIVE' | 'PENDING' | 'LOCKED' }) =>
+      tenantRepository.setUserStatus(id, status),
+    onSuccess: () => invalidateTenantLists(qc, ['users']),
+  });
+}
+
+export function useResetTenantUserPassword() {
+  return useMutation({
+    mutationFn: ({ id, password }: { id: string; password?: string }) =>
+      tenantRepository.resetUserPassword(id, password),
+  });
+}
+
+export function useAssignTenantUserExtension() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, extensionId }: { id: string; extensionId: string }) =>
+      tenantRepository.assignUserExtension(id, extensionId),
+    onSuccess: () => invalidateTenantLists(qc, ['users', 'extensions', 'extensionHub']),
+  });
+}
+
+export function useUnassignTenantUserExtension() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, extensionId }: { id: string; extensionId?: string }) =>
+      tenantRepository.unassignUserExtension(id, extensionId),
+    onSuccess: () => invalidateTenantLists(qc, ['users', 'extensions', 'extensionHub']),
+  });
+}

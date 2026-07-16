@@ -34,15 +34,19 @@ export class PermissionsGuard implements CanActivate {
 
     const req = context.switchToHttp().getRequest<Request>();
     const user = getJwtUser(req);
+    const ctx = {
+      portal: user.portal,
+      impersonatorUserId: user.impersonatorUserId,
+    };
 
     if (anyPermissions?.length) {
       for (const p of anyPermissions) {
-        if (await this.permissions.userHasPermission(user.sub, p)) return true;
+        if (await this.permissions.userHasPermission(user.sub, p, ctx)) return true;
       }
       throw new ForbiddenException('Insufficient permissions');
     }
 
-    const allowed = await this.permissions.userHasPermission(user.sub, permission!);
+    const allowed = await this.permissions.userHasPermission(user.sub, permission!, ctx);
     if (!allowed) {
       throw new ForbiddenException('Insufficient permissions');
     }

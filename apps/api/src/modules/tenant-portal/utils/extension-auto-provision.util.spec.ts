@@ -1,4 +1,5 @@
 import {
+  DEFAULT_EXTENSION_START,
   defaultExtensionDisplayName,
   extensionNeedsBusinessSetup,
   nextAvailableExtensionNumber,
@@ -7,20 +8,21 @@ import {
 } from './extension-auto-provision.util';
 
 describe('nextAvailableExtensionNumber', () => {
-  it('returns 101 when tenant has no extensions', () => {
-    expect(nextAvailableExtensionNumber([])).toBe('101');
+  it('returns 100 when tenant has no extensions', () => {
+    expect(nextAvailableExtensionNumber([])).toBe('100');
+    expect(DEFAULT_EXTENSION_START).toBe(100);
   });
 
   it('skips taken numeric extensions', () => {
-    expect(nextAvailableExtensionNumber(['101', '102', '104'])).toBe('103');
+    expect(nextAvailableExtensionNumber(['100', '101', '103'])).toBe('102');
   });
 
   it('ignores non-numeric extension labels', () => {
-    expect(nextAvailableExtensionNumber(['main', '101', 'sales'])).toBe('102');
+    expect(nextAvailableExtensionNumber(['main', '100', 'sales'])).toBe('101');
   });
 
   it('respects startFrom when free', () => {
-    expect(nextAvailableExtensionNumber(['101'], 200)).toBe('200');
+    expect(nextAvailableExtensionNumber(['100'], 200)).toBe('200');
   });
 
   it('advances from startFrom when taken', () => {
@@ -28,11 +30,17 @@ describe('nextAvailableExtensionNumber', () => {
   });
 });
 
+describe('defaultExtensionDisplayName', () => {
+  it('uses Extension N pattern for identification defaults', () => {
+    expect(defaultExtensionDisplayName('100')).toBe('Extension 100');
+  });
+});
+
 describe('extensionNeedsBusinessSetup', () => {
   it('is true for NoDevice', () => {
     expect(
       extensionNeedsBusinessSetup({
-        extension: '101',
+        extension: '100',
         displayName: 'Alice',
         hasLinkedUser: true,
         status: 'NoDevice',
@@ -43,8 +51,8 @@ describe('extensionNeedsBusinessSetup', () => {
   it('is true when display name is still the default and no user', () => {
     expect(
       extensionNeedsBusinessSetup({
-        extension: '101',
-        displayName: defaultExtensionDisplayName('101'),
+        extension: '100',
+        displayName: defaultExtensionDisplayName('100'),
         hasLinkedUser: false,
         status: 'Provisioned',
       }),
@@ -54,7 +62,7 @@ describe('extensionNeedsBusinessSetup', () => {
   it('is true when user is missing even with custom name', () => {
     expect(
       extensionNeedsBusinessSetup({
-        extension: '101',
+        extension: '100',
         displayName: 'Reception',
         hasLinkedUser: false,
         status: 'Provisioned',
@@ -65,7 +73,7 @@ describe('extensionNeedsBusinessSetup', () => {
   it('is false when user linked and display name customized', () => {
     expect(
       extensionNeedsBusinessSetup({
-        extension: '101',
+        extension: '100',
         displayName: 'Reception',
         hasLinkedUser: true,
         status: 'Provisioned',
@@ -76,8 +84,8 @@ describe('extensionNeedsBusinessSetup', () => {
   it('is true when user linked but display name still default', () => {
     expect(
       extensionNeedsBusinessSetup({
-        extension: '102',
-        displayName: 'Extension 102',
+        extension: '101',
+        displayName: 'Extension 101',
         hasLinkedUser: true,
         status: 'Registered',
       }),
@@ -96,7 +104,7 @@ describe('bulk assign allocation contract', () => {
     return nextAvailableExtensionNumber(taken, target.startFrom);
   }
 
-  it('auto-allocates consecutive free extensions when startExtension omitted', () => {
+  it('auto-allocates consecutive free extensions starting at 100', () => {
     const taken: string[] = [];
     const assigned: string[] = [];
     for (let i = 0; i < 3; i += 1) {
@@ -104,18 +112,18 @@ describe('bulk assign allocation contract', () => {
       assigned.push(ext);
       taken.push(ext);
     }
-    expect(assigned).toEqual(['101', '102', '103']);
+    expect(assigned).toEqual(['100', '101', '102']);
   });
 
   it('skips already-taken numbers when startExtension overlaps existing', () => {
-    const taken = ['101', '102', '103'];
+    const taken = ['100', '101', '102'];
     const assigned: string[] = [];
     for (let i = 0; i < 3; i += 1) {
-      const ext = resolveExtension({ startExtension: '101' }, i, taken);
+      const ext = resolveExtension({ startExtension: '100' }, i, taken);
       assigned.push(ext);
       taken.push(ext);
     }
-    expect(assigned).toEqual(['104', '105', '106']);
+    expect(assigned).toEqual(['103', '104', '105']);
   });
 
   it('allows explicit extensions[] to target a specific number', () => {
@@ -128,8 +136,8 @@ describe('bulk assign allocation contract', () => {
 
 describe('tombstoneExtensionNumber', () => {
   it('frees the original number for reuse while keeping a unique tombstone', () => {
-    const tomb = tombstoneExtensionNumber('101', 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee');
-    expect(tomb.startsWith('101__del__')).toBe(true);
-    expect(tomb).not.toBe('101');
+    const tomb = tombstoneExtensionNumber('100', 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee');
+    expect(tomb.startsWith('100__del__')).toBe(true);
+    expect(tomb).not.toBe('100');
   });
 });

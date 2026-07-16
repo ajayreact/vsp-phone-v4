@@ -4,7 +4,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '../../query/query-keys';
 import { tenantRepository } from '../../repositories/tenant.repository';
 
-export type ExtensionHubStatus = 'Registered' | 'Provisioned' | 'NoDevice' | 'RegistrationFailed';
+export type ExtensionHubStatus =
+  | 'Registered'
+  | 'Provisioned'
+  | 'NoDevice'
+  | 'RegistrationFailed'
+  | 'Inactive';
 
 export type ExtensionHubStats = {
   totalExtensions: number;
@@ -48,6 +53,7 @@ export type ExtensionHubRow = {
   recordingEnabled: boolean;
   voicemailEnabled: boolean;
   linkedUser: { id: string; email: string; displayName: string | null } | null;
+  lineStatus?: 'ACTIVE' | 'INACTIVE';
 };
 
 export type ExtensionMobileQrResult = {

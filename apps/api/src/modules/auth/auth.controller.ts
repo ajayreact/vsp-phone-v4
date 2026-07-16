@@ -4,6 +4,8 @@ import type { Request } from 'express';
 import { AuthRateLimitGuard } from '../enterprise-security/guards/scoped-rate-limit.guards';
 import { AuthService } from './auth.service';
 import {
+  ImpersonationExchangeDto,
+  ImpersonationExitResponseDto,
   LoginRequestDto,
   LoginResponseDto,
   LogoutResponseDto,
@@ -21,11 +23,13 @@ export class AuthController {
   @Post('login')
   @UseGuards(AuthRateLimitGuard)
   @ApiOperation({
-    summary: 'User JWT login (Phase 10 browser softphone)',
-    description: 'App-plane auth for WebRTC enroll. Prisma User or DEV_AUTH_* lab credentials.',
+    summary: 'Portal-bound user JWT login',
+    description:
+      'Requires portal (platform|ops|tenant). Platform admins cannot login on tenant portal.',
   })
   @ApiResponse({ status: 200, type: LoginResponseDto })
   @ApiResponse({ status: 401, description: 'Invalid credentials' })
+  @ApiResponse({ status: 403, description: 'Portal access denied' })
   @ApiResponse({ status: 429, description: 'Rate limited' })
   login(@Body() dto: LoginRequestDto): Promise<LoginResponseDto> {
     return this.auth.login(dto);
@@ -33,7 +37,7 @@ export class AuthController {
 
   @Post('refresh')
   @UseGuards(AuthRateLimitGuard)
-  @ApiOperation({ summary: 'Refresh access token (Phase 16 additive)' })
+  @ApiOperation({ summary: 'Refresh access token (preserves portal claim)' })
   @ApiResponse({ status: 200, type: LoginResponseDto })
   refresh(@Body() dto: RefreshTokenRequestDto): Promise<LoginResponseDto> {
     return this.auth.refreshAccessToken(dto.refreshToken);
@@ -42,7 +46,7 @@ export class AuthController {
   @Post('refresh-token/issue')
   @UseGuards(JwtAuthGuard, AuthRateLimitGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Issue refresh token for current session (Phase 16 additive)' })
+  @ApiOperation({ summary: 'Issue refresh token for current session' })
   @ApiResponse({ status: 200, type: RefreshTokenIssueResponseDto })
   issueRefreshToken(@Req() req: Request): Promise<RefreshTokenIssueResponseDto> {
     const user = getJwtUser(req);
@@ -50,13 +54,15 @@ export class AuthController {
       userId: user.sub,
       tenantId: user.tenantId,
       email: user.email,
+      portal: user.portal,
+      impersonatorUserId: user.impersonatorUserId,
     });
   }
 
   @Post('logout')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Secure logout — invalidate session (Phase 16 additive)' })
+  @ApiOperation({ summary: 'Secure logout — invalidate session' })
   @ApiResponse({ status: 200, type: LogoutResponseDto })
   logout(
     @Req() req: Request,
@@ -73,10 +79,37 @@ export class AuthController {
   @Get('me')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Current user profile, roles, and permissions' })
+  @ApiOperation({ summary: 'Current user profile, roles, permissions, portal' })
   @ApiResponse({ status: 200, type: MeResponseDto })
   me(@Req() req: Request): Promise<MeResponseDto> {
     const user = getJwtUser(req);
-    return this.auth.me(user.sub, user.tenantId, user.email);
+    return this.auth.me(
+      user.sub,
+      user.tenantId,
+      user.email,
+      user.portal,
+      user.impersonatorUserId,
+    );
+  }
+
+  @Post('impersonation/exchange')
+  @UseGuards(AuthRateLimitGuard)
+  @ApiOperation({
+    summary: 'Redeem one-time session handoff (tenant impersonation or platform restore)',
+  })
+  @ApiResponse({ status: 200, type: LoginResponseDto })
+  exchangeImpersonation(@Body() dto: ImpersonationExchangeDto): Promise<LoginResponseDto> {
+    return this.auth.exchangeImpersonationHandoff(dto.code);
+  }
+
+  @Post('impersonation/exit')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Exit tenant impersonation — returns handoff code for platform portal',
+  })
+  @ApiResponse({ status: 200, type: ImpersonationExitResponseDto })
+  exitImpersonation(@Req() req: Request): Promise<ImpersonationExitResponseDto> {
+    return this.auth.exitImpersonation(getJwtUser(req));
   }
 }

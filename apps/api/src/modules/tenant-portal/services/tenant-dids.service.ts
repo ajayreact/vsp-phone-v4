@@ -9,6 +9,10 @@ import type { Prisma } from '@prisma/client';
 import { EnterpriseAuditService } from '../../enterprise-observability/audit/enterprise-audit.service';
 import { PrismaService } from '../../telecom/prisma/prisma.service';
 import type { AssignDidDto } from '../dto/tenant-dids.dto';
+import {
+  assertCanBindDidToLine,
+  markLineActiveOnDidAttach,
+} from '../utils/did-extension-binding';
 import { auditPbxMutation } from '../utils/tenant-pbx-audit';
 import { tenantScope } from '../utils/tenant.util';
 
@@ -280,6 +284,15 @@ export class TenantDidsService {
 
     const resolved = await this.resolveDestination(tx, tenantId, dto.destinationType, dto.destinationId);
 
+    // Extension destinations enforce One DID ↔ One Extension.
+    if (resolved.destinationLineId && resolved.destinationExtensionId) {
+      await assertCanBindDidToLine(tx, {
+        tenantId,
+        phoneNumberId,
+        lineId: resolved.destinationLineId,
+      });
+    }
+
     const existing = await tx.inboundRoute.findFirst({
       where: { tenantId, phoneNumberId, deletedAt: null },
       orderBy: { priority: 'asc' },
@@ -296,6 +309,7 @@ export class TenantDidsService {
       destinationConferenceId: resolved.destinationConferenceId,
       openHoursDestinationType: null,
       openHoursDestinationId: null,
+      enabled: true,
       updatedBy: userId,
     };
 
@@ -324,6 +338,9 @@ export class TenantDidsService {
         updatedBy: userId,
       },
     });
+    if (resolved.destinationLineId) {
+      await markLineActiveOnDidAttach(tx, resolved.destinationLineId, userId);
+    }
 
     if (resolved.destinationLineId && dto.callerIdName?.trim()) {
       const line = await tx.line.findFirst({

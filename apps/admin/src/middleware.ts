@@ -5,7 +5,7 @@ import {
 } from './lib/portal/portal-routes';
 import { resolveTenantLegacyRedirect } from './lib/navigation/tenant-redirects';
 
-const PUBLIC_PREFIXES = ['/login', '/_next', '/favicon.ico', '/api'];
+const PUBLIC_PREFIXES = ['/login', '/impersonate', '/_next', '/favicon.ico', '/api'];
 
 function isTenantPortalV2Enabled(): boolean {
   return (

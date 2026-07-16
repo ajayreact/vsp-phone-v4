@@ -1,13 +1,23 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { Pencil, KeyRound, UserCheck, UserX, Trash2, Phone } from 'lucide-react';
 import { usePortal } from '../../lib/portal/PortalProvider';
 import {
   useCreatePlatformUser,
   usePlatformTenants,
   usePlatformUsers,
 } from '../../lib/hooks/queries/use-platform';
-import { useTenantUsers } from '../../lib/hooks/queries/use-tenant';
+import { useTenantExtensions, useTenantUsers } from '../../lib/hooks/queries/use-tenant';
+import {
+  useAssignTenantUserExtension,
+  useCreateTenantUser,
+  useDeleteTenantUser,
+  useResetTenantUserPassword,
+  useSetTenantUserStatus,
+  useUnassignTenantUserExtension,
+  useUpdateTenantUser,
+} from '../../lib/hooks/queries/use-tenant-mutations';
 import type { UserRecord } from '../../types/portal';
 import { Badge, StatusBadge } from '../ui/Badge';
 import type { Column } from '../data/DataTable';
@@ -25,16 +35,23 @@ import { formatExtensionLabel } from '../../lib/extensions/format-extension-labe
 
 type UserRow = UserRecord & { id: string };
 
-const columns: Column<UserRow>[] = [
-  { key: 'name', header: 'Name', sortable: true, cell: (r) => <span className="font-medium">{r.displayName || r.name}</span> },
-  { key: 'email', header: 'Email', cell: (r) => r.email },
-  { key: 'role', header: 'Role', cell: (r) => <Badge variant="outline">{r.role}</Badge> },
-  { key: 'extension', header: 'Extension', cell: (r) => (r.extension ? formatExtensionLabel(r.extension, r.displayName || r.name) : '—') },
-  { key: 'tenant', header: 'Tenant', cell: (r) => r.tenantName ?? '—' },
-  { key: 'status', header: 'Status', cell: (r) => <StatusBadge status={r.status === 'active' ? 'active' : r.status === 'inactive' ? 'offline' : 'pending'} /> },
-];
+type TenantUserForm = {
+  email: string;
+  password: string;
+  firstName: string;
+  lastName: string;
+  roleName: string;
+};
 
-const emptyUser = {
+const emptyTenantForm: TenantUserForm = {
+  email: '',
+  password: '',
+  firstName: '',
+  lastName: '',
+  roleName: 'User',
+};
+
+const emptyPlatformUser = {
   tenantId: '',
   email: '',
   password: '',
@@ -47,23 +64,192 @@ export function UsersContent() {
   const portal = usePortal();
   const [search, setSearch] = useState('');
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState(emptyUser);
+  const [editRow, setEditRow] = useState<UserRow | null>(null);
+  const [assignRow, setAssignRow] = useState<UserRow | null>(null);
+  const [extensionId, setExtensionId] = useState('');
+  const [tempPassword, setTempPassword] = useState<string | null>(null);
+  const [form, setForm] = useState(emptyPlatformUser);
+  const [tenantForm, setTenantForm] = useState(emptyTenantForm);
+  const [editForm, setEditForm] = useState({ email: '', firstName: '', lastName: '', roleName: 'User' });
   const [error, setError] = useState<string | null>(null);
+
   const platformQuery = usePlatformUsers({ search });
   const tenantQuery = useTenantUsers(search);
   const tenantsQuery = usePlatformTenants();
-  const createUser = useCreatePlatformUser();
+  const extensionsQuery = useTenantExtensions();
+  const createPlatformUser = useCreatePlatformUser();
+  const createTenantUser = useCreateTenantUser();
+  const updateTenantUser = useUpdateTenantUser();
+  const deleteTenantUser = useDeleteTenantUser();
+  const setStatus = useSetTenantUserStatus();
+  const resetPassword = useResetTenantUserPassword();
+  const assignExt = useAssignTenantUserExtension();
+  const unassignExt = useUnassignTenantUserExtension();
+
   const query = portal === 'tenant' ? tenantQuery : platformQuery;
   const rows = withRowIds(query.data ?? []) as UserRow[];
+  const extensions = (extensionsQuery.data ?? []) as Array<Record<string, unknown>>;
 
-  const submit = async () => {
+  const columns: Column<UserRow>[] = useMemo(() => {
+    const base: Column<UserRow>[] = [
+      {
+        key: 'name',
+        header: 'Name',
+        sortable: true,
+        cell: (r) => <span className="font-medium">{r.displayName || r.name}</span>,
+      },
+      { key: 'email', header: 'Email', cell: (r) => r.email },
+      { key: 'role', header: 'Role', cell: (r) => <Badge variant="outline">{r.role}</Badge> },
+      {
+        key: 'extension',
+        header: 'Extension',
+        cell: (r) => (r.extension ? formatExtensionLabel(r.extension, r.displayName || r.name) : '—'),
+      },
+    ];
+    if (portal === 'platform') {
+      base.push({ key: 'tenant', header: 'Tenant', cell: (r) => r.tenantName ?? '—' });
+    }
+    base.push({
+      key: 'status',
+      header: 'Status',
+      cell: (r) => (
+        <StatusBadge
+          status={r.status === 'active' ? 'active' : r.status === 'inactive' ? 'offline' : 'pending'}
+        />
+      ),
+    });
+    if (portal === 'tenant') {
+      base.push({
+        key: 'actions',
+        header: '',
+        cell: (r) => (
+          <div className="flex flex-wrap justify-end gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              title="Edit"
+              onClick={() => {
+                const parts = (r.displayName || r.name || '').split(/\s+/);
+                setEditRow(r);
+                setEditForm({
+                  email: r.email,
+                  firstName: parts[0] ?? '',
+                  lastName: parts.slice(1).join(' ') || '',
+                  roleName: r.role || 'User',
+                });
+                setError(null);
+              }}
+            >
+              <Pencil className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              title="Assign extension"
+              onClick={() => {
+                setAssignRow(r);
+                setExtensionId('');
+                setError(null);
+              }}
+            >
+              <Phone className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              title={r.status === 'active' ? 'Disable' : 'Enable'}
+              onClick={() =>
+                void setStatus.mutateAsync({
+                  id: r.id,
+                  status: r.status === 'active' ? 'INACTIVE' : 'ACTIVE',
+                })
+              }
+            >
+              {r.status === 'active' ? <UserX className="h-4 w-4" /> : <UserCheck className="h-4 w-4" />}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              title="Reset password"
+              onClick={() =>
+                void resetPassword.mutateAsync({ id: r.id }).then((res) => {
+                  setTempPassword(res.temporaryPassword ?? 'Password updated');
+                })
+              }
+            >
+              <KeyRound className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              title="Delete"
+              onClick={() => {
+                if (window.confirm(`Soft-delete user ${r.email}?`)) {
+                  void deleteTenantUser.mutateAsync(r.id);
+                }
+              }}
+            >
+              <Trash2 className="h-4 w-4 text-destructive" />
+            </Button>
+          </div>
+        ),
+      });
+    }
+    return base;
+  }, [portal, setStatus, resetPassword, deleteTenantUser]);
+
+  const submitPlatform = async () => {
     setError(null);
     try {
-      await createUser.mutateAsync(form);
+      await createPlatformUser.mutateAsync(form);
       setOpen(false);
-      setForm(emptyUser);
+      setForm(emptyPlatformUser);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to create user');
+    }
+  };
+
+  const submitTenantCreate = async () => {
+    setError(null);
+    try {
+      await createTenantUser.mutateAsync(tenantForm);
+      setOpen(false);
+      setTenantForm(emptyTenantForm);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to create user');
+    }
+  };
+
+  const submitTenantEdit = async () => {
+    if (!editRow) return;
+    setError(null);
+    try {
+      await updateTenantUser.mutateAsync({ id: editRow.id, payload: editForm });
+      setEditRow(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to update user');
+    }
+  };
+
+  const submitAssign = async () => {
+    if (!assignRow || !extensionId) return;
+    setError(null);
+    try {
+      await assignExt.mutateAsync({ id: assignRow.id, extensionId });
+      setAssignRow(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to assign extension');
+    }
+  };
+
+  const submitUnassign = async () => {
+    if (!assignRow) return;
+    setError(null);
+    try {
+      await unassignExt.mutateAsync({ id: assignRow.id });
+      setAssignRow(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to remove extension');
     }
   };
 
@@ -78,14 +264,24 @@ export function UsersContent() {
             search={search}
             onSearchChange={setSearch}
             emptyTitle="No users found"
-            emptyDescription="User accounts will appear here once provisioned."
-            primaryAction={
-              portal === 'platform' ? (
-                <CreateButton label="Add User" onClick={() => setOpen(true)} />
-              ) : undefined
+            emptyDescription={
+              portal === 'tenant'
+                ? 'Create users so employees can be assigned to extensions.'
+                : 'User accounts will appear here once provisioned.'
             }
+            primaryAction={<CreateButton label="Add User" onClick={() => setOpen(true)} />}
             filterRows={(data, q) => defaultSearchFilter(data, q)}
           />
+
+          {tempPassword ? (
+            <div className="fixed bottom-4 right-4 z-50 max-w-sm rounded-xl border border-border bg-background p-4 shadow-lg">
+              <p className="text-sm font-medium">Temporary password</p>
+              <p className="mt-1 font-mono text-sm">{tempPassword}</p>
+              <Button className="mt-3" size="sm" variant="outline" onClick={() => setTempPassword(null)}>
+                Dismiss
+              </Button>
+            </div>
+          ) : null}
 
           {portal === 'platform' ? (
             <SlideOver
@@ -102,10 +298,15 @@ export function UsersContent() {
                     Cancel
                   </Button>
                   <Button
-                    onClick={() => void submit()}
-                    disabled={createUser.isPending || !form.tenantId || !form.email || form.password.length < 8}
+                    onClick={() => void submitPlatform()}
+                    disabled={
+                      createPlatformUser.isPending ||
+                      !form.tenantId ||
+                      !form.email ||
+                      form.password.length < 8
+                    }
                   >
-                    {createUser.isPending ? 'Creating…' : 'Create User'}
+                    {createPlatformUser.isPending ? 'Creating…' : 'Create User'}
                   </Button>
                 </div>
               }
@@ -128,15 +329,194 @@ export function UsersContent() {
                   </select>
                 </label>
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <InputField label="First name" value={form.firstName} onChange={(v) => setForm({ ...form, firstName: v })} />
-                  <InputField label="Last name" value={form.lastName} onChange={(v) => setForm({ ...form, lastName: v })} />
-                  <InputField label="Email" value={form.email} onChange={(v) => setForm({ ...form, email: v })} type="email" />
-                  <InputField label="Password" value={form.password} onChange={(v) => setForm({ ...form, password: v })} type="password" />
-                  <InputField label="Role" value={form.roleName} onChange={(v) => setForm({ ...form, roleName: v })} />
+                  <InputField
+                    label="First name"
+                    value={form.firstName}
+                    onChange={(v) => setForm({ ...form, firstName: v })}
+                  />
+                  <InputField
+                    label="Last name"
+                    value={form.lastName}
+                    onChange={(v) => setForm({ ...form, lastName: v })}
+                  />
+                  <InputField
+                    label="Email"
+                    value={form.email}
+                    onChange={(v) => setForm({ ...form, email: v })}
+                    type="email"
+                  />
+                  <InputField
+                    label="Password"
+                    value={form.password}
+                    onChange={(v) => setForm({ ...form, password: v })}
+                    type="password"
+                  />
+                  <InputField
+                    label="Role"
+                    value={form.roleName}
+                    onChange={(v) => setForm({ ...form, roleName: v })}
+                  />
                 </div>
               </div>
             </SlideOver>
-          ) : null}
+          ) : (
+            <>
+              <SlideOver
+                open={open}
+                onClose={() => {
+                  setOpen(false);
+                  setError(null);
+                }}
+                title="Add User"
+                description="Create an employee account for this tenant."
+                footer={
+                  <div className="flex justify-end gap-2">
+                    <Button variant="outline" onClick={() => setOpen(false)}>
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={() => void submitTenantCreate()}
+                      disabled={
+                        createTenantUser.isPending ||
+                        !tenantForm.email ||
+                        !tenantForm.firstName ||
+                        tenantForm.password.length < 8
+                      }
+                    >
+                      {createTenantUser.isPending ? 'Creating…' : 'Create User'}
+                    </Button>
+                  </div>
+                }
+              >
+                <div className="space-y-4">
+                  {error ? <p className="text-sm text-destructive">{error}</p> : null}
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <InputField
+                      label="First name"
+                      value={tenantForm.firstName}
+                      onChange={(v) => setTenantForm({ ...tenantForm, firstName: v })}
+                    />
+                    <InputField
+                      label="Last name"
+                      value={tenantForm.lastName}
+                      onChange={(v) => setTenantForm({ ...tenantForm, lastName: v })}
+                    />
+                    <InputField
+                      label="Email"
+                      value={tenantForm.email}
+                      onChange={(v) => setTenantForm({ ...tenantForm, email: v })}
+                      type="email"
+                    />
+                    <InputField
+                      label="Password"
+                      value={tenantForm.password}
+                      onChange={(v) => setTenantForm({ ...tenantForm, password: v })}
+                      type="password"
+                    />
+                    <InputField
+                      label="Role"
+                      value={tenantForm.roleName}
+                      onChange={(v) => setTenantForm({ ...tenantForm, roleName: v })}
+                    />
+                  </div>
+                </div>
+              </SlideOver>
+
+              <SlideOver
+                open={Boolean(editRow)}
+                onClose={() => setEditRow(null)}
+                title="Edit User"
+                footer={
+                  <div className="flex justify-end gap-2">
+                    <Button variant="outline" onClick={() => setEditRow(null)}>
+                      Cancel
+                    </Button>
+                    <Button onClick={() => void submitTenantEdit()} disabled={updateTenantUser.isPending}>
+                      {updateTenantUser.isPending ? 'Saving…' : 'Save'}
+                    </Button>
+                  </div>
+                }
+              >
+                <div className="space-y-4">
+                  {error ? <p className="text-sm text-destructive">{error}</p> : null}
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <InputField
+                      label="First name"
+                      value={editForm.firstName}
+                      onChange={(v) => setEditForm({ ...editForm, firstName: v })}
+                    />
+                    <InputField
+                      label="Last name"
+                      value={editForm.lastName}
+                      onChange={(v) => setEditForm({ ...editForm, lastName: v })}
+                    />
+                    <InputField
+                      label="Email"
+                      value={editForm.email}
+                      onChange={(v) => setEditForm({ ...editForm, email: v })}
+                      type="email"
+                    />
+                    <InputField
+                      label="Role"
+                      value={editForm.roleName}
+                      onChange={(v) => setEditForm({ ...editForm, roleName: v })}
+                    />
+                  </div>
+                </div>
+              </SlideOver>
+
+              <SlideOver
+                open={Boolean(assignRow)}
+                onClose={() => setAssignRow(null)}
+                title="Assign Extension"
+                description={assignRow ? `User: ${assignRow.email}` : undefined}
+                footer={
+                  <div className="flex justify-between gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => void submitUnassign()}
+                      disabled={unassignExt.isPending || !assignRow?.extension}
+                    >
+                      Remove assignment
+                    </Button>
+                    <div className="flex gap-2">
+                      <Button variant="outline" onClick={() => setAssignRow(null)}>
+                        Cancel
+                      </Button>
+                      <Button
+                        onClick={() => void submitAssign()}
+                        disabled={assignExt.isPending || !extensionId}
+                      >
+                        Assign
+                      </Button>
+                    </div>
+                  </div>
+                }
+              >
+                <div className="space-y-4">
+                  {error ? <p className="text-sm text-destructive">{error}</p> : null}
+                  <p className="text-sm text-muted-foreground">
+                    Current: {assignRow?.extension ? formatExtensionLabel(assignRow.extension) : 'None'}
+                  </p>
+                  <label className="block space-y-1.5 text-sm">
+                    <span className="font-medium">Extension</span>
+                    <select
+                      className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm"
+                      value={extensionId}
+                      onChange={(e) => setExtensionId(e.target.value)}
+                    >
+                      <option value="">Select extension…</option>
+                      {extensions.map((ext) => (
+                        <option key={String(ext.id)} value={String(ext.id)}>
+                          {String(ext.extension ?? ext.name ?? ext.id)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+              </SlideOver>
+            </>
+          )}
         </>
       )}
     </ModuleAccessGate>

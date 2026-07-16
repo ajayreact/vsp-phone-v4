@@ -98,10 +98,18 @@ export function hasPermission(
   userPermissions: string[],
   required: string | string[],
 ): boolean {
-  if (userPermissions.includes(PERMISSIONS.PLATFORM_SUPER_ADMIN)) {
-    return true;
-  }
   const requiredList = Array.isArray(required) ? required : [required];
+  const isSuperAdmin = userPermissions.includes(PERMISSIONS.PLATFORM_SUPER_ADMIN);
+
+  // Super admin only auto-grants platform/ops permissions — never tenant:* by default.
+  // Impersonation sessions receive explicit tenant permissions from /me.
+  if (isSuperAdmin) {
+    const allPlatformOrOps = requiredList.every(
+      (p) => p === PERMISSIONS.PLATFORM_SUPER_ADMIN || p.startsWith('platform:') || p.startsWith('ops:'),
+    );
+    if (allPlatformOrOps) return true;
+  }
+
   return requiredList.some((p) => userPermissions.includes(p));
 }
 

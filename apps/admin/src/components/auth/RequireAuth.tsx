@@ -3,17 +3,24 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, type ReactNode } from 'react';
 import { useAuth } from '../../lib/auth/AuthProvider';
+import { detectPortal } from '../../lib/portal/detect-portal';
 import { Skeleton } from '../ui/Skeleton';
 
 export function RequireAuth({ children }: { children: ReactNode }) {
-  const { session, loading } = useAuth();
+  const { session, loading, logout } = useAuth();
   const router = useRouter();
+  const portal = detectPortal();
 
   useEffect(() => {
-    if (!loading && !session) {
+    if (loading) return;
+    if (!session) {
       router.replace('/login');
+      return;
     }
-  }, [loading, session, router]);
+    if (session.portal && session.portal !== portal) {
+      void logout().finally(() => router.replace('/login'));
+    }
+  }, [loading, session, router, portal, logout]);
 
   if (loading) {
     return (
@@ -27,6 +34,6 @@ export function RequireAuth({ children }: { children: ReactNode }) {
     );
   }
 
-  if (!session) return null;
+  if (!session || (session.portal && session.portal !== portal)) return null;
   return <>{children}</>;
 }

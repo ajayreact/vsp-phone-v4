@@ -5,7 +5,7 @@ import { EnterpriseAuditService } from '../../enterprise-observability/audit/ent
 import { PrismaService } from '../../telecom/prisma/prisma.service';
 import type { CreateLineDto, LineTelephonySettingsDto, UpdateLineDto } from '../dto/tenant-lines.dto';
 import { auditPbxMutation } from '../utils/tenant-pbx-audit';
-import { newPublicId, tenantScope } from '../utils/tenant.util';
+import { assertPhoneNumberBelongsToTenant, newPublicId, tenantScope } from '../utils/tenant.util';
 
 const lineInclude = {
   user: { select: { id: true, email: true, profile: { select: { firstName: true, lastName: true, displayName: true } } } },
@@ -57,6 +57,7 @@ export class TenantLinesService {
       });
       if (!user) throw new NotFoundException('User not found');
     }
+    await assertPhoneNumberBelongsToTenant(this.prisma, dto.phoneNumberId, tenantId);
 
     const lineId = randomUUID();
     const line = await this.prisma.line.create({
@@ -132,6 +133,9 @@ export class TenantLinesService {
 
   async update(tenantId: string, actorUserId: string, id: string, dto: UpdateLineDto) {
     await this.require(tenantId, id);
+    if (dto.phoneNumberId !== undefined) {
+      await assertPhoneNumberBelongsToTenant(this.prisma, dto.phoneNumberId, tenantId);
+    }
 
     if (dto.name) {
       await this.prisma.line.update({

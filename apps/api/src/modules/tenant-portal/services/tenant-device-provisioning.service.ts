@@ -34,7 +34,7 @@ export class TenantDeviceProvisioningService {
   ) {}
 
   async enroll(tenantId: string, userId: string, dto: EnrollDeviceDto) {
-    const user: JwtPayload = { sub: userId, tenantId, email: '' };
+    const user: JwtPayload = { sub: userId, tenantId, email: '', portal: 'tenant' };
     const result = await this.enrollment.enroll(user, dto);
 
     await this.prisma.device.update({
@@ -236,7 +236,11 @@ export class TenantDeviceProvisioningService {
 
   async approveFirmware(tenantId: string, userId: string, dto: ApproveFirmwareDto) {
     const release = await this.prisma.firmwareRelease.findFirst({
-      where: { id: dto.releaseId, deletedAt: null },
+      where: {
+        id: dto.releaseId,
+        deletedAt: null,
+        OR: [{ tenantId }, { tenantId: null }],
+      },
     });
     if (!release) throw new NotFoundException('Firmware release not found');
 
@@ -248,6 +252,7 @@ export class TenantDeviceProvisioningService {
         approvedBy: userId,
         rolloutPercent: dto.rolloutPercent ?? release.rolloutPercent,
         scheduledAt: dto.scheduledAt ? new Date(dto.scheduledAt) : release.scheduledAt,
+        // Claim shared catalog row for this tenant only when still unscoped.
         tenantId: release.tenantId ?? tenantId,
       },
     });
@@ -266,7 +271,11 @@ export class TenantDeviceProvisioningService {
 
   async scheduleRollout(tenantId: string, userId: string, dto: ScheduleFirmwareRolloutDto) {
     const release = await this.prisma.firmwareRelease.findFirst({
-      where: { id: dto.releaseId, deletedAt: null },
+      where: {
+        id: dto.releaseId,
+        deletedAt: null,
+        OR: [{ tenantId }, { tenantId: null }],
+      },
     });
     if (!release) throw new NotFoundException('Firmware release not found');
 
@@ -293,7 +302,12 @@ export class TenantDeviceProvisioningService {
 
   async bulkFirmwareUpdate(tenantId: string, userId: string, deviceIds: string[], releaseId: string) {
     const release = await this.prisma.firmwareRelease.findFirst({
-      where: { id: releaseId, deletedAt: null, approved: true },
+      where: {
+        id: releaseId,
+        deletedAt: null,
+        approved: true,
+        OR: [{ tenantId }, { tenantId: null }],
+      },
     });
     if (!release) throw new NotFoundException('Approved firmware release not found');
 

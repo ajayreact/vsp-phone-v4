@@ -19,6 +19,8 @@ import { memoryStorage } from 'multer';
 import { ApiBearerAuth, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { TenantStatus } from '@prisma/client';
 import type { Request, Response } from 'express';
+import { AuthService } from '../../auth/auth.service';
+import { ImpersonationStartResponseDto } from '../../auth/dto/auth.dto';
 import { getJwtUser, JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { PERMISSIONS } from '../../enterprise-security/auth/permissions.constants';
 import {
@@ -42,6 +44,7 @@ export class PlatformTenantsController {
   constructor(
     private readonly tenants: PlatformTenantsService,
     private readonly assets: PlatformAssetStorageService,
+    private readonly auth: AuthService,
   ) {}
 
   @Get()
@@ -143,6 +146,20 @@ export class PlatformTenantsController {
   @ApiOperation({ summary: 'Activate tenant' })
   async activate(@Param('id') id: string) {
     const data = await this.tenants.activate(id);
+    return { data };
+  }
+
+  @Post(':id/impersonate')
+  @RequireAnyPermission(
+    PERMISSIONS.PLATFORM_TENANTS_WRITE,
+    PERMISSIONS.PLATFORM_SUPER_ADMIN,
+  )
+  @ApiOperation({
+    summary: 'Start tenant impersonation (one-time handoff for tenant portal)',
+  })
+  async impersonate(@Param('id') id: string, @Req() req: Request) {
+    const user = getJwtUser(req);
+    const data: ImpersonationStartResponseDto = await this.auth.startImpersonation(user, id);
     return { data };
   }
 

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, type ReactNode } from 'react';
+import { ImpersonationBanner } from '../auth/ImpersonationBanner';
 import { Breadcrumbs } from './Breadcrumbs';
 import { Header } from './Header';
 import { Sidebar } from './Sidebar';
@@ -37,6 +38,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       ) : null}
       <div className="flex min-w-0 flex-1 flex-col">
         <Header />
+        <ImpersonationBanner />
         <div className="flex items-center gap-3 border-b border-border bg-muted/20 px-4 py-2.5 sm:px-6">
           <button
             type="button"

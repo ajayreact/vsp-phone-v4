@@ -19,6 +19,8 @@ export function LoginForm() {
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
+  const portal = detectPortal();
+
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -26,7 +28,7 @@ export function LoginForm() {
     try {
       await login(email, password);
       const landing =
-        detectPortal() === 'tenant' && isExtensionHubEnabled() ? '/extensions' : '/dashboard';
+        portal === 'tenant' && isExtensionHubEnabled() ? '/extensions' : '/dashboard';
       router.replace(landing);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed');
@@ -50,7 +52,13 @@ export function LoginForm() {
             </div>
             <div>
               <h2 className="text-xl font-semibold tracking-tight">Sign in</h2>
-              <p className="text-sm text-muted-foreground">VSP Phone Operations Center</p>
+              <p className="text-sm text-muted-foreground">
+                {portal === 'platform'
+                  ? 'Platform Admin Portal'
+                  : portal === 'tenant'
+                    ? 'Tenant Portal'
+                    : 'Operations Center'}
+              </p>
             </div>
           </div>
           <form onSubmit={onSubmit} className="space-y-5">

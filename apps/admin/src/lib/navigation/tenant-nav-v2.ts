@@ -109,7 +109,6 @@ export const TENANT_MODULES_V2: ModuleDefinition[] = [
     description: 'User accounts and roles.',
     breadcrumb: ['People', 'Users'],
     apiEndpoints: ['/v1/tenant/users'],
-    hiddenFromNav: true,
   },
   {
     id: 'number-inventory',

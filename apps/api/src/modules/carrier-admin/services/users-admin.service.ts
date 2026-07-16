@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { UserStatus } from '@prisma/client';
 import { PrismaService } from '../../telecom/prisma/prisma.service';
 
@@ -35,9 +35,11 @@ export class UsersAdminService {
 
   async list(params: { tenantId?: string; search?: string }): Promise<UserAdminRecord[]> {
     if (!this.prisma.connected) return [];
+    if (!params.tenantId) {
+      throw new BadRequestException('tenantId is required for user listing');
+    }
 
-    const where: Record<string, unknown> = { deletedAt: null };
-    if (params.tenantId) where.tenantId = params.tenantId;
+    const where: Record<string, unknown> = { deletedAt: null, tenantId: params.tenantId };
     if (params.search?.trim()) {
       const q = params.search.trim();
       where.OR = [

@@ -10,7 +10,6 @@ import {
   useRebootDevice,
   useReprovisionDevice,
 } from '../../../lib/hooks/queries/use-device-mutations';
-import { useAssignDid } from '../../../lib/hooks/queries/use-dids';
 import {
   emptyExtensionConfigureForm,
   extensionDetailMatchesRow,
@@ -27,7 +26,7 @@ import {
 } from '../../../lib/hooks/queries/use-extension-hub';
 import { useTenantDepartments } from '../../../lib/hooks/queries/use-tenant-organization';
 import { useUpdateTenantExtension } from '../../../lib/hooks/queries/use-tenant-mutations';
-import { useTenantDids, useTenantUsers } from '../../../lib/hooks/queries/use-tenant';
+import { useTenantUsers } from '../../../lib/hooks/queries/use-tenant';
 import { deviceRepository } from '../../../lib/repositories/device.repository';
 import { queryKeys } from '../../../lib/query/query-keys';
 import { Button } from '../../ui/Button';
@@ -58,7 +57,7 @@ const DIRTY_FIELDS: Record<ModalTabId, (keyof ExtensionConfigureFormState)[]> = 
   sip: [],
   devices: [],
   desk: [],
-  did: ['selectedDidId', 'callerIdName', 'cnam', 'emergencyAddress'],
+  did: ['callerIdName', 'cnam', 'emergencyAddress'],
   voicemail: ['pin', 'voicemailNotifyEmail', 'voicemailEnabled', 'voicemailGreeting'],
   callFeatures: [
     'callForwardEnabled',
@@ -81,14 +80,17 @@ const DIRTY_FIELDS: Record<ModalTabId, (keyof ExtensionConfigureFormState)[]> = 
 
 function Field({
   label,
+  hint,
   children,
 }: {
   label: string;
+  hint?: string;
   children: ReactNode;
 }) {
   return (
     <label className="block space-y-1.5 text-sm">
       <span className="font-medium">{label}</span>
+      {hint ? <span className="block text-xs font-normal text-muted-foreground">{hint}</span> : null}
       {children}
     </label>
   );
@@ -193,11 +195,9 @@ export function ExtensionConfigureModal({
 
   const usersQuery = useTenantUsers();
   const departmentsQuery = useTenantDepartments();
-  const didsQuery = useTenantDids();
   const updateExt = useUpdateTenantExtension();
   const createDevice = useCreateTenantDevice();
   const deleteDevice = useDeleteTenantDevice();
-  const assignDid = useAssignDid();
   const unassignDid = useExtensionUnassignDid();
   const mobileQr = useExtensionMobileQr();
   const restartReg = useExtensionRestartRegistration();
@@ -340,16 +340,7 @@ export function ExtensionConfigureModal({
         },
       });
 
-      if (form.selectedDidId && form.selectedDidId !== (row.did?.id ?? '')) {
-        await assignDid.mutateAsync({
-          id: form.selectedDidId,
-          payload: {
-            destinationType: 'EXTENSION',
-            destinationId: row.id,
-            callerIdName: form.callerIdName || form.displayName,
-          },
-        });
-      }
+      // Assigned DID is not editable here — platform assignment / Remove DID only.
 
       if (andProvision) {
         if (row.hasDeskPhone && row.device?.id) {
@@ -474,7 +465,6 @@ export function ExtensionConfigureModal({
 
   const users = usersQuery.data ?? [];
   const departments = (departmentsQuery.data ?? []) as { id: string; name: string }[];
-  const dids = (didsQuery.data ?? []) as { id: string; number: string }[];
   const detailLoading = !detailReady && detailQuery.isPending;
   const detailLoadError =
     !detailReady && detailQuery.isError && !extensionDetailMatchesRow(detailQuery.data, row?.id ?? '');
@@ -493,7 +483,6 @@ export function ExtensionConfigureModal({
 
   const saving =
     updateExt.isPending ||
-    assignDid.isPending ||
     createDevice.isPending ||
     reprovision.isPending ||
     restartReg.isPending;
@@ -570,8 +559,15 @@ export function ExtensionConfigureModal({
                 <Field label="Extension Number">
                   <Input value={row.extension} readOnly className="bg-muted/40 font-mono" />
                 </Field>
-                <Field label="Display Name">
-                  <Input value={form.displayName} onChange={(e) => patchForm({ displayName: e.target.value })} />
+                <Field
+                  label="User Name"
+                  hint="Identification name shown as Extension Name in the hub (e.g. Reception, Sales, Ajay). Rename anytime."
+                >
+                  <Input
+                    value={form.displayName}
+                    onChange={(e) => patchForm({ displayName: e.target.value })}
+                    placeholder={`Extension ${row.extension}`}
+                  />
                 </Field>
                 <Field label="First Name">
                   <Input value={form.firstName} readOnly className="bg-muted/40" />
@@ -602,13 +598,16 @@ export function ExtensionConfigureModal({
                 <Field label="Timezone">
                   <Input value={form.timezone} onChange={(e) => patchForm({ timezone: e.target.value })} />
                 </Field>
-                <Field label="Linked User">
+                <Field
+                  label="Assigned User"
+                  hint="Optional account linked to this extension. Leave blank for Unassigned."
+                >
                   <select
                     className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm"
                     value={form.linkedUserId}
                     onChange={(e) => patchForm({ linkedUserId: e.target.value })}
                   >
-                    <option value="">No user linked</option>
+                    <option value="">Unassigned</option>
                     {users.map((u) => (
                       <option key={u.id} value={u.id}>
                         {u.displayName || u.name || u.email}
@@ -807,30 +806,16 @@ export function ExtensionConfigureModal({
 
             {tab === 'did' && row ? (
               <div className="space-y-4 max-w-xl">
-                <Field label="Assigned Numbers">
-                  {(row.dids?.length ? row.dids : row.did ? [row.did] : []).length ? (
-                    <ul className="space-y-1 rounded-xl border border-border bg-muted/40 px-3 py-2 font-mono text-sm">
-                      {(row.dids?.length ? row.dids : row.did ? [row.did] : []).map((d) => (
-                        <li key={d.id}>{d.formatted}</li>
-                      ))}
-                    </ul>
+                <p className="text-sm text-muted-foreground">
+                  One DID per extension. The assigned number is set by platform assignment and is not
+                  editable here. Removing a DID keeps the extension and marks it Inactive.
+                </p>
+                <Field label="Assigned Number">
+                  {row.did ? (
+                    <Input value={row.did.formatted} readOnly className="bg-muted/40 font-mono" />
                   ) : (
                     <Input value="No DID assigned" readOnly className="bg-muted/40 font-mono" />
                   )}
-                </Field>
-                <Field label="Change DID">
-                  <select
-                    className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm"
-                    value={form.selectedDidId}
-                    onChange={(e) => patchForm({ selectedDidId: e.target.value })}
-                  >
-                    <option value="">Select number…</option>
-                    {dids.map((d) => (
-                      <option key={d.id} value={d.id}>
-                        {d.number}
-                      </option>
-                    ))}
-                  </select>
                 </Field>
                 <Field label="CNAM">
                   <Input value={form.cnam} onChange={(e) => patchForm({ cnam: e.target.value, callerIdName: e.target.value })} />
@@ -844,7 +829,7 @@ export function ExtensionConfigureModal({
                 </Field>
                 {row.did ? (
                   <Button variant="outline" onClick={() => void removeDid()} disabled={unassignDid.isPending}>
-                    Remove DID
+                    Remove DID (mark extension Inactive)
                   </Button>
                 ) : null}
               </div>

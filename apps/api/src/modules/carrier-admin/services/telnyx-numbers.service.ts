@@ -11,7 +11,15 @@ import { randomUUID } from 'node:crypto';
 import { normalizePhoneDigits, phoneMatchesDigitFilters } from '../../../common/query-param.util';
 import { EnterpriseAuditService } from '../../enterprise-observability/audit/enterprise-audit.service';
 import { ExtensionAutoProvisionService } from '../../tenant-portal/services/extension-auto-provision.service';
-import { resolveBulkExtensionTarget } from '../../tenant-portal/utils/extension-auto-provision.util';
+import {
+  DEFAULT_EXTENSION_START,
+  resolveBulkExtensionTarget,
+} from '../../tenant-portal/utils/extension-auto-provision.util';
+import {
+  assertCanBindDidToLine,
+  detachDidFromPriorExtension,
+  markLineActiveOnDidAttach,
+} from '../../tenant-portal/utils/did-extension-binding';
 import { PrismaService } from '../../telecom/prisma/prisma.service';
 import type {
   AssignTelnyxNumberDto,
@@ -235,9 +243,38 @@ export class TelnyxNumbersService {
   }
 
   async listMarketplaceInventory(search?: string): Promise<TelnyxNumberResponseDto[]> {
+    if (!this.prisma.connected) return [];
     const inventoryTenantId = await this.resolveInventoryTenantId();
-    const all = await this.list({ search });
-    return all.filter((n) => n.status === 'available' && !n.assignedExtension);
+
+    const where: Prisma.PhoneNumberWhereInput = {
+      deletedAt: null,
+      tenantId: inventoryTenantId,
+      carrier: { carrierType: CarrierType.TELNYX, deletedAt: null },
+      lineId: null,
+    };
+
+    if (search?.trim()) {
+      const q = search.trim();
+      where.OR = [
+        { number: { contains: q, mode: 'insensitive' } },
+        { tenant: { name: { contains: q, mode: 'insensitive' } } },
+      ];
+    }
+
+    const rows = await this.prisma.phoneNumber.findMany({
+      where,
+      include: {
+        tenant: { select: { id: true, name: true } },
+        line: { include: { extension: true } },
+        carrier: true,
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 500,
+    });
+
+    const mapped = await Promise.all(rows.map(async (r) => this.toResponse(r, await this.loadMeta(r))));
+    // Inventory tenant only — never expose numbers assigned to customer tenants.
+    return mapped.filter((n) => n.status === 'available' && !n.assignedExtension && !n.assignedTenantId);
   }
 
   async findInventoryNumberByE164(e164: string): Promise<TelnyxNumberResponseDto | null> {
@@ -584,17 +621,36 @@ export class TelnyxNumbersService {
     meta.assignedConference = dto.conference ?? null;
     meta.forwardTo = dto.forwardTo ?? null;
 
-    // Single atomic unit: lock → allocate/create PBX stub → DID bind → inbound route.
+    // Single atomic unit: detach prior tenant → lock → allocate/create PBX stub → DID bind.
     // Any failure rolls back the entire provisioning unit (no orphan Line/SIP/VM).
-    const { assignedExtension } = await this.prisma.$transaction(
+    const { assignedExtension, priorTenantId } = await this.prisma.$transaction(
       async (tx) => {
+        // Cross-tenant / reassign: prior extension stays (Inactive); no data leak via routes.
+        const prior = await detachDidFromPriorExtension(tx, {
+          phoneNumberId: id,
+          actorUserId,
+          nextTenantId: dto.tenantId,
+        });
+
+        // Move number onto target tenant before creating that tenant's extension stub.
+        await tx.phoneNumber.update({
+          where: { id },
+          data: {
+            tenantId: dto.tenantId,
+            siteId: dto.siteId ?? null,
+            lineId: null,
+            status: PhoneNumberStatus.ACTIVE,
+            updatedBy: actorUserId,
+          },
+        });
+
         await this.extensionAutoProvision.lockTenantExtensionAllocation(tx, dto.tenantId);
 
         const extensionNumber =
           dto.extension?.trim() ||
           (await this.extensionAutoProvision.allocateNextExtensionNumber(
             dto.tenantId,
-            options?.allocateFrom ?? 101,
+            options?.allocateFrom ?? DEFAULT_EXTENSION_START,
             tx,
           ));
 
@@ -608,21 +664,17 @@ export class TelnyxNumbersService {
         const lineId = ext.lineId;
         const extensionId = ext.id;
 
-        await tx.numberAssignment.updateMany({
-          where: { phoneNumberId: id, effectiveTo: null, deletedAt: null },
-          data: { effectiveTo: new Date(), updatedBy: actorUserId },
+        await assertCanBindDidToLine(tx, {
+          tenantId: dto.tenantId,
+          phoneNumberId: id,
+          lineId,
         });
 
         await tx.phoneNumber.update({
           where: { id },
-          data: {
-            tenantId: dto.tenantId,
-            siteId: dto.siteId ?? null,
-            lineId,
-            status: PhoneNumberStatus.ACTIVE,
-            updatedBy: actorUserId,
-          },
+          data: { lineId, updatedBy: actorUserId },
         });
+        await markLineActiveOnDidAttach(tx, lineId, actorUserId);
 
         await tx.numberAssignment.create({
           data: {
@@ -652,6 +704,7 @@ export class TelnyxNumbersService {
           destinationConferenceId: null,
           openHoursDestinationType: null,
           openHoursDestinationId: null,
+          enabled: true,
           updatedBy: actorUserId,
         };
         if (existingRoute) {
@@ -671,7 +724,10 @@ export class TelnyxNumbersService {
           });
         }
 
-        return { assignedExtension: ext.extension };
+        return {
+          assignedExtension: ext.extension,
+          priorTenantId: prior.priorTenantId,
+        };
       },
       { timeout: 60_000 },
     );
@@ -684,7 +740,14 @@ export class TelnyxNumbersService {
     this.logAudit(dto.tenantId, actorUserId, 'telnyx.number.assigned', 'phone_number', id, {
       extension: assignedExtension,
       siteId: dto.siteId,
+      priorTenantId: priorTenantId !== dto.tenantId ? priorTenantId : null,
     });
+    if (priorTenantId && priorTenantId !== dto.tenantId) {
+      this.logAudit(priorTenantId, actorUserId, 'telnyx.number.unassigned', 'phone_number', id, {
+        reason: 'reassigned_to_tenant',
+        nextTenantId: dto.tenantId,
+      });
+    }
 
     return response;
   }
@@ -726,14 +789,17 @@ export class TelnyxNumbersService {
       }
     }
 
-    await this.prisma.phoneNumber.update({
-      where: { id },
-      data: {
-        deletedAt: new Date(),
-        deletedBy: actorUserId,
-        lineId: null,
-        status: PhoneNumberStatus.INACTIVE,
-      },
+    await this.prisma.$transaction(async (tx) => {
+      await detachDidFromPriorExtension(tx, { phoneNumberId: id, actorUserId });
+      await tx.phoneNumber.update({
+        where: { id },
+        data: {
+          deletedAt: new Date(),
+          deletedBy: actorUserId,
+          lineId: null,
+          status: PhoneNumberStatus.INACTIVE,
+        },
+      });
     });
 
     this.logAudit(row.tenantId, actorUserId, 'telnyx.number.released', 'phone_number', id, { phoneNumber: row.number });
@@ -931,27 +997,30 @@ export class TelnyxNumbersService {
     return meta.telnyxId ? `telnyx:${meta.telnyxId}` : `local:${randomUUID()}`;
   }
 
+  /**
+   * Platform Inventory Tenant only — never fall back to "oldest tenant".
+   * Misconfiguration must fail loudly so purchased DIDs never attach to a customer.
+   */
   async resolveInventoryTenantId(): Promise<string> {
     const settings = await this.prisma.platformSettings.findFirst();
     const configured =
       settings?.inventoryTenantId?.trim() ||
       this.config.get<string>('VSP_PLATFORM_INVENTORY_TENANT_ID')?.trim();
 
-    if (configured) {
-      const tenant = await this.prisma.tenant.findFirst({
-        where: { id: configured, deletedAt: null },
-      });
-      if (!tenant) {
-        throw new BadRequestException(`Inventory tenant not found: ${configured}`);
-      }
-      return tenant.id;
+    if (!configured) {
+      throw new BadRequestException(
+        'Platform Inventory Tenant is not configured. Set platformSettings.inventoryTenantId or VSP_PLATFORM_INVENTORY_TENANT_ID to the dedicated inventory tenant (e.g. Platform Inventory).',
+      );
     }
 
     const tenant = await this.prisma.tenant.findFirst({
-      where: { deletedAt: null },
-      orderBy: { createdAt: 'asc' },
+      where: { id: configured, deletedAt: null },
     });
-    if (!tenant) throw new BadRequestException('No tenant available for platform inventory');
+    if (!tenant) {
+      throw new BadRequestException(
+        `Platform Inventory Tenant not found: ${configured}. Create/restore the inventory tenant and update configuration.`,
+      );
+    }
     return tenant.id;
   }
 

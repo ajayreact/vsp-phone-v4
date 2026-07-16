@@ -95,7 +95,6 @@ export const TENANT_MODULES: ModuleDefinition[] = [
     description: 'User accounts, profiles, and site assignments.',
     breadcrumb: ['Platform', 'Users'],
     apiEndpoints: ['/v1/tenant/users'],
-    hiddenFromNav: true,
   },
   {
     id: 'extensions',

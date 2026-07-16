@@ -1,3 +1,5 @@
+export type AuthPortal = 'platform' | 'ops' | 'tenant';
+
 export type MeTenant = {
   id: string;
   name: string;
@@ -19,6 +21,8 @@ export type AuthSession = {
   userId: string;
   tenantId: string;
   email: string;
+  portal: AuthPortal;
+  impersonatorUserId?: string | null;
   permissions: string[];
   roles: MeRole[];
   tenant: MeTenant | null;
@@ -32,4 +36,5 @@ export type LoginResult = {
   userId: string;
   tenantId: string;
   email: string;
+  portal: AuthPortal;
 };

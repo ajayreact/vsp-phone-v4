@@ -12,7 +12,6 @@ import { useCreateTenantExtension } from '../../../lib/hooks/queries/use-tenant-
 import { PERMISSIONS } from '../../../lib/rbac/permissions';
 import { hasPermission } from '../../../lib/rbac/permissions';
 import { usePermissions } from '../../../lib/auth/AuthProvider';
-import { formatExtensionLabel } from '../../../lib/extensions/format-extension-label';
 import { DataTable, type Column } from '../../data/DataTable';
 import type { ActionItem } from '../../data/ActionDropdown';
 import { QueryState } from '../../feedback/QueryState';
@@ -218,12 +217,12 @@ export function ExtensionsHubContent() {
         key: 'user',
         header: 'User',
         sortable: true,
-        sortValue: (r) => r.linkedUser?.displayName ?? r.linkedUser?.email ?? '',
+        sortValue: (r) => r.linkedUser?.displayName ?? r.linkedUser?.email ?? 'Unassigned',
         cell: (row) =>
           row.linkedUser ? (
             <span>{row.linkedUser.displayName || row.linkedUser.email}</span>
           ) : (
-            <span className="text-muted-foreground">—</span>
+            <span className="text-muted-foreground">Unassigned</span>
           ),
       },
       {
@@ -484,16 +483,19 @@ export function ExtensionsHubContent() {
             <div className="space-y-4">
               <label className="block space-y-1.5 text-sm">
                 <span className="font-medium">Extension number</span>
-                <Input value={newExtension} onChange={(e) => setNewExtension(e.target.value)} placeholder="104" />
+                <Input value={newExtension} onChange={(e) => setNewExtension(e.target.value)} placeholder="103" />
               </label>
               <label className="block space-y-1.5 text-sm">
-                <span className="font-medium">Display name</span>
+                <span className="font-medium">User Name</span>
+                <span className="block text-xs text-muted-foreground">
+                  Identification name shown as Extension Name (e.g. Reception, Sales)
+                </span>
                 <Input
                   value={newDisplayName}
                   onChange={(e) => setNewDisplayName(e.target.value)}
                   placeholder={
                     newExtension
-                      ? formatExtensionLabel(newExtension, `Extension ${newExtension}`)
+                      ? `Extension ${newExtension}`
                       : 'Reception'
                   }
                 />

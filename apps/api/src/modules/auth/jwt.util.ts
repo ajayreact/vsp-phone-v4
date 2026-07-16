@@ -1,9 +1,15 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 
+export type AuthPortal = 'platform' | 'ops' | 'tenant';
+
 export interface JwtPayload {
   sub: string;
   tenantId: string;
   email: string;
+  /** Portal this token is valid for. */
+  portal: AuthPortal;
+  /** Set when Platform Admin is impersonating a tenant. */
+  impersonatorUserId?: string;
   iat?: number;
   exp?: number;
 }
@@ -47,6 +53,7 @@ export function verifyJwt(token: string, secret: string): JwtPayload | null {
     const payload = JSON.parse(b64urlDecode(body)) as JwtPayload;
     const now = Math.floor(Date.now() / 1000);
     if (!payload.sub || !payload.tenantId || !payload.exp || payload.exp < now) return null;
+    if (!payload.portal || !['platform', 'ops', 'tenant'].includes(payload.portal)) return null;
     return payload;
   } catch {
     return null;

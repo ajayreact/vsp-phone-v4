@@ -1,7 +1,7 @@
 import type { UserRecord } from '../../types/portal';
 import type { OpsDashboardSnapshot } from '../../types/telecom';
-import { httpDelete, httpGet, httpPatch, httpPost } from '../api/http-client';
-import { normalizeList } from './api-utils';
+import { httpDelete, httpGet, httpPatch, httpPost, httpPut } from '../api/http-client';
+import { normalizeList, unwrapData } from './api-utils';
 
 export const tenantRepository = {
   getDashboard(): Promise<OpsDashboardSnapshot> {
@@ -11,6 +11,52 @@ export const tenantRepository = {
   listUsers(search?: string): Promise<UserRecord[]> {
     const q = search ? `?search=${encodeURIComponent(search)}` : '';
     return httpGet<{ data: UserRecord[] }>(`/v1/tenant/users${q}`).then(normalizeList);
+  },
+
+  createUser(payload: {
+    email: string;
+    password: string;
+    firstName: string;
+    lastName: string;
+    roleName?: string;
+  }): Promise<UserRecord> {
+    return httpPost<{ data: UserRecord }>('/v1/tenant/users', payload).then(unwrapData);
+  },
+
+  updateUser(
+    id: string,
+    payload: { email?: string; firstName?: string; lastName?: string; roleName?: string },
+  ): Promise<UserRecord> {
+    return httpPut<{ data: UserRecord }>(`/v1/tenant/users/${id}`, payload).then(unwrapData);
+  },
+
+  deleteUser(id: string): Promise<{ ok: boolean }> {
+    return httpDelete<{ ok: boolean }>(`/v1/tenant/users/${id}`);
+  },
+
+  setUserStatus(id: string, status: 'ACTIVE' | 'INACTIVE' | 'PENDING' | 'LOCKED'): Promise<UserRecord> {
+    return httpPatch<{ data: UserRecord }>(`/v1/tenant/users/${id}/status`, { status }).then(
+      unwrapData,
+    );
+  },
+
+  resetUserPassword(id: string, password?: string): Promise<{ ok: true; temporaryPassword?: string }> {
+    return httpPatch<{ ok: true; temporaryPassword?: string }>(
+      `/v1/tenant/users/${id}/reset-password`,
+      password ? { password } : {},
+    );
+  },
+
+  assignUserExtension(id: string, extensionId: string): Promise<UserRecord> {
+    return httpPatch<{ data: UserRecord }>(`/v1/tenant/users/${id}/assign-extension`, {
+      extensionId,
+    }).then(unwrapData);
+  },
+
+  unassignUserExtension(id: string, extensionId?: string): Promise<UserRecord> {
+    return httpPatch<{ data: UserRecord }>(`/v1/tenant/users/${id}/unassign-extension`, {
+      ...(extensionId ? { extensionId } : {}),
+    }).then(unwrapData);
   },
 
   listDevices(search?: string): Promise<Record<string, unknown>[]> {

@@ -1,8 +1,11 @@
 /** Pure helpers for Extension-First auto-provision (unit-tested without Nest DI). */
 
+/** Default first extension for a new tenant (100, 101, 102, …). */
+export const DEFAULT_EXTENSION_START = 100;
+
 export function nextAvailableExtensionNumber(
   existing: string[],
-  startFrom = 101,
+  startFrom = DEFAULT_EXTENSION_START,
 ): string {
   const taken = new Set<number>();
   for (const raw of existing) {
@@ -26,8 +29,9 @@ export function extensionNeedsBusinessSetup(opts: {
   extension: string;
   displayName: string;
   hasLinkedUser: boolean;
-  status: 'Registered' | 'Provisioned' | 'NoDevice' | 'RegistrationFailed';
+  status: 'Registered' | 'Provisioned' | 'NoDevice' | 'RegistrationFailed' | 'Inactive';
 }): boolean {
+  if (opts.status === 'Inactive') return false;
   if (opts.status === 'NoDevice') return true;
   const incomplete =
     !opts.hasLinkedUser ||
@@ -57,16 +61,22 @@ export function resolveBulkExtensionTarget(
 
   if (dto.startExtension?.trim()) {
     const base = parseInt(dto.startExtension.trim(), 10);
-    return { mode: 'allocate', startFrom: Number.isFinite(base) ? base : 101 };
+    return {
+      mode: 'allocate',
+      startFrom: Number.isFinite(base) ? base : DEFAULT_EXTENSION_START,
+    };
   }
 
   if (dto.extension?.trim()) {
     const base = parseInt(dto.extension.trim(), 10);
     // Shared single extension across a bulk batch would stack DIDs — allocate from that base instead.
-    return { mode: 'allocate', startFrom: Number.isFinite(base) ? base : 101 };
+    return {
+      mode: 'allocate',
+      startFrom: Number.isFinite(base) ? base : DEFAULT_EXTENSION_START,
+    };
   }
 
-  return { mode: 'allocate', startFrom: 101 };
+  return { mode: 'allocate', startFrom: DEFAULT_EXTENSION_START };
 }
 
 /** Tombstone extension number so @@unique([tenantId, extension]) frees the original for reuse. */

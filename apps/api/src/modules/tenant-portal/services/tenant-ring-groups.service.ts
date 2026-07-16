@@ -12,7 +12,7 @@ import type {
   UpdateRingGroupDto,
 } from '../dto/tenant-ring-groups.dto';
 import { auditPbxMutation } from '../utils/tenant-pbx-audit';
-import { newPublicId, tenantScope } from '../utils/tenant.util';
+import { assertPhoneNumberBelongsToTenant, newPublicId, tenantScope } from '../utils/tenant.util';
 
 const ringGroupInclude = {
   members: {
@@ -72,6 +72,7 @@ export class TenantRingGroupsService {
   }
 
   async create(tenantId: string, userId: string, dto: CreateRingGroupDto) {
+    await assertPhoneNumberBelongsToTenant(this.prisma, dto.phoneNumberId, tenantId);
     const group = await this.prisma.ringGroup.create({
       data: {
         id: randomUUID(),
@@ -114,6 +115,9 @@ export class TenantRingGroupsService {
 
   async update(tenantId: string, userId: string, id: string, dto: UpdateRingGroupDto) {
     await this.requireGroup(tenantId, id);
+    if (dto.phoneNumberId !== undefined) {
+      await assertPhoneNumberBelongsToTenant(this.prisma, dto.phoneNumberId, tenantId);
+    }
 
     const group = await this.prisma.ringGroup.update({
       where: { id },

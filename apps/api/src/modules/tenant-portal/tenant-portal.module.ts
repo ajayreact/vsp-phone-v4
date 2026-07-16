@@ -78,6 +78,7 @@ import { TenantPresenceService } from './services/tenant-presence.service';
 import { TenantReceptionEventsService } from './services/tenant-reception-events.service';
 import { TenantReceptionService } from './services/tenant-reception.service';
 import { TenantOrganizationService } from './services/tenant-organization.service';
+import { TenantUsersService } from './services/tenant-users.service';
 
 @Module({
   imports: [
@@ -162,6 +163,7 @@ import { TenantOrganizationService } from './services/tenant-organization.servic
     TenantMarketplaceService,
     TenantNumberRequestsService,
     TenantOrganizationService,
+    TenantUsersService,
   ],
 })
 export class TenantPortalModule {}

@@ -231,10 +231,10 @@ export function ConferencesContent() {
     <ModuleAccessGate moduleId="conferences">
       {({ module }) => (
         <PageContainer>
-          <PageHeader
-            title={module.label}
-            description={module.description}
-            actions={
+            <PageHeader
+              title={module.label}
+              description={module.description}
+              actions={
               <div className="flex gap-2">
                 <Button variant="outline" size="sm" onClick={() => void listQuery.refetch()} disabled={listQuery.isFetching}>
                   <RefreshCw className={`h-4 w-4 ${listQuery.isFetching ? 'animate-spin' : ''}`} />
@@ -268,7 +268,7 @@ export function ConferencesContent() {
             <Input placeholder="Search conferences…" value={search} onChange={(e) => setSearch(e.target.value)} className="max-w-md" />
           </div>
 
-          <QueryState
+            <QueryState
             isLoading={listQuery.isLoading}
             isError={listQuery.isError}
             error={listQuery.error}
@@ -346,14 +346,14 @@ export function ConferencesContent() {
                               >
                                 <UserMinus className="h-4 w-4" />
                               </Button>
-                            </div>
-                          ) : null}
+                </div>
+              ) : null}
                         </li>
                       );
                     })}
                   </ul>
                 )}
-              </QueryState>
+            </QueryState>
             </div>
           ) : null}
 

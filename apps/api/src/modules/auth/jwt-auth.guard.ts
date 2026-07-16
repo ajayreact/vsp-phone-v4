@@ -1,13 +1,14 @@
 import {
   CanActivate,
   ExecutionContext,
+  ForbiddenException,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { Request } from 'express';
 import { AuthHardeningService } from '../enterprise-security/auth/auth-hardening.service';
-import { verifyJwt, type JwtPayload } from './jwt.util';
+import { verifyJwt, type AuthPortal, type JwtPayload } from './jwt.util';
 
 export const JWT_USER_KEY = 'jwtUser';
 
@@ -36,8 +37,31 @@ export class JwtAuthGuard implements CanActivate {
     if (payload.iat && (await this.hardening.isSessionRevoked(payload.sub, payload.iat))) {
       throw new UnauthorizedException('Session invalidated');
     }
+
+    this.assertPortalSurface(req, payload);
+
     (req as Request & { [JWT_USER_KEY]: JwtPayload })[JWT_USER_KEY] = payload;
     return true;
+  }
+
+  private assertPortalSurface(req: Request, user: JwtPayload): void {
+    const path = (req.path || req.url || '').split('?')[0] ?? '';
+    const expected = inferPortalFromPath(path);
+    if (!expected) return;
+
+    if (user.portal !== expected) {
+      // Allow ops tokens on some shared carrier paths used by ops portal
+      if (expected === 'platform' && user.portal === 'ops' && path.includes('/v1/carriers')) {
+        return;
+      }
+      throw new ForbiddenException(
+        `Token portal "${user.portal}" cannot access this ${expected} API surface`,
+      );
+    }
+
+    if (user.impersonatorUserId && user.portal !== 'tenant') {
+      throw new ForbiddenException('Impersonation token is limited to the tenant portal');
+    }
   }
 }
 
@@ -47,4 +71,11 @@ export function getJwtUser(req: Request): JwtPayload {
     throw new UnauthorizedException('JWT context missing');
   }
   return user;
+}
+
+function inferPortalFromPath(path: string): AuthPortal | null {
+  if (path.includes('/v1/platform')) return 'platform';
+  if (path.includes('/v1/tenant')) return 'tenant';
+  if (path.includes('/v1/ops')) return 'ops';
+  return null;
 }

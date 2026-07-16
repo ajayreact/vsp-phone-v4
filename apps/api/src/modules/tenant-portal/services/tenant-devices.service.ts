@@ -8,6 +8,7 @@ import {
   DeviceStatus,
   DeviceType,
   ProvisioningStatus,
+  SIPEndpointStatus,
 } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import type { JwtPayload } from '../../auth/jwt.util';
@@ -105,7 +106,7 @@ export class TenantDevicesService {
 
   async create(tenantId: string, userId: string, dto: CreateDeviceDto) {
     if (dto.deviceType === DeviceType.DESK_PHONE && dto.lineId && dto.macAddress) {
-      const user: JwtPayload = { sub: userId, tenantId, email: '' };
+      const user: JwtPayload = { sub: userId, tenantId, email: '', portal: 'tenant' };
       const enrolled = await this.enrollment.enroll(user, {
         mac: dto.macAddress,
         name: dto.name,
@@ -224,7 +225,7 @@ export class TenantDevicesService {
   }
 
   async assign(tenantId: string, userId: string, id: string, dto: AssignDeviceDto) {
-    const user: JwtPayload = { sub: userId, tenantId, email: '' };
+    const user: JwtPayload = { sub: userId, tenantId, email: '', portal: 'tenant' };
     await this.enrollment.assignLine(user, id, dto.lineId);
     await auditPbxMutation(this.audit, {
       tenantId,
@@ -298,13 +299,48 @@ export class TenantDevicesService {
 
   async remove(tenantId: string, userId: string, id: string) {
     const existing = await this.require(tenantId, id);
-    await this.prisma.device.update({
-      where: { id },
-      data: { deletedAt: new Date(), deletedBy: userId },
+    const mac = existing.macAddress ? normalizeMac(String(existing.macAddress)) : '';
+    const sipEndpointId = existing.sipEndpointId ?? null;
+
+    // Soft-delete, clear MAC / tokens / registration so the same MAC can re-enroll immediately.
+    await this.prisma.$transaction(async (tx) => {
+      await tx.deviceAssignment.updateMany({
+        where: { deviceId: id, tenantId, effectiveTo: null, deletedAt: null },
+        data: { effectiveTo: new Date(), updatedBy: userId },
+      });
+      await tx.device.update({
+        where: { id },
+        data: {
+          deletedAt: new Date(),
+          deletedBy: userId,
+          macAddress: null,
+          lineId: null,
+          userId: null,
+          sipEndpointId: null,
+          status: DeviceStatus.INACTIVE,
+          provisioningStatus: ProvisioningStatus.FAILED,
+          discoveryStatus: null,
+          updatedBy: userId,
+        },
+      });
+
+      if (sipEndpointId) {
+        const siblings = await tx.device.count({
+          where: { sipEndpointId, tenantId, deletedAt: null, id: { not: id } },
+        });
+        if (siblings === 0) {
+          await tx.sIPEndpoint.updateMany({
+            where: { id: sipEndpointId, tenantId, deletedAt: null },
+            data: {
+              registrationStatus: SIPEndpointStatus.UNREGISTERED,
+              lastRegisteredAt: null,
+              updatedBy: userId,
+            },
+          });
+        }
+      }
     });
 
-    // Clear global MAC enrollment index + device meta so the phone can re-enroll.
-    const mac = existing.macAddress ? normalizeMac(String(existing.macAddress)) : '';
     if (mac.length === 12) {
       await this.redis.del(this.redis.macIndexKey(mac));
       await this.redis.del(this.redis.quarantineKey(mac));
@@ -318,8 +354,13 @@ export class TenantDevicesService {
       action: 'pbx.device.delete',
       entityType: 'Device',
       entityId: id,
+      metadata: {
+        macCleared: Boolean(mac),
+        previousMac: mac || null,
+        sipEndpointCleared: Boolean(sipEndpointId),
+      },
     });
-    return { ok: true };
+    return { ok: true, macCleared: Boolean(mac) };
   }
 
   async clone(tenantId: string, userId: string, id: string, dto: CloneDeviceDto) {

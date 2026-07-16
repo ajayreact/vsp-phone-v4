@@ -18,7 +18,7 @@ import type {
   UpdateIvrDto,
 } from '../dto/tenant-ivr.dto';
 import { auditPbxMutation } from '../utils/tenant-pbx-audit';
-import { newPublicId, tenantScope } from '../utils/tenant.util';
+import { assertPhoneNumberBelongsToTenant, newPublicId, tenantScope } from '../utils/tenant.util';
 
 const ivrInclude = {
   greetingAnnouncement: { select: { id: true, name: true, category: true } },
@@ -79,6 +79,7 @@ export class TenantIvrService {
 
   async create(tenantId: string, userId: string, dto: CreateIvrDto) {
     const draftFlow = dto.draftFlow ?? DEFAULT_START_FLOW;
+    await assertPhoneNumberBelongsToTenant(this.prisma, dto.phoneNumberId, tenantId);
 
     const ivr = await this.prisma.iVR.create({
       data: {
@@ -124,6 +125,9 @@ export class TenantIvrService {
 
   async update(tenantId: string, userId: string, id: string, dto: UpdateIvrDto) {
     await this.require(tenantId, id);
+    if (dto.phoneNumberId !== undefined) {
+      await assertPhoneNumberBelongsToTenant(this.prisma, dto.phoneNumberId, tenantId);
+    }
 
     const ivr = await this.prisma.iVR.update({
       where: { id },

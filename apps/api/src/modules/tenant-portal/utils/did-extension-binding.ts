@@ -1,0 +1,144 @@
+import { BadRequestException, ConflictException } from '@nestjs/common';
+import { LineStatus, type Prisma } from '@prisma/client';
+
+/**
+ * Production rule: One DID ↔ One Extension (via Line).
+ * - A line may have at most one active phone number.
+ * - A phone number may bind to at most one line.
+ */
+
+export async function assertCanBindDidToLine(
+  db: Prisma.TransactionClient,
+  params: {
+    tenantId: string;
+    phoneNumberId: string;
+    lineId: string;
+  },
+): Promise<void> {
+  const phone = await db.phoneNumber.findFirst({
+    where: { id: params.phoneNumberId, deletedAt: null },
+    select: { id: true, lineId: true, tenantId: true },
+  });
+  if (!phone) {
+    throw new BadRequestException('Phone number not found');
+  }
+  if (phone.tenantId !== params.tenantId) {
+    throw new BadRequestException('Phone number does not belong to this tenant');
+  }
+  if (phone.lineId && phone.lineId !== params.lineId) {
+    throw new ConflictException(
+      'This DID is already assigned to another extension. Unassign it first.',
+    );
+  }
+
+  const otherOnLine = await db.phoneNumber.count({
+    where: {
+      lineId: params.lineId,
+      deletedAt: null,
+      id: { not: params.phoneNumberId },
+    },
+  });
+  if (otherOnLine > 0) {
+    throw new ConflictException(
+      'This extension already has a primary DID. Unassign it before attaching another number.',
+    );
+  }
+}
+
+/** Detach DID from prior line/tenant and mark that line Inactive (preserve history). */
+export async function detachDidFromPriorExtension(
+  tx: Prisma.TransactionClient,
+  params: {
+    phoneNumberId: string;
+    actorUserId?: string;
+    /** When moving to a new tenant, scrub inbound routes on the old tenant. */
+    nextTenantId?: string;
+  },
+): Promise<{ priorTenantId: string | null; priorLineId: string | null }> {
+  const phone = await tx.phoneNumber.findFirst({
+    where: { id: params.phoneNumberId, deletedAt: null },
+    select: { id: true, tenantId: true, lineId: true },
+  });
+  if (!phone) return { priorTenantId: null, priorLineId: null };
+
+  const priorTenantId = phone.tenantId;
+  const priorLineId = phone.lineId;
+
+  await tx.numberAssignment.updateMany({
+    where: { phoneNumberId: phone.id, effectiveTo: null, deletedAt: null },
+    data: { effectiveTo: new Date(), updatedBy: params.actorUserId },
+  });
+
+  // Soft-delete inbound routes for this DID on the prior tenant (prevents stale routing + backfill).
+  const routeWhere: Prisma.InboundRouteWhereInput = {
+    phoneNumberId: phone.id,
+    deletedAt: null,
+  };
+  if (params.nextTenantId && params.nextTenantId !== priorTenantId) {
+    routeWhere.tenantId = priorTenantId;
+  }
+
+  await tx.inboundRoute.updateMany({
+    where: routeWhere,
+    data: {
+      enabled: false,
+      deletedAt: new Date(),
+      updatedBy: params.actorUserId,
+    },
+  });
+
+  if (priorLineId) {
+    await tx.callerID.updateMany({
+      where: { lineId: priorLineId, phoneNumberId: phone.id, deletedAt: null },
+      data: { phoneNumberId: null, updatedBy: params.actorUserId },
+    });
+
+    await tx.line.update({
+      where: { id: priorLineId },
+      data: {
+        status: LineStatus.INACTIVE,
+        updatedBy: params.actorUserId,
+        version: { increment: 1 },
+      },
+    });
+  }
+
+  await tx.phoneNumber.update({
+    where: { id: phone.id },
+    data: { lineId: null, updatedBy: params.actorUserId },
+  });
+
+  return { priorTenantId, priorLineId };
+}
+
+/** Mark line Inactive after DID removed; keep extension + history. */
+export async function markLineInactiveAfterDidRemoval(
+  tx: Prisma.TransactionClient,
+  lineId: string,
+  actorUserId?: string,
+): Promise<void> {
+  await tx.line.update({
+    where: { id: lineId },
+    data: {
+      status: LineStatus.INACTIVE,
+      updatedBy: actorUserId,
+      version: { increment: 1 },
+    },
+  });
+}
+
+/** Reactivate line when a DID is (re)attached. */
+export async function markLineActiveOnDidAttach(
+  tx: Prisma.TransactionClient,
+  lineId: string,
+  actorUserId?: string,
+): Promise<void> {
+  await tx.line.update({
+    where: { id: lineId },
+    data: {
+      status: LineStatus.ACTIVE,
+      updatedBy: actorUserId,
+      version: { increment: 1 },
+    },
+  });
+}

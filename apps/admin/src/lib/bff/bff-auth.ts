@@ -117,6 +117,8 @@ export async function fetchAuthSession(token: string): Promise<FetchAuthSessionR
       userId: string;
       tenantId: string;
       email: string;
+      portal?: AuthSession['portal'];
+      impersonatorUserId?: string | null;
       permissions?: string[];
       roles?: AuthSession['roles'];
       tenant?: AuthSession['tenant'];
@@ -137,6 +139,8 @@ export async function fetchAuthSession(token: string): Promise<FetchAuthSessionR
         userId: data.userId,
         tenantId: data.tenantId,
         email: data.email,
+        portal: data.portal ?? 'tenant',
+        impersonatorUserId: data.impersonatorUserId ?? null,
         permissions: data.permissions ?? [],
         roles: data.roles ?? [],
         tenant: data.tenant ?? null,

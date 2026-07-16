@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import {
   DeviceType,
   DeviceStatus,
+  LineStatus,
   PresenceStatus,
   Prisma,
   ProvisioningStatus,
@@ -23,6 +24,9 @@ import type {
   UpdateExtensionDto,
 } from '../dto/tenant-extensions.dto';
 import {
+  markLineInactiveAfterDidRemoval,
+} from '../utils/did-extension-binding';
+import {
   extensionNeedsBusinessSetup,
   tombstoneExtensionNumber,
 } from '../utils/extension-auto-provision.util';
@@ -33,7 +37,12 @@ import { auditPbxMutation } from '../utils/tenant-pbx-audit';
 import { formatExtensionLabel, formatRelativeTime } from '../utils/format-extension-label';
 import { newPublicId, tenantScope } from '../utils/tenant.util';
 
-export type ExtensionHubStatus = 'Registered' | 'Provisioned' | 'NoDevice' | 'RegistrationFailed';
+export type ExtensionHubStatus =
+  | 'Registered'
+  | 'Provisioned'
+  | 'NoDevice'
+  | 'RegistrationFailed'
+  | 'Inactive';
 
 export type ExtensionHubStats = {
   totalExtensions: number;
@@ -79,6 +88,7 @@ export type ExtensionHubRow = {
   recordingEnabled: boolean;
   voicemailEnabled: boolean;
   linkedUser: { id: string; email: string; displayName: string | null } | null;
+  lineStatus: 'ACTIVE' | 'INACTIVE';
 };
 
 const extensionInclude = {
@@ -96,6 +106,7 @@ const extensionInclude = {
         where: { deletedAt: null },
         select: { id: true, number: true },
         orderBy: { number: 'asc' as const },
+        take: 1, // One DID ↔ One Extension
       },
       devices: {
         where: { deletedAt: null },
@@ -156,6 +167,9 @@ export class TenantExtensionsService {
   async listHub(tenantId: string, search?: string): Promise<ExtensionHubRow[]> {
     if (!this.prisma.connected) return [];
 
+    // Ensure every tenant DID has an extension (100, 101, …) with SIP/device stub.
+    await this.autoProvision.syncOrphanDidsToExtensions(tenantId);
+
     const where: Record<string, unknown> = tenantScope(tenantId);
     if (search?.trim()) {
       where.OR = [
@@ -184,7 +198,7 @@ export class TenantExtensionsService {
       assignedDids: rows.filter((r) => (r.dids?.length ?? 0) > 0 || Boolean(r.did)).length,
       registeredDevices: rows.filter((r) => r.status === 'Registered').length,
       offlineDevices: rows.filter((r) => r.device && r.status !== 'Registered').length,
-      // Needs Setup: business config incomplete (or legacy NoDevice)
+      // Needs Setup: business config incomplete (exclude Inactive / no-DID lines)
       unassignedExtensions: rows.filter((r) =>
         extensionNeedsBusinessSetup({
           extension: r.extension,
@@ -227,12 +241,17 @@ export class TenantExtensionsService {
         });
         lineId = line.id;
       } else {
-        const ext = await this.autoProvision.ensureExtension(tenantId, dto.extension, userId, {
-          displayName,
-          description: dto.description,
-          departmentId: dto.departmentId,
-          phoneNumberId: dto.phoneNumberId,
-        });
+        const ext = await this.autoProvision.ensureFullyProvisionedExtension(
+          tenantId,
+          dto.extension,
+          userId,
+          {
+            displayName,
+            description: dto.description,
+            departmentId: dto.departmentId,
+            phoneNumberId: dto.phoneNumberId,
+          },
+        );
         return this.getById(tenantId, ext.id);
       }
     } else if (dto.settings || dto.callerIdName || dto.emergencyCallerIdName || dto.phoneNumberId || dto.displayName) {
@@ -317,11 +336,16 @@ export class TenantExtensionsService {
   async update(tenantId: string, userId: string, id: string, dto: UpdateExtensionDto) {
     const existing = await this.require(tenantId, id);
 
-    if (dto.extension !== undefined) {
-      await this.prisma.extension.update({
-        where: { id: existing.id },
-        data: { extension: dto.extension, updatedBy: userId, version: { increment: 1 } },
-      });
+    // Extension number and primary DID are platform/lifecycle-controlled — not editable here.
+    if (dto.extension !== undefined && dto.extension !== existing.extension) {
+      throw new BadRequestException(
+        'Extension number cannot be changed from Configure. Contact platform support if renumbering is required.',
+      );
+    }
+    if (dto.phoneNumberId !== undefined) {
+      throw new BadRequestException(
+        'Assigned DID cannot be changed from Configure. Use platform number assignment or Remove DID.',
+      );
     }
 
     if (dto.description !== undefined || dto.departmentId !== undefined) {
@@ -336,22 +360,57 @@ export class TenantExtensionsService {
       });
     }
 
+    const priorUserId = (
+      await this.prisma.line.findFirst({
+        where: { id: existing.lineId, tenantId },
+        select: { userId: true },
+      })
+    )?.userId;
+
     if (dto.userId !== undefined) {
       await this.prisma.line.update({
         where: { id: existing.lineId },
         data: { userId: dto.userId, updatedBy: userId, version: { increment: 1 } },
       });
+      if (dto.userId && dto.userId !== priorUserId) {
+        await auditPbxMutation(this.audit, {
+          tenantId,
+          actorUserId: userId,
+          action: 'pbx.extension.user_assign',
+          entityType: 'Extension',
+          entityId: id,
+          metadata: { userId: dto.userId, previousUserId: priorUserId },
+        });
+      } else if (!dto.userId && priorUserId) {
+        await auditPbxMutation(this.audit, {
+          tenantId,
+          actorUserId: userId,
+          action: 'pbx.extension.user_remove',
+          entityType: 'Extension',
+          entityId: id,
+          metadata: { previousUserId: priorUserId },
+        });
+      }
     }
 
     const linePatch: Parameters<TenantLinesService['update']>[3] = {};
     if (dto.displayName !== undefined) linePatch.name = dto.displayName;
     if (dto.callerIdName !== undefined) linePatch.callerIdName = dto.callerIdName;
-    if (dto.phoneNumberId !== undefined) linePatch.phoneNumberId = dto.phoneNumberId;
     if (dto.emergencyCallerIdName !== undefined) linePatch.emergencyCallerIdName = dto.emergencyCallerIdName;
     if (dto.settings) linePatch.settings = dto.settings;
 
     if (Object.keys(linePatch).length) {
       await this.lines.update(tenantId, userId, existing.lineId, linePatch);
+    }
+    if (dto.displayName !== undefined) {
+      await auditPbxMutation(this.audit, {
+        tenantId,
+        actorUserId: userId,
+        action: 'pbx.extension.rename',
+        entityType: 'Extension',
+        entityId: id,
+        metadata: { displayName: dto.displayName },
+      });
     }
 
     if (dto.inboundEnabled !== undefined || dto.outboundEnabled !== undefined) {
@@ -609,7 +668,7 @@ export class TenantExtensionsService {
     }
 
     const enroll = await this.issueEnrollToken(
-      { sub: actorUserId, tenantId, email: '' },
+      { sub: actorUserId, tenantId, email: '', portal: 'tenant' },
       device.id,
     );
 
@@ -642,18 +701,29 @@ export class TenantExtensionsService {
     if (!phone) throw new NotFoundException('No DID assigned to this extension');
 
     await this.prisma.$transaction(async (tx) => {
+      await tx.numberAssignment.updateMany({
+        where: { phoneNumberId: phone.id, effectiveTo: null, deletedAt: null },
+        data: { effectiveTo: new Date(), updatedBy: actorUserId },
+      });
       await tx.phoneNumber.update({
         where: { id: phone.id },
         data: { lineId: null, updatedBy: actorUserId },
       });
+      // Soft-delete route so hub backfill will not recreate a duplicate extension.
       await tx.inboundRoute.updateMany({
         where: { tenantId, phoneNumberId: phone.id, deletedAt: null },
-        data: { enabled: false, updatedBy: actorUserId },
+        data: {
+          enabled: false,
+          deletedAt: new Date(),
+          updatedBy: actorUserId,
+        },
       });
       await tx.callerID.updateMany({
         where: { tenantId, lineId: extension.lineId, phoneNumberId: phone.id },
         data: { phoneNumberId: null, updatedBy: actorUserId },
       });
+      // Keep extension; mark Inactive; preserve CDR / VM / audit history.
+      await markLineInactiveAfterDidRemoval(tx, extension.lineId, actorUserId);
     });
 
     await auditPbxMutation(this.audit, {
@@ -662,10 +732,14 @@ export class TenantExtensionsService {
       action: 'pbx.extension.did_unassign',
       entityType: 'Extension',
       entityId: id,
-      metadata: { phoneNumberId: phone.id, number: phone.number },
+      metadata: {
+        phoneNumberId: phone.id,
+        number: phone.number,
+        lineStatus: LineStatus.INACTIVE,
+      },
     });
 
-    return { ok: true, phoneNumberId: phone.id };
+    return { ok: true, phoneNumberId: phone.id, lineStatus: LineStatus.INACTIVE };
   }
 
   async restartRegistration(tenantId: string, actorUserId: string, id: string) {
@@ -889,6 +963,7 @@ export class TenantExtensionsService {
 
     const resolved = this.resolveHubStatus(devices, line.presence?.status);
     let { status, statusLabel, registrationLabel, onlineStatus } = resolved;
+    const lineStatus = line.status === LineStatus.INACTIVE ? 'INACTIVE' : 'ACTIVE';
 
     const linkedUser = user
       ? {
@@ -902,14 +977,21 @@ export class TenantExtensionsService {
         }
       : null;
 
-    const needsSetup = extensionNeedsBusinessSetup({
-      extension: row.extension,
-      displayName: line.name,
-      hasLinkedUser: Boolean(linkedUser),
-      status,
-    });
-    if (needsSetup) {
-      statusLabel = 'Needs Setup';
+    if (lineStatus === 'INACTIVE') {
+      status = 'Inactive';
+      statusLabel = 'Inactive';
+      onlineStatus = 'Offline';
+      registrationLabel = 'Inactive';
+    } else {
+      const needsSetup = extensionNeedsBusinessSetup({
+        extension: row.extension,
+        displayName: line.name,
+        hasLinkedUser: Boolean(linkedUser),
+        status,
+      });
+      if (needsSetup) {
+        statusLabel = 'Needs Setup';
+      }
     }
 
     const deviceLabel = primary
@@ -962,6 +1044,7 @@ export class TenantExtensionsService {
       recordingEnabled,
       voicemailEnabled,
       linkedUser,
+      lineStatus,
     };
   }
 

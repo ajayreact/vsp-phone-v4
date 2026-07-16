@@ -14,6 +14,9 @@ export function resolveRegistrationDisplay(
   onlineStatus: 'Online' | 'Offline',
   statusLabel?: string,
 ): RegistrationDisplay {
+  if (status === 'Inactive' || statusLabel === 'Inactive') {
+    return { emoji: '⚪', label: 'Inactive', tone: 'none' };
+  }
   if (statusLabel === 'Needs Setup') {
     return { emoji: '🟡', label: 'Needs Setup', tone: 'registering' };
   }
