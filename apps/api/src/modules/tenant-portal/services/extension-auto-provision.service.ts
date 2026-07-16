@@ -1,14 +1,25 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import {
+  DeviceStatus,
+  DeviceType,
   LineStatus,
   PresenceStatus,
   Prisma,
+  ProvisioningStatus,
+  SIPEndpointStatus,
+  VoicemailMailboxType,
+  VoicemailStatus,
   type Extension,
 } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { EnterpriseAuditService } from '../../enterprise-observability/audit/enterprise-audit.service';
 import { PrismaService } from '../../telecom/prisma/prisma.service';
 import { auditPbxMutation } from '../utils/tenant-pbx-audit';
+import {
+  defaultExtensionDisplayName,
+  nextAvailableExtensionNumber,
+} from '../utils/extension-auto-provision.util';
 import { newPublicId, tenantScope } from '../utils/tenant.util';
 
 export type EnsureExtensionOptions = {
@@ -19,15 +30,56 @@ export type EnsureExtensionOptions = {
   userId?: string;
 };
 
+export {
+  defaultExtensionDisplayName,
+  extensionNeedsBusinessSetup,
+  nextAvailableExtensionNumber,
+} from '../utils/extension-auto-provision.util';
+
 @Injectable()
 export class ExtensionAutoProvisionService {
+  private readonly platformDomain: string;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: EnterpriseAuditService,
-  ) {}
+    private readonly config: ConfigService,
+  ) {
+    this.platformDomain = config.get<string>('SIP_PLATFORM_DOMAIN', 'vsp.internal');
+  }
 
   defaultDisplayName(extension: string): string {
-    return `Extension ${extension}`;
+    return defaultExtensionDisplayName(extension);
+  }
+
+  /**
+   * Transaction-scoped advisory lock serializing extension allocation per tenant.
+   * Must be called inside an interactive Prisma transaction.
+   */
+  async lockTenantExtensionAllocation(
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+  ): Promise<void> {
+    const hex = tenantId.replace(/-/g, '');
+    const k1 = Number.parseInt(hex.slice(0, 8), 16) || 1;
+    const k2 = Number.parseInt(hex.slice(8, 16), 16) || 1;
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(${k1}, ${k2})`;
+  }
+
+  async allocateNextExtensionNumber(
+    tenantId: string,
+    startFrom = 101,
+    tx?: Prisma.TransactionClient,
+  ): Promise<string> {
+    const client = tx ?? this.prisma;
+    const rows = await client.extension.findMany({
+      where: { tenantId, deletedAt: null },
+      select: { extension: true },
+    });
+    return nextAvailableExtensionNumber(
+      rows.map((r) => r.extension),
+      startFrom,
+    );
   }
 
   async ensureExtension(
@@ -131,6 +183,125 @@ export class ExtensionAutoProvisionService {
         entityType: 'Extension',
         entityId: result.id,
         metadata: { extension: ext, displayName: options.displayName ?? this.defaultDisplayName(ext) },
+      });
+    }
+
+    return result;
+  }
+
+  /**
+   * Idempotent Extension-First stub: line/extension/policies + voicemail +
+   * SIP endpoint + WEBRTC device placeholder. Does not create users.
+   */
+  async ensureFullyProvisionedExtension(
+    tenantId: string,
+    extension: string,
+    actorUserId?: string,
+    options: EnsureExtensionOptions = {},
+    tx?: Prisma.TransactionClient,
+  ): Promise<Extension> {
+    const extNumber = extension.trim();
+    if (!extNumber) throw new BadRequestException('Extension number is required');
+
+    const run = async (client: Prisma.TransactionClient) => {
+      const ext = await this.ensureExtension(tenantId, extNumber, actorUserId, options, client);
+
+      if (options.phoneNumberId) {
+        await client.callerID.updateMany({
+          where: { lineId: ext.lineId, tenantId, deletedAt: null },
+          data: { phoneNumberId: options.phoneNumberId, updatedBy: actorUserId },
+        });
+      }
+
+      const existingVm = await client.voicemail.findFirst({
+        where: { lineId: ext.lineId, tenantId, deletedAt: null },
+      });
+      if (!existingVm) {
+        await client.voicemail.create({
+          data: {
+            id: randomUUID(),
+            publicId: newPublicId('vm'),
+            tenantId,
+            lineId: ext.lineId,
+            name: this.defaultDisplayName(ext.extension),
+            mailboxType: VoicemailMailboxType.PERSONAL,
+            mailboxNumber: ext.extension,
+            status: VoicemailStatus.ACTIVE,
+            language: 'en',
+            emailAttach: true,
+            createdBy: actorUserId,
+          },
+        });
+      }
+
+      const existingSipDevice = await client.device.findFirst({
+        where: {
+          lineId: ext.lineId,
+          tenantId,
+          deletedAt: null,
+          sipEndpointId: { not: null },
+        },
+      });
+
+      if (!existingSipDevice) {
+        const tenant = await client.tenant.findFirst({
+          where: { id: tenantId, deletedAt: null },
+          select: { slug: true },
+        });
+        if (!tenant) throw new NotFoundException('Tenant not found');
+
+        const sipEndpointId = randomUUID();
+        const deviceId = randomUUID();
+        const realm = `${tenant.slug}.sip.${this.platformDomain}`;
+        const aor = `sip:${ext.extension}@${realm}`;
+
+        await client.sIPEndpoint.create({
+          data: {
+            id: sipEndpointId,
+            publicId: newPublicId('sip'),
+            tenantId,
+            aor,
+            authUsername: ext.extension,
+            registrationStatus: SIPEndpointStatus.UNREGISTERED,
+            createdBy: actorUserId,
+          },
+        });
+
+        await client.device.create({
+          data: {
+            id: deviceId,
+            publicId: newPublicId('dev'),
+            tenantId,
+            lineId: ext.lineId,
+            userId: options.userId ?? null,
+            sipEndpointId,
+            name: `Softphone — Extension ${ext.extension}`,
+            deviceType: DeviceType.WEBRTC,
+            status: DeviceStatus.PROVISIONING,
+            provisioningStatus: ProvisioningStatus.PENDING,
+            createdBy: actorUserId,
+          },
+        });
+      }
+
+      return ext;
+    };
+
+    const result = tx
+      ? await run(tx)
+      : await this.prisma.$transaction(run);
+
+    if (!tx) {
+      await auditPbxMutation(this.audit, {
+        tenantId,
+        actorUserId,
+        action: 'pbx.extension.full_auto_provision',
+        entityType: 'Extension',
+        entityId: result.id,
+        metadata: {
+          extension: extNumber,
+          phoneNumberId: options.phoneNumberId ?? null,
+        },
       });
     }
 

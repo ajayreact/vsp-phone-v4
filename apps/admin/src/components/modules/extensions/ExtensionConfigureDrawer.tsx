@@ -87,7 +87,8 @@ function OverviewTab({
 }) {
   const hasNumber = Boolean(row.did);
   const hasPhone = row.status !== 'NoDevice';
-  const needsSetup = !hasPhone;
+  const needsBusinessSetup = row.statusLabel === 'Needs Setup';
+  const needsPhoneSetup = !hasPhone;
 
   return (
     <div className="space-y-6">
@@ -104,7 +105,11 @@ function OverviewTab({
           <div>
             <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Status</dt>
             <dd className="mt-1">
-              <ExtensionStatusChip status={row.status} onlineStatus={row.onlineStatus} />
+              <ExtensionStatusChip
+                status={row.status}
+                onlineStatus={row.onlineStatus}
+                statusLabel={row.statusLabel}
+              />
             </dd>
           </div>
         </dl>
@@ -119,12 +124,12 @@ function OverviewTab({
           </li>
           <li className="flex items-center gap-2">
             <span aria-hidden="true">{hasPhone ? '✓' : '✗'}</span>
-            {hasPhone ? 'Phone connected' : 'No phone connected'}
+            {hasPhone ? 'Softphone / device ready' : 'No phone connected'}
           </li>
         </ul>
       </div>
 
-      {needsSetup ? (
+      {needsPhoneSetup ? (
         <div className="rounded-xl border border-dashed border-border bg-muted/10 p-4">
           <h3 className="text-sm font-medium">Next Step</h3>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -133,6 +138,15 @@ function OverviewTab({
           <Button size="sm" className="mt-3" onClick={onSetUpPhone}>
             Set Up Phone
           </Button>
+        </div>
+      ) : needsBusinessSetup ? (
+        <div className="rounded-xl border border-dashed border-border bg-muted/10 p-4">
+          <h3 className="text-sm font-medium">Next Step</h3>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {hasNumber
+              ? 'Infrastructure is ready. Complete display name, user, and voicemail PIN under General, Advanced, and Voicemail.'
+              : 'Complete display name and user details under General and Advanced. A phone number can be assigned later by Platform.'}
+          </p>
         </div>
       ) : null}
 

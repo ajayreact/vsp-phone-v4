@@ -128,9 +128,14 @@ function PhoneSetupSlideOver({
 
 function matchesFilter(row: ExtensionHubRow, filter: HubFilter): boolean {
   if (filter === 'all') return true;
-  if (filter === 'no-device') return row.status === 'NoDevice';
+  if (filter === 'no-device') {
+    // Needs Setup: business config incomplete (API statusLabel) or legacy NoDevice
+    return row.statusLabel === 'Needs Setup' || row.status === 'NoDevice';
+  }
   if (filter === 'online') return row.onlineStatus === 'Online';
-  if (filter === 'offline') return row.onlineStatus === 'Offline' && row.status !== 'NoDevice';
+  if (filter === 'offline') {
+    return row.onlineStatus === 'Offline' && row.statusLabel !== 'Needs Setup' && row.status !== 'NoDevice';
+  }
   return true;
 }
 
@@ -246,6 +251,8 @@ function ExtensionRowCard({
   const restartReg = useExtensionRestartRegistration();
 
   const showNoDeviceGuide = row.status === 'NoDevice' && !setupSkipped;
+  const showNeedsSetupGuide =
+    !showNoDeviceGuide && row.statusLabel === 'Needs Setup' && !setupSkipped;
   const deviceLabel = deviceStatusLabel(row);
   const DeviceIcon = row.hasMobileApp && !row.hasDeskPhone ? Smartphone : Monitor;
   const qrActionLabel = row.hasMobileApp ? 'View QR code' : 'Generate QR code';
@@ -302,7 +309,11 @@ function ExtensionRowCard({
             <div>
               <dt className="sr-only">Registration status</dt>
               <dd>
-                <ExtensionStatusChip status={row.status} onlineStatus={row.onlineStatus} />
+                <ExtensionStatusChip
+                  status={row.status}
+                  onlineStatus={row.onlineStatus}
+                  statusLabel={row.statusLabel}
+                />
               </dd>
             </div>
 
@@ -336,6 +347,30 @@ function ExtensionRowCard({
                   aria-label={`Set up phone for ${row.label}`}
                 >
                   Set Up Phone
+                </Button>
+                <Button size="sm" variant="ghost" onClick={onSkipSetup} aria-label="Skip setup for now">
+                  Skip
+                </Button>
+              </div>
+            </div>
+          ) : null}
+
+          {showNeedsSetupGuide ? (
+            <div
+              className="rounded-xl border border-dashed border-border bg-muted/20 p-4"
+              role="region"
+              aria-label="Configuration guidance"
+            >
+              <p className="text-sm text-muted-foreground">
+                Ready to configure — set the display name, user, and voicemail PIN.
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Button
+                  size="sm"
+                  onClick={() => onConfigure('general')}
+                  aria-label={`Configure ${row.label}`}
+                >
+                  Configure
                 </Button>
                 <Button size="sm" variant="ghost" onClick={onSkipSetup} aria-label="Skip setup for now">
                   Skip
@@ -605,8 +640,8 @@ export function ExtensionsHubContent() {
                   <>
                     <p className="mb-2 font-medium text-foreground">No extensions yet.</p>
                     <p>
-                      When Platform Admin assigns numbers with starting extensions, they appear here
-                      automatically.
+                      When Platform Admin assigns phone numbers, extensions are provisioned
+                      automatically and appear here ready to configure.
                     </p>
                   </>
                 )}
@@ -648,6 +683,10 @@ export function ExtensionsHubContent() {
             }
           >
             <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Additional internal extension (no phone number required). Platform-provisioned numbers
+                already create extensions automatically.
+              </p>
               <label className="block space-y-1.5 text-sm">
                 <span className="font-medium">Extension number</span>
                 <Input value={newExtension} onChange={(e) => setNewExtension(e.target.value)} placeholder="104" />

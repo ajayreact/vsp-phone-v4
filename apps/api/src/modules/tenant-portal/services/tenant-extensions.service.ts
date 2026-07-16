@@ -22,6 +22,10 @@ import type {
   RenameExtensionDisplayNameDto,
   UpdateExtensionDto,
 } from '../dto/tenant-extensions.dto';
+import {
+  extensionNeedsBusinessSetup,
+  tombstoneExtensionNumber,
+} from '../utils/extension-auto-provision.util';
 import { ExtensionAutoProvisionService } from './extension-auto-provision.service';
 import { TenantLinesService } from './tenant-lines.service';
 import { auditPbxMutation } from '../utils/tenant-pbx-audit';
@@ -163,7 +167,15 @@ export class TenantExtensionsService {
       assignedDids: rows.filter((r) => r.did).length,
       registeredDevices: rows.filter((r) => r.status === 'Registered').length,
       offlineDevices: rows.filter((r) => r.device && r.status !== 'Registered').length,
-      unassignedExtensions: rows.filter((r) => r.status === 'NoDevice').length,
+      // Needs Setup: business config incomplete (or legacy NoDevice)
+      unassignedExtensions: rows.filter((r) =>
+        extensionNeedsBusinessSetup({
+          extension: r.extension,
+          displayName: r.displayName,
+          hasLinkedUser: Boolean(r.linkedUser),
+          status: r.status,
+        }),
+      ).length,
       mobileApps: rows.filter((r) => r.hasMobileApp).length,
       deskPhones: rows.filter((r) => r.hasDeskPhone).length,
     };
@@ -338,9 +350,111 @@ export class TenantExtensionsService {
 
   async remove(tenantId: string, userId: string, id: string) {
     const existing = await this.require(tenantId, id);
-    await this.prisma.extension.update({
-      where: { id: existing.id },
-      data: { deletedAt: new Date(), deletedBy: userId },
+    const lineId = existing.lineId;
+    const now = new Date();
+
+    await this.prisma.$transaction(async (tx) => {
+      const phones = await tx.phoneNumber.findMany({
+        where: { lineId, tenantId, deletedAt: null },
+        select: { id: true },
+      });
+      const phoneIds = phones.map((p) => p.id);
+
+      if (phoneIds.length) {
+        await tx.numberAssignment.updateMany({
+          where: { phoneNumberId: { in: phoneIds }, effectiveTo: null, deletedAt: null },
+          data: { effectiveTo: now, updatedBy: userId },
+        });
+        await tx.inboundRoute.updateMany({
+          where: {
+            tenantId,
+            deletedAt: null,
+            OR: [
+              { phoneNumberId: { in: phoneIds } },
+              { destinationExtensionId: existing.id },
+              { destinationLineId: lineId },
+            ],
+          },
+          data: { deletedAt: now, updatedBy: userId, enabled: false },
+        });
+        await tx.phoneNumber.updateMany({
+          where: { id: { in: phoneIds }, tenantId },
+          data: { lineId: null, updatedBy: userId },
+        });
+      } else {
+        await tx.inboundRoute.updateMany({
+          where: {
+            tenantId,
+            deletedAt: null,
+            OR: [{ destinationExtensionId: existing.id }, { destinationLineId: lineId }],
+          },
+          data: { deletedAt: now, updatedBy: userId, enabled: false },
+        });
+      }
+
+      await tx.presence.updateMany({
+        where: { lineId, tenantId, deletedAt: null },
+        data: { deviceId: null, updatedBy: userId },
+      });
+
+      const devices = await tx.device.findMany({
+        where: { lineId, tenantId, deletedAt: null },
+        select: { id: true, sipEndpointId: true },
+      });
+      const sipIds = devices.map((d) => d.sipEndpointId).filter((x): x is string => Boolean(x));
+
+      if (devices.length) {
+        await tx.device.updateMany({
+          where: { lineId, tenantId, deletedAt: null },
+          data: { deletedAt: now, deletedBy: userId, sipEndpointId: null, lineId: null },
+        });
+      }
+      if (sipIds.length) {
+        await tx.sIPEndpoint.updateMany({
+          where: { id: { in: sipIds }, tenantId, deletedAt: null },
+          data: { deletedAt: now, deletedBy: userId },
+        });
+      }
+
+      await tx.voicemail.updateMany({
+        where: { lineId, tenantId, deletedAt: null },
+        data: { deletedAt: now, deletedBy: userId, lineId: null },
+      });
+      await tx.callerID.updateMany({
+        where: { lineId, tenantId, deletedAt: null },
+        data: { deletedAt: now, deletedBy: userId, phoneNumberId: null },
+      });
+      await tx.callPolicy.updateMany({
+        where: { lineId, tenantId, deletedAt: null },
+        data: { deletedAt: now, deletedBy: userId },
+      });
+      await tx.recordingPolicy.updateMany({
+        where: { lineId, tenantId, deletedAt: null },
+        data: { deletedAt: now, deletedBy: userId },
+      });
+      await tx.lineTelephonySettings.updateMany({
+        where: { lineId, tenantId, deletedAt: null },
+        data: { deletedAt: now },
+      });
+      await tx.presence.updateMany({
+        where: { lineId, tenantId, deletedAt: null },
+        data: { deletedAt: now, deletedBy: userId },
+      });
+
+      await tx.line.update({
+        where: { id: lineId },
+        data: { deletedAt: now, deletedBy: userId },
+      });
+
+      // Free @@unique([tenantId, extension]) so the number can be reused.
+      await tx.extension.update({
+        where: { id: existing.id },
+        data: {
+          extension: tombstoneExtensionNumber(existing.extension, existing.id),
+          deletedAt: now,
+          deletedBy: userId,
+        },
+      });
     });
 
     await auditPbxMutation(this.audit, {
@@ -349,6 +463,7 @@ export class TenantExtensionsService {
       action: 'pbx.extension.delete',
       entityType: 'Extension',
       entityId: id,
+      metadata: { extension: existing.extension, lineId, cleaned: true },
     });
 
     return { ok: true };
@@ -691,7 +806,30 @@ export class TenantExtensionsService {
     const user = line.user;
     const profile = user?.profile;
 
-    const { status, statusLabel, registrationLabel, onlineStatus } = this.resolveHubStatus(devices, line.presence?.status);
+    const resolved = this.resolveHubStatus(devices, line.presence?.status);
+    let { status, statusLabel, registrationLabel, onlineStatus } = resolved;
+
+    const linkedUser = user
+      ? {
+          id: user.id,
+          email: user.email,
+          displayName:
+            profile?.displayName ??
+            (profile?.firstName
+              ? `${profile.firstName} ${profile.lastName ?? ''}`.trim()
+              : null),
+        }
+      : null;
+
+    const needsSetup = extensionNeedsBusinessSetup({
+      extension: row.extension,
+      displayName: line.name,
+      hasLinkedUser: Boolean(linkedUser),
+      status,
+    });
+    if (needsSetup) {
+      statusLabel = 'Needs Setup';
+    }
 
     const deviceLabel = primary
       ? [primary.manufacturer, primary.model].filter(Boolean).join(' ').trim() || primary.name
@@ -733,17 +871,7 @@ export class TenantExtensionsService {
       registrationLabel,
       lastCallAt: lastCallIso,
       lastCallRelative: formatRelativeTime(lastCallIso),
-      linkedUser: user
-        ? {
-            id: user.id,
-            email: user.email,
-            displayName:
-              profile?.displayName ??
-              (profile?.firstName
-                ? `${profile.firstName} ${profile.lastName ?? ''}`.trim()
-                : null),
-          }
-        : null,
+      linkedUser,
     };
   }
 

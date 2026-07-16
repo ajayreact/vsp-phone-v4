@@ -102,7 +102,7 @@ export function TenantDashboardV2Content() {
                   <Link href="/extensions" className="font-medium text-primary underline">
                     Extensions
                   </Link>
-                  . Configure display names, assign numbers, provision phones, and scan QR codes without leaving the hub.
+                  . Configure display names, users, voicemail PINs, and scan QR codes without leaving the hub.
                 </p>
               </div>
             </QueryState>

@@ -11,6 +11,7 @@ import { randomUUID } from 'node:crypto';
 import { normalizePhoneDigits, phoneMatchesDigitFilters } from '../../../common/query-param.util';
 import { EnterpriseAuditService } from '../../enterprise-observability/audit/enterprise-audit.service';
 import { ExtensionAutoProvisionService } from '../../tenant-portal/services/extension-auto-provision.service';
+import { resolveBulkExtensionTarget } from '../../tenant-portal/utils/extension-auto-provision.util';
 import { PrismaService } from '../../telecom/prisma/prisma.service';
 import type {
   AssignTelnyxNumberDto,
@@ -565,29 +566,14 @@ export class TelnyxNumbersService {
     return this.getById(id);
   }
 
-  async assign(id: string, dto: AssignTelnyxNumberDto, actorUserId?: string): Promise<TelnyxNumberResponseDto> {
+  async assign(
+    id: string,
+    dto: AssignTelnyxNumberDto,
+    actorUserId?: string,
+    options?: { allocateFrom?: number },
+  ): Promise<TelnyxNumberResponseDto> {
     const row = await this.findRow(id);
     const meta = await this.loadMeta(row);
-
-    let lineId: string | null = null;
-    let assignedExtension: string | null = null;
-    let extensionId: string | null = null;
-
-    if (dto.extension) {
-      let ext = await this.prisma.extension.findFirst({
-        where: { tenantId: dto.tenantId, extension: dto.extension, deletedAt: null },
-      });
-      if (!ext) {
-        ext = await this.extensionAutoProvision.ensureExtension(
-          dto.tenantId,
-          dto.extension,
-          actorUserId,
-        );
-      }
-      lineId = ext.lineId;
-      assignedExtension = ext.extension;
-      extensionId = ext.id;
-    }
 
     meta.assignedIvr = dto.ivr ?? null;
     meta.assignedQueue = dto.queue ?? null;
@@ -598,36 +584,58 @@ export class TelnyxNumbersService {
     meta.assignedConference = dto.conference ?? null;
     meta.forwardTo = dto.forwardTo ?? null;
 
-    await this.prisma.$transaction(async (tx) => {
-      await tx.numberAssignment.updateMany({
-        where: { phoneNumberId: id, effectiveTo: null, deletedAt: null },
-        data: { effectiveTo: new Date(), updatedBy: actorUserId },
-      });
+    // Single atomic unit: lock → allocate/create PBX stub → DID bind → inbound route.
+    // Any failure rolls back the entire provisioning unit (no orphan Line/SIP/VM).
+    const { assignedExtension } = await this.prisma.$transaction(
+      async (tx) => {
+        await this.extensionAutoProvision.lockTenantExtensionAllocation(tx, dto.tenantId);
 
-      await tx.phoneNumber.update({
-        where: { id },
-        data: {
-          tenantId: dto.tenantId,
-          siteId: dto.siteId ?? null,
-          lineId,
-          status: PhoneNumberStatus.ACTIVE,
-          updatedBy: actorUserId,
-        },
-      });
+        const extensionNumber =
+          dto.extension?.trim() ||
+          (await this.extensionAutoProvision.allocateNextExtensionNumber(
+            dto.tenantId,
+            options?.allocateFrom ?? 101,
+            tx,
+          ));
 
-      await tx.numberAssignment.create({
-        data: {
-          id: randomUUID(),
-          tenantId: dto.tenantId,
-          phoneNumberId: id,
-          siteId: dto.siteId ?? null,
-          lineId,
-          effectiveFrom: new Date(),
-          createdBy: actorUserId,
-        },
-      });
+        const ext = await this.extensionAutoProvision.ensureFullyProvisionedExtension(
+          dto.tenantId,
+          extensionNumber,
+          actorUserId,
+          { phoneNumberId: id },
+          tx,
+        );
+        const lineId = ext.lineId;
+        const extensionId = ext.id;
 
-      if (lineId && extensionId) {
+        await tx.numberAssignment.updateMany({
+          where: { phoneNumberId: id, effectiveTo: null, deletedAt: null },
+          data: { effectiveTo: new Date(), updatedBy: actorUserId },
+        });
+
+        await tx.phoneNumber.update({
+          where: { id },
+          data: {
+            tenantId: dto.tenantId,
+            siteId: dto.siteId ?? null,
+            lineId,
+            status: PhoneNumberStatus.ACTIVE,
+            updatedBy: actorUserId,
+          },
+        });
+
+        await tx.numberAssignment.create({
+          data: {
+            id: randomUUID(),
+            tenantId: dto.tenantId,
+            phoneNumberId: id,
+            siteId: dto.siteId ?? null,
+            lineId,
+            effectiveFrom: new Date(),
+            createdBy: actorUserId,
+          },
+        });
+
         const phone = await tx.phoneNumber.findUnique({ where: { id } });
         const existingRoute = await tx.inboundRoute.findFirst({
           where: { tenantId: dto.tenantId, phoneNumberId: id, deletedAt: null },
@@ -662,8 +670,11 @@ export class TelnyxNumbersService {
             },
           });
         }
-      }
-    });
+
+        return { assignedExtension: ext.extension };
+      },
+      { timeout: 60_000 },
+    );
 
     await this.persistMeta(row.carrierId!, id, meta);
     const updated = await this.findRow(id);
@@ -671,7 +682,7 @@ export class TelnyxNumbersService {
     response.assignedExtension = assignedExtension;
 
     this.logAudit(dto.tenantId, actorUserId, 'telnyx.number.assigned', 'phone_number', id, {
-      extension: dto.extension,
+      extension: assignedExtension,
       siteId: dto.siteId,
     });
 
@@ -734,15 +745,28 @@ export class TelnyxNumbersService {
     const sortedIds = [...dto.ids].sort();
     for (let i = 0; i < sortedIds.length; i += 1) {
       const id = sortedIds[i]!;
-      const extension = resolveBulkExtension(dto, i);
+      const target = resolveBulkExtensionTarget(dto, i);
       try {
-        succeeded.push(
-          await this.assign(
-            id,
-            { tenantId: dto.tenantId, siteId: dto.siteId, extension },
-            actorUserId,
-          ),
-        );
+        if (target.mode === 'explicit') {
+          // Explicit extensions[i] may intentionally target an existing extension.
+          succeeded.push(
+            await this.assign(
+              id,
+              { tenantId: dto.tenantId, siteId: dto.siteId, extension: target.extension },
+              actorUserId,
+            ),
+          );
+        } else {
+          // startExtension / blank: next free >= base under assign's advisory lock (never silent reuse).
+          succeeded.push(
+            await this.assign(
+              id,
+              { tenantId: dto.tenantId, siteId: dto.siteId },
+              actorUserId,
+              { allocateFrom: target.startFrom },
+            ),
+          );
+        }
       } catch (err) {
         failed.push({ id, error: err instanceof Error ? err.message : String(err) });
       }
@@ -1116,12 +1140,3 @@ export class TelnyxNumbersService {
   }
 }
 
-function resolveBulkExtension(dto: BulkAssignTelnyxNumbersDto, index: number): string | undefined {
-  if (dto.extensions?.[index]) return dto.extensions[index];
-  if (dto.startExtension) {
-    const base = parseInt(dto.startExtension, 10);
-    if (Number.isFinite(base)) return String(base + index);
-    return dto.startExtension;
-  }
-  return dto.extension;
-}

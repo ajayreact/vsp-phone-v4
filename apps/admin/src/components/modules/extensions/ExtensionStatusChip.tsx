@@ -12,7 +12,11 @@ export type RegistrationDisplay = {
 export function resolveRegistrationDisplay(
   status: ExtensionHubStatus,
   onlineStatus: 'Online' | 'Offline',
+  statusLabel?: string,
 ): RegistrationDisplay {
+  if (statusLabel === 'Needs Setup') {
+    return { emoji: '🟡', label: 'Needs Setup', tone: 'registering' };
+  }
   if (status === 'NoDevice') {
     return { emoji: '⚪', label: 'No Device', tone: 'none' };
   }
@@ -50,11 +54,13 @@ const TONE_STYLES: Record<RegistrationDisplay['tone'], { bg: string; text: strin
 export function ExtensionStatusChip({
   status,
   onlineStatus,
+  statusLabel,
 }: {
   status: ExtensionHubStatus;
   onlineStatus: 'Online' | 'Offline';
+  statusLabel?: string;
 }) {
-  const display = resolveRegistrationDisplay(status, onlineStatus);
+  const display = resolveRegistrationDisplay(status, onlineStatus, statusLabel);
   const style = TONE_STYLES[display.tone];
 
   return (

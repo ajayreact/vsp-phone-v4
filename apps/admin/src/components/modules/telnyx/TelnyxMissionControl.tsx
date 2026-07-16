@@ -293,18 +293,19 @@ function InventoryTab({
             placeholder="Start ext"
             value={bulkStartExtension}
             onChange={(e) => setBulkStartExtension(e.target.value)}
-            title="Starting extension (auto-increments per selected number)"
+            title="Starting extension (auto-increments). Leave blank to auto-allocate."
           />
-          {bulkStartExtension && selectedIds.length ? (
+          {selectedIds.length ? (
             <span className="text-xs text-muted-foreground">
-              Maps {selectedIds.length} number{selectedIds.length === 1 ? '' : 's'} →{' '}
-              {[...selectedIds]
-                .sort()
-                .map((_, i) => {
-                  const base = parseInt(bulkStartExtension, 10);
-                  return Number.isFinite(base) ? String(base + i) : bulkStartExtension;
-                })
-                .join(', ')}
+              {bulkStartExtension
+                ? `Maps ${selectedIds.length} number${selectedIds.length === 1 ? '' : 's'} → ${[...selectedIds]
+                    .sort()
+                    .map((_, i) => {
+                      const base = parseInt(bulkStartExtension, 10);
+                      return Number.isFinite(base) ? String(base + i) : bulkStartExtension;
+                    })
+                    .join(', ')}`
+                : `Auto-allocate ${selectedIds.length} free extension${selectedIds.length === 1 ? '' : 's'} and provision each DID`}
             </span>
           ) : null}
           <Button
@@ -609,7 +610,13 @@ function NumberDetailDrawer({
               {tenants.map((t) => <option key={t.id} value={t.id}>{t.displayName || t.name}</option>)}
             </select>
           </label>
-          <label className="block space-y-1 text-sm"><span className="font-medium">Extension</span><Input value={extension} onChange={(e) => setExtension(e.target.value)} placeholder="101" /></label>
+          <label className="block space-y-1 text-sm">
+            <span className="font-medium">Extension</span>
+            <Input value={extension} onChange={(e) => setExtension(e.target.value)} placeholder="101 (optional)" />
+            <span className="mt-1 block text-xs text-muted-foreground">
+              Leave blank to auto-allocate the next free extension and fully provision SIP, voicemail, and routing.
+            </span>
+          </label>
           <label className="block space-y-1 text-sm"><span className="font-medium">Department</span><Input value={department} onChange={(e) => setDepartment(e.target.value)} placeholder="Sales" /></label>
           <label className="block space-y-1 text-sm"><span className="font-medium">Queue</span><Input value={queue} onChange={(e) => setQueue(e.target.value)} placeholder="support-queue" /></label>
           <label className="block space-y-1 text-sm"><span className="font-medium">IVR</span><Input value={ivr} onChange={(e) => setIvr(e.target.value)} placeholder="main-menu" /></label>
