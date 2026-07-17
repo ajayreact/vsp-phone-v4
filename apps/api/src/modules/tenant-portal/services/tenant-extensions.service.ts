@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   DeviceType,
@@ -123,6 +123,7 @@ const extensionInclude = {
 
 @Injectable()
 export class TenantExtensionsService {
+  private readonly logger = new Logger(TenantExtensionsService.name);
   private readonly enrollTtlSec: number;
   private readonly platformDomain: string;
 
@@ -168,7 +169,13 @@ export class TenantExtensionsService {
     if (!this.prisma.connected) return [];
 
     // Ensure every tenant DID has an extension (100, 101, …) with SIP/device stub.
-    await this.autoProvision.syncOrphanDidsToExtensions(tenantId);
+    // Never fail the hub page if orphan sync hits a data conflict — list still works.
+    try {
+      await this.autoProvision.syncOrphanDidsToExtensions(tenantId);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      this.logger.warn(`syncOrphanDidsToExtensions failed tenant=${tenantId}: ${msg}`);
+    }
 
     const where: Record<string, unknown> = tenantScope(tenantId);
     if (search?.trim()) {

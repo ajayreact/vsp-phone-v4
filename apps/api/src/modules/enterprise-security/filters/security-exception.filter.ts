@@ -78,15 +78,39 @@ export class SecurityExceptionFilter implements ExceptionFilter {
       details,
     };
 
-    this.logger.warn(
-      JSON.stringify({
-        event: 'security.error',
-        statusCode: status,
-        code,
-        path,
-        method: req.method,
-      }),
-    );
+    const errMsg =
+      exception instanceof Error
+        ? exception.message
+        : typeof exception === 'string'
+          ? exception
+          : String(exception);
+    const errName = exception instanceof Error ? exception.name : 'Unknown';
+    // Never send stack/message to clients; log server-side for ops (RC1).
+    if (status >= 500) {
+      this.logger.error(
+        JSON.stringify({
+          event: 'security.error',
+          statusCode: status,
+          code,
+          path,
+          method: req.method,
+          errName,
+          // Truncate only — do not apply client leak sanitizer (it hides Prisma text).
+          errMsg: errMsg.replace(/Bearer\s+\S+/gi, 'Bearer [redacted]').slice(0, 500),
+          stack: exception instanceof Error ? exception.stack?.split('\n').slice(0, 8) : undefined,
+        }),
+      );
+    } else {
+      this.logger.warn(
+        JSON.stringify({
+          event: 'security.error',
+          statusCode: status,
+          code,
+          path,
+          method: req.method,
+        }),
+      );
+    }
 
     res.status(status).json(payload);
   }
