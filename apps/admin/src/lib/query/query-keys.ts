@@ -39,7 +39,8 @@ export const queryKeys = {
     extensionHubStats: () => ['tenant', 'extensionHub', 'stats'] as const,
     extensionDetail: (id: string) => ['tenant', 'extensions', 'detail', id] as const,
     dids: (search?: string) => ['tenant', 'dids', search ?? ''] as const,
-    didDestinations: (type: string) => ['tenant', 'did-destinations', type] as const,
+    didDestinations: (type: string, phoneNumberId?: string) =>
+      ['tenant', 'did-destinations', type, phoneNumberId ?? ''] as const,
     search: (q: string) => ['tenant', 'search', q] as const,
     provision: (sessionId: string) => ['tenant', 'provision', sessionId] as const,
     queues: () => ['tenant', 'queues'] as const,

@@ -34,6 +34,8 @@ export type ApiEnv = {
   TELNYX_API_KEY?: string;
   TELNYX_API_BASE_URL: string;
   VSP_PLATFORM_INVENTORY_TENANT_ID?: string;
+  /** When true, allow multiple active DIDs per extension/line. Default false (One DID ↔ One Extension). */
+  ALLOW_MULTIPLE_DIDS_PER_EXTENSION?: string;
   JWT_SECRET?: string;
   DEV_JWT_SECRET?: string;
   JWT_ACCESS_TTL_SEC: number;
@@ -231,6 +233,7 @@ export function validateEnv(env: NodeJS.ProcessEnv): ApiEnv {
     TELNYX_API_KEY: env.TELNYX_API_KEY,
     TELNYX_API_BASE_URL: env.TELNYX_API_BASE_URL ?? 'https://api.telnyx.com/v2',
     VSP_PLATFORM_INVENTORY_TENANT_ID: env.VSP_PLATFORM_INVENTORY_TENANT_ID,
+    ALLOW_MULTIPLE_DIDS_PER_EXTENSION: env.ALLOW_MULTIPLE_DIDS_PER_EXTENSION ?? 'false',
     JWT_SECRET: env.JWT_SECRET,
     DEV_JWT_SECRET: env.DEV_JWT_SECRET,
     JWT_ACCESS_TTL_SEC: Number(env.JWT_ACCESS_TTL_SEC ?? '3600'),

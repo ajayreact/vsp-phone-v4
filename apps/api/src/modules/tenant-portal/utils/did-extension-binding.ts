@@ -5,7 +5,61 @@ import { LineStatus, type Prisma } from '@prisma/client';
  * Production rule: One DID ↔ One Extension (via Line).
  * - A line may have at most one active phone number.
  * - A phone number may bind to at most one line.
+ *
+ * Override only via ALLOW_MULTIPLE_DIDS_PER_EXTENSION=true (default false).
  */
+
+export function isMultipleDidsPerExtensionAllowed(
+  envValue: string | undefined = process.env.ALLOW_MULTIPLE_DIDS_PER_EXTENSION,
+): boolean {
+  const raw = (envValue ?? 'false').trim().toLowerCase();
+  return raw === '1' || raw === 'true' || raw === 'yes' || raw === 'on';
+}
+
+/** Prisma where: extensions eligible as DID assign targets. */
+export function extensionAssignDestinationWhere(
+  tenantId: string,
+  opts: { allowMultipleDids?: boolean; forPhoneNumberId?: string } = {},
+): Prisma.ExtensionWhereInput {
+  const allowMultiple =
+    opts.allowMultipleDids ?? isMultipleDidsPerExtensionAllowed();
+  const base: Prisma.ExtensionWhereInput = { tenantId, deletedAt: null };
+  if (allowMultiple) return base;
+
+  return {
+    ...base,
+    line: {
+      deletedAt: null,
+      phoneNumbers: {
+        none: {
+          deletedAt: null,
+          ...(opts.forPhoneNumberId ? { id: { not: opts.forPhoneNumberId } } : {}),
+        },
+      },
+    },
+  };
+}
+
+/** Prisma where: lines eligible as DID assign targets. */
+export function lineAssignDestinationWhere(
+  tenantId: string,
+  opts: { allowMultipleDids?: boolean; forPhoneNumberId?: string } = {},
+): Prisma.LineWhereInput {
+  const allowMultiple =
+    opts.allowMultipleDids ?? isMultipleDidsPerExtensionAllowed();
+  const base: Prisma.LineWhereInput = { tenantId, deletedAt: null };
+  if (allowMultiple) return base;
+
+  return {
+    ...base,
+    phoneNumbers: {
+      none: {
+        deletedAt: null,
+        ...(opts.forPhoneNumberId ? { id: { not: opts.forPhoneNumberId } } : {}),
+      },
+    },
+  };
+}
 
 export async function assertCanBindDidToLine(
   db: Prisma.TransactionClient,
@@ -13,6 +67,8 @@ export async function assertCanBindDidToLine(
     tenantId: string;
     phoneNumberId: string;
     lineId: string;
+    /** When true, skip "line already has a DID" check. Defaults from env. */
+    allowMultipleDidsPerExtension?: boolean;
   },
 ): Promise<void> {
   const phone = await db.phoneNumber.findFirst({
@@ -30,6 +86,10 @@ export async function assertCanBindDidToLine(
       'This DID is already assigned to another extension. Unassign it first.',
     );
   }
+
+  const allowMultiple =
+    params.allowMultipleDidsPerExtension ?? isMultipleDidsPerExtensionAllowed();
+  if (allowMultiple) return;
 
   const otherOnLine = await db.phoneNumber.count({
     where: {

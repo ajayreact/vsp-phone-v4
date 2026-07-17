@@ -9,13 +9,13 @@ import {
   Trash2,
   Upload,
 } from 'lucide-react';
+import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import {
   useBulkDeleteDevices,
   useBulkImportDevices,
   useBulkProvisionDevices,
   useBulkRebootDevices,
-  useCreateTenantDevice,
   useDeleteTenantDevice,
   useRebootDevice,
   useReprovisionDevice,
@@ -39,7 +39,6 @@ import {
   ModuleListShell,
   withRowIds,
 } from './shared/ModuleShell';
-import { WriteCreateButton } from './shared/TenantCreateForms';
 
 type DeviceRow = Record<string, unknown> & { id: string };
 
@@ -216,7 +215,6 @@ export function DevicesContent() {
   const canProvision = hasPermission(permissions, PERMISSIONS.PROVISIONING_ADMIN) || canWrite;
 
   const [search, setSearch] = useState('');
-  const [createOpen, setCreateOpen] = useState(false);
   const [editRow, setEditRow] = useState<DeviceRow | null>(null);
   const [detailRow, setDetailRow] = useState<DeviceRow | null>(null);
   const [importOpen, setImportOpen] = useState(false);
@@ -229,7 +227,6 @@ export function DevicesContent() {
 
   const query = useTenantDevices(search);
   const extensionsQuery = useTenantExtensions();
-  const create = useCreateTenantDevice();
   const update = useUpdateTenantDevice();
   const remove = useDeleteTenantDevice();
   const bulkImport = useBulkImportDevices();
@@ -403,6 +400,16 @@ export function DevicesContent() {
               onSelect: () => void rebootPhone(r.id),
             });
           }
+          const extId = (r.line as { extension?: { id?: string } } | undefined)?.extension?.id;
+          if (extId) {
+            items.push({
+              id: 'configure-ext',
+              label: 'Manage on extension',
+              onSelect: () => {
+                window.location.href = `/extensions?configure=${encodeURIComponent(extId)}&tab=desk`;
+              },
+            });
+          }
           items.push(
             { id: 'details', label: 'Details', onSelect: () => setDetailRow(r) },
             ...(canWrite
@@ -415,31 +422,6 @@ export function DevicesContent() {
     ],
     [canWrite, canProvision, selected, copiedId],
   );
-
-  const handleCreate = async () => {
-    setError(null);
-    try {
-      await create.mutateAsync({
-        name: form.name,
-        deviceType: 'DESK_PHONE',
-        manufacturer: form.manufacturer,
-        model: form.model || undefined,
-        macAddress: form.macAddress.trim(),
-        lineId: form.lineId || undefined,
-        serialNumber: form.serialNumber || undefined,
-        assetTag: form.assetTag || undefined,
-        location: form.location || undefined,
-        modelFamily: form.modelFamily || undefined,
-        transport: form.transport,
-        tlsEnabled: form.tlsEnabled,
-        srtpEnabled: form.srtpEnabled,
-      });
-      setCreateOpen(false);
-      setForm(emptyForm);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Create failed');
-    }
-  };
 
   const handleUpdate = async () => {
     if (!editRow) return;
@@ -526,58 +508,47 @@ export function DevicesContent() {
             search={search}
             onSearchChange={setSearch}
             emptyTitle="No desk phones in inventory"
-            emptyDescription="Add desk phones with a MAC address to generate provisioning URLs."
+            emptyDescription="Register desk phones from Extensions → Configure → Desk Phone (MAC + provision URL)."
             filterRows={(data, q) => defaultSearchFilter(data, q)}
             headerActions={
-              canWrite ? (
-                <div className="flex flex-wrap items-center gap-2">
-                  <Button variant="outline" size="sm" onClick={() => void query.refetch()} disabled={query.isFetching}>
-                    <RefreshCw className={`h-4 w-4 ${query.isFetching ? 'animate-spin' : ''}`} />
-                    Refresh
+              <div className="flex flex-wrap items-center gap-2">
+                <Link href="/extensions">
+                  <Button size="sm" variant="default">
+                    Manage on Extensions
                   </Button>
-                  <WriteCreateButton
-                    writePermission={PERMISSIONS.TENANT_DEVICES_WRITE}
-                    label="Add device"
-                    onClick={() => { setCreateOpen(true); setForm(emptyForm); setError(null); }}
-                  />
-                  <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
-                    <Upload className="mr-1 h-4 w-4" /> Import
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={handleExport} disabled={busy}>
-                    <Download className="mr-1 h-4 w-4" /> Export
-                  </Button>
-                  {selectedIds.length > 0 && canProvision ? (
-                    <>
-                      <Button variant="outline" size="sm" onClick={() => runBulk('provision')} disabled={busy}>
-                        <RefreshCw className="mr-1 h-4 w-4" /> Provision ({selectedIds.length})
-                      </Button>
-                      <Button variant="outline" size="sm" onClick={() => runBulk('reboot')} disabled={busy}>
-                        <Power className="mr-1 h-4 w-4" /> Reboot ({selectedIds.length})
-                      </Button>
-                      <Button variant="outline" size="sm" onClick={() => runBulk('delete')} disabled={busy}>
-                        <Trash2 className="mr-1 h-4 w-4" /> Delete ({selectedIds.length})
-                      </Button>
-                    </>
-                  ) : null}
-                </div>
-              ) : undefined
+                </Link>
+                <Button variant="outline" size="sm" onClick={() => void query.refetch()} disabled={query.isFetching}>
+                  <RefreshCw className={`h-4 w-4 ${query.isFetching ? 'animate-spin' : ''}`} />
+                  Refresh
+                </Button>
+                {canWrite ? (
+                  <>
+                    <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
+                      <Upload className="mr-1 h-4 w-4" /> Import
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={handleExport} disabled={busy}>
+                      <Download className="mr-1 h-4 w-4" /> Export
+                    </Button>
+                    {selectedIds.length > 0 && canProvision ? (
+                      <>
+                        <Button variant="outline" size="sm" onClick={() => runBulk('provision')} disabled={busy}>
+                          <RefreshCw className="mr-1 h-4 w-4" /> Provision ({selectedIds.length})
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={() => runBulk('reboot')} disabled={busy}>
+                          <Power className="mr-1 h-4 w-4" /> Reboot ({selectedIds.length})
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={() => runBulk('delete')} disabled={busy}>
+                          <Trash2 className="mr-1 h-4 w-4" /> Delete ({selectedIds.length})
+                        </Button>
+                      </>
+                    ) : null}
+                  </>
+                ) : null}
+              </div>
             }
           />
 
           {error ? <p className="mt-2 text-sm text-destructive">{error}</p> : null}
-
-          <SlideOver open={createOpen} onClose={() => setCreateOpen(false)} title="Add device">
-            <DeviceFormFields form={form} setForm={setForm} extensions={extOptions} />
-            <div className="mt-6 flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancel</Button>
-              <Button
-                onClick={handleCreate}
-                disabled={!form.name || !form.macAddress.trim() || create.isPending}
-              >
-                Create
-              </Button>
-            </div>
-          </SlideOver>
 
           <SlideOver open={Boolean(editRow)} onClose={() => setEditRow(null)} title="Edit device">
             <DeviceFormFields form={form} setForm={setForm} extensions={extOptions} editMode />

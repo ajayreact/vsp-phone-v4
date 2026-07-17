@@ -27,8 +27,9 @@ export const TENANT_LEGACY_REDIRECTS: Record<string, string> = {
   '/reception': '/contact-center/reception',
   '/sip-accounts': '/extensions',
   '/provisioning': '/extensions',
-  '/phone-numbers/routing': '/call-flow/routing',
+  '/phone-numbers/routing': '/phone-numbers/my-numbers',
   '/api-keys': '/settings/api-keys',
+  '/call-flow/routing': '/phone-numbers/my-numbers',
 };
 
 export function resolveTenantLegacyRedirect(pathname: string): string | null {

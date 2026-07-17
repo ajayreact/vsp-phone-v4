@@ -44,3 +44,9 @@
 ## Code defects
 
 None.
+
+## Product exceptions (not defects)
+
+| Item | Status | Detail |
+|------|--------|--------|
+| Extension Workspace V5 UX | Authorized | [EXTENSION-WORKSPACE-V5.md](../EXTENSION-WORKSPACE-V5.md) — parallel to RC1; freeze exception recorded |

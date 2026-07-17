@@ -3,10 +3,58 @@ import { LineStatus } from '@prisma/client';
 import {
   assertCanBindDidToLine,
   detachDidFromPriorExtension,
+  extensionAssignDestinationWhere,
+  isMultipleDidsPerExtensionAllowed,
   markLineInactiveAfterDidRemoval,
 } from './did-extension-binding';
 
 describe('did-extension-binding (One DID ↔ One Extension)', () => {
+  beforeEach(() => {
+    delete process.env.ALLOW_MULTIPLE_DIDS_PER_EXTENSION;
+  });
+
+  it('isMultipleDidsPerExtensionAllowed defaults false', () => {
+    expect(isMultipleDidsPerExtensionAllowed(undefined)).toBe(false);
+    expect(isMultipleDidsPerExtensionAllowed('false')).toBe(false);
+    expect(isMultipleDidsPerExtensionAllowed('true')).toBe(true);
+  });
+
+  it('extensionAssignDestinationWhere hides extensions that already have a DID', () => {
+    expect(extensionAssignDestinationWhere('t1', { allowMultipleDids: false })).toEqual({
+      tenantId: 't1',
+      deletedAt: null,
+      line: {
+        deletedAt: null,
+        phoneNumbers: { none: { deletedAt: null } },
+      },
+    });
+  });
+
+  it('extensionAssignDestinationWhere keeps current DID owner selectable', () => {
+    expect(
+      extensionAssignDestinationWhere('t1', {
+        allowMultipleDids: false,
+        forPhoneNumberId: 'pn-current',
+      }),
+    ).toEqual({
+      tenantId: 't1',
+      deletedAt: null,
+      line: {
+        deletedAt: null,
+        phoneNumbers: {
+          none: { deletedAt: null, id: { not: 'pn-current' } },
+        },
+      },
+    });
+  });
+
+  it('extension with DID filter is skipped when allowMultipleDids true', () => {
+    expect(extensionAssignDestinationWhere('t1', { allowMultipleDids: true })).toEqual({
+      tenantId: 't1',
+      deletedAt: null,
+    });
+  });
+
   it('rejects bind when DID already on another line', async () => {
     const db = {
       phoneNumber: {
@@ -45,6 +93,28 @@ describe('did-extension-binding (One DID ↔ One Extension)', () => {
         lineId: 'line-1',
       }),
     ).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('allows second DID on line when allowMultipleDidsPerExtension=true', async () => {
+    const db = {
+      phoneNumber: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'pn1',
+          lineId: null,
+          tenantId: 't1',
+        }),
+        count: jest.fn().mockResolvedValue(1),
+      },
+    };
+    await expect(
+      assertCanBindDidToLine(db as never, {
+        tenantId: 't1',
+        phoneNumberId: 'pn1',
+        lineId: 'line-1',
+        allowMultipleDidsPerExtension: true,
+      }),
+    ).resolves.toBeUndefined();
+    expect(db.phoneNumber.count).not.toHaveBeenCalled();
   });
 
   it('rejects bind when DID belongs to another tenant', async () => {

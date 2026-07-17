@@ -11,6 +11,9 @@ import { PrismaService } from '../../telecom/prisma/prisma.service';
 import type { AssignDidDto } from '../dto/tenant-dids.dto';
 import {
   assertCanBindDidToLine,
+  extensionAssignDestinationWhere,
+  isMultipleDidsPerExtensionAllowed,
+  lineAssignDestinationWhere,
   markLineActiveOnDidAttach,
 } from '../utils/did-extension-binding';
 import { auditPbxMutation } from '../utils/tenant-pbx-audit';
@@ -107,13 +110,23 @@ export class TenantDidsService {
     return { ...row, routing, history };
   }
 
-  async listDestinations(tenantId: string, type: RouteDestinationType) {
+  async listDestinations(
+    tenantId: string,
+    type: RouteDestinationType,
+    opts: { forPhoneNumberId?: string } = {},
+  ) {
     if (!this.prisma.connected) return [];
+
+    const allowMultiple = isMultipleDidsPerExtensionAllowed();
+    const forPhoneNumberId = opts.forPhoneNumberId?.trim() || undefined;
 
     switch (type) {
       case RouteDestinationType.EXTENSION: {
         const exts = await this.prisma.extension.findMany({
-          where: { ...tenantScope(tenantId), deletedAt: null },
+          where: extensionAssignDestinationWhere(tenantId, {
+            allowMultipleDids: allowMultiple,
+            forPhoneNumberId,
+          }),
           include: {
             line: {
               select: {
@@ -146,7 +159,10 @@ export class TenantDidsService {
       }
       case RouteDestinationType.LINE: {
         const lines = await this.prisma.line.findMany({
-          where: { ...tenantScope(tenantId), deletedAt: null },
+          where: lineAssignDestinationWhere(tenantId, {
+            allowMultipleDids: allowMultiple,
+            forPhoneNumberId,
+          }),
           include: {
             extension: { select: { id: true, extension: true } },
             user: {

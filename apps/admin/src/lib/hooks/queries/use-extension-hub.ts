@@ -118,7 +118,10 @@ export function useExtensionUnassignDid() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => tenantRepository.unassignExtensionDid(id),
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ['tenant', 'extensionHub'] }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['tenant', 'extensionHub'] });
+      void qc.invalidateQueries({ queryKey: ['tenant', 'dids'] });
+    },
   });
 }
 

@@ -5,10 +5,14 @@ import { tenantRepository } from '../../repositories/tenant.repository';
 import { queryKeys } from '../../query/query-keys';
 import type { DidDestinationType } from '../../../components/modules/phone-numbers/did-types';
 
-export function useDidDestinations(type: DidDestinationType, enabled = true) {
+export function useDidDestinations(
+  type: DidDestinationType,
+  enabled = true,
+  phoneNumberId?: string,
+) {
   return useQuery({
-    queryKey: queryKeys.tenant.didDestinations(type),
-    queryFn: () => tenantRepository.listDidDestinations(type),
+    queryKey: queryKeys.tenant.didDestinations(type, phoneNumberId),
+    queryFn: () => tenantRepository.listDidDestinations(type, phoneNumberId),
     enabled,
   });
 }

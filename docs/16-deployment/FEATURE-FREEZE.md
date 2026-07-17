@@ -37,3 +37,11 @@ The only approved path is documented in [RC1-GOVERNANCE.md](./RC1-GOVERNANCE.md)
 ## Exit
 
 Governance lifts only after **General Availability** final sign-off (or a written product-owner exception for a critical defect). Customer Pilot does not authorize new feature work.
+
+## Recorded exceptions
+
+| Exception | Scope | Detail |
+|-----------|--------|--------|
+| **Extension Workspace (V5 UX)** | Tenant portal IA: platform-owned DID assign, read-only Number Inventory, Configure-as-workspace, no tenant Add Extension | [EXTENSION-WORKSPACE-V5.md](./EXTENSION-WORKSPACE-V5.md) |
+
+RC1 certification gates (smoke, call lab, `rc1-validate`) remain authoritative for go-live. V5 UX must not reopen closed ENV defects unless they regress.

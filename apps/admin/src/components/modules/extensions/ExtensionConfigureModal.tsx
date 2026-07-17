@@ -39,17 +39,18 @@ import { ExtensionStatusChip } from './ExtensionStatusChip';
 
 type ModalTabId = ReturnType<typeof normalizeConfigureTab>;
 
+/** Extension Workspace onboard order — Identity → User → DID → Softphone → SIP → Desk → … */
 const TABS: { id: ModalTabId; label: string }[] = [
-  { id: 'general', label: 'General' },
+  { id: 'general', label: 'Identity & User' },
+  { id: 'did', label: 'DID' },
+  { id: 'devices', label: 'Softphone' },
   { id: 'sip', label: 'SIP Credentials' },
-  { id: 'devices', label: 'Devices' },
-  { id: 'desk', label: 'Desk Phone Provisioning' },
-  { id: 'did', label: 'DID Assignment' },
+  { id: 'desk', label: 'Desk Phone' },
   { id: 'voicemail', label: 'Voicemail' },
-  { id: 'callFeatures', label: 'Call Features' },
   { id: 'recording', label: 'Recording' },
+  { id: 'callFeatures', label: 'Call Routing' },
   { id: 'permissions', label: 'Permissions' },
-  { id: 'activity', label: 'Activity' },
+  { id: 'activity', label: 'Audit History' },
 ];
 
 const DIRTY_FIELDS: Record<ModalTabId, (keyof ExtensionConfigureFormState)[]> = {
@@ -807,8 +808,9 @@ export function ExtensionConfigureModal({
             {tab === 'did' && row ? (
               <div className="space-y-4 max-w-xl">
                 <p className="text-sm text-muted-foreground">
-                  One DID per extension. The assigned number is set by platform assignment and is not
-                  editable here. Removing a DID keeps the extension and marks it Inactive.
+                  DID is read-only here (One DID ↔ One Extension). Platform Admin assigns numbers to
+                  your tenant and auto-creates this extension. Removing a DID keeps the extension and
+                  marks it Inactive.
                 </p>
                 <Field label="Assigned Number">
                   {row.did ? (

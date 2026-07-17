@@ -1,14 +1,15 @@
 'use client';
 
-import { Plus, RefreshCw, Search, Settings } from 'lucide-react';
-import { useCallback, useMemo, useState } from 'react';
+import { RefreshCw, Search, Settings } from 'lucide-react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  normalizeConfigureTab,
   useExtensionHub,
   useExtensionRestartRegistration,
   type ConfigureTabId,
   type ExtensionHubRow,
 } from '../../../lib/hooks/queries/use-extension-hub';
-import { useCreateTenantExtension } from '../../../lib/hooks/queries/use-tenant-mutations';
 import { PERMISSIONS } from '../../../lib/rbac/permissions';
 import { hasPermission } from '../../../lib/rbac/permissions';
 import { usePermissions } from '../../../lib/auth/AuthProvider';
@@ -18,7 +19,6 @@ import { QueryState } from '../../feedback/QueryState';
 import { PageContainer, PageHeader } from '../../layout/PageHeader';
 import { Button } from '../../ui/Button';
 import { Input } from '../../ui/Input';
-import { Modal } from '../../ui/Modal';
 import { Skeleton } from '../../ui/Skeleton';
 import { ModuleAccessGate } from '../shared/ModuleShell';
 import { ExtensionConfigureModal } from './ExtensionConfigureModal';
@@ -101,12 +101,11 @@ function formatLastReg(iso: string | null | undefined): string {
 export function ExtensionsHubContent() {
   const permissions = usePermissions();
   const canWrite = hasPermission(permissions, PERMISSIONS.TENANT_EXTENSIONS_WRITE);
+  const searchParams = useSearchParams();
+  const router = useRouter();
 
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<HubFilter>('all');
-  const [createOpen, setCreateOpen] = useState(false);
-  const [newExtension, setNewExtension] = useState('');
-  const [newDisplayName, setNewDisplayName] = useState('');
   const [configureRow, setConfigureRow] = useState<ExtensionHubRow | null>(null);
   const [configureTab, setConfigureTab] = useState<ConfigureTabId>('general');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -114,7 +113,6 @@ export function ExtensionsHubContent() {
   const [bulkBusy, setBulkBusy] = useState(false);
 
   const query = useExtensionHub();
-  const create = useCreateTenantExtension();
   const restartReg = useExtensionRestartRegistration();
 
   const rows = useMemo(() => {
@@ -127,26 +125,27 @@ export function ExtensionsHubContent() {
     setConfigureRow(row);
   }, []);
 
+  const closeConfigure = useCallback(() => {
+    setConfigureRow(null);
+    const params = new URLSearchParams(searchParams.toString());
+    if (params.has('configure') || params.has('tab')) {
+      params.delete('configure');
+      params.delete('tab');
+      const q = params.toString();
+      router.replace(q ? `/extensions?${q}` : '/extensions');
+    }
+  }, [router, searchParams]);
+
   const refresh = useCallback(() => void query.refetch(), [query]);
 
-  const submitCreate = async () => {
-    setError(null);
-    const ext = newExtension.trim();
-    if (!ext) return;
-    try {
-      await create.mutateAsync({
-        extension: ext,
-        displayName: newDisplayName.trim() || undefined,
-        lineName: newDisplayName.trim() || undefined,
-      });
-      setCreateOpen(false);
-      setNewExtension('');
-      setNewDisplayName('');
-      refresh();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Create failed');
-    }
-  };
+  useEffect(() => {
+    const configureId = searchParams.get('configure');
+    if (!configureId || !query.data?.length) return;
+    const row = query.data.find((r) => r.id === configureId);
+    if (!row) return;
+    const tabParam = searchParams.get('tab') as ConfigureTabId | null;
+    openConfigure(row, normalizeConfigureTab(tabParam ?? 'general'));
+  }, [searchParams, query.data, openConfigure]);
 
   const bulkRestart = async () => {
     if (!selectedIds.length) return;
@@ -334,7 +333,7 @@ export function ExtensionsHubContent() {
             title="Extensions"
             description={
               module.description ??
-              'Manage all tenant extensions — DID-provisioned and manually created — from one table.'
+              'Primary workspace — extensions are created when Platform Admin assigns a number. Configure everything from one screen.'
             }
             actions={
               <div className="flex flex-wrap items-center gap-2">
@@ -342,12 +341,6 @@ export function ExtensionsHubContent() {
                   <RefreshCw className={`h-4 w-4 ${query.isFetching ? 'animate-spin' : ''}`} aria-hidden="true" />
                   Refresh
                 </Button>
-                {canWrite ? (
-                  <Button size="sm" onClick={() => setCreateOpen(true)}>
-                    <Plus className="h-4 w-4" aria-hidden="true" />
-                    Add Extension
-                  </Button>
-                ) : null}
               </div>
             }
           />
@@ -434,9 +427,9 @@ export function ExtensionsHubContent() {
                   <>
                     <p className="mb-2 font-medium text-foreground">No extensions yet.</p>
                     <p>
-                      When Platform Admin assigns phone numbers, extensions are provisioned
-                      automatically and appear here. Use Add Extension only for internal
-                      extensions without a DID.
+                      Extensions appear when Platform Admin assigns phone numbers to your
+                      tenant. Open Configure on a row to finish employee setup in under two
+                      minutes.
                     </p>
                   </>
                 )}
@@ -463,49 +456,9 @@ export function ExtensionsHubContent() {
             />
           </QueryState>
 
-          <Modal
-            open={createOpen}
-            onClose={() => setCreateOpen(false)}
-            title="Add extension"
-            description="Creates an internal extension without a DID. Platform-assigned numbers already create extensions automatically."
-            size="lg"
-            footer={
-              <div className="flex justify-end gap-2">
-                <Button variant="ghost" onClick={() => setCreateOpen(false)}>
-                  Cancel
-                </Button>
-                <Button onClick={() => void submitCreate()} disabled={create.isPending || !newExtension.trim()}>
-                  Create
-                </Button>
-              </div>
-            }
-          >
-            <div className="space-y-4">
-              <label className="block space-y-1.5 text-sm">
-                <span className="font-medium">Extension number</span>
-                <Input value={newExtension} onChange={(e) => setNewExtension(e.target.value)} placeholder="103" />
-              </label>
-              <label className="block space-y-1.5 text-sm">
-                <span className="font-medium">User Name</span>
-                <span className="block text-xs text-muted-foreground">
-                  Identification name shown as Extension Name (e.g. Reception, Sales)
-                </span>
-                <Input
-                  value={newDisplayName}
-                  onChange={(e) => setNewDisplayName(e.target.value)}
-                  placeholder={
-                    newExtension
-                      ? `Extension ${newExtension}`
-                      : 'Reception'
-                  }
-                />
-              </label>
-            </div>
-          </Modal>
-
           <ExtensionConfigureModal
             open={Boolean(configureRow)}
-            onClose={() => setConfigureRow(null)}
+            onClose={closeConfigure}
             row={configureRow}
             initialTab={configureTab}
             onSaved={refresh}

@@ -2,6 +2,7 @@ import type { UserRecord } from '../../types/portal';
 import type { OpsDashboardSnapshot } from '../../types/telecom';
 import { httpDelete, httpGet, httpPatch, httpPost, httpPut } from '../api/http-client';
 import { normalizeList, unwrapData } from './api-utils';
+import { buildDidDestinationsPath } from './did-destinations-url';
 
 export const tenantRepository = {
   getDashboard(): Promise<OpsDashboardSnapshot> {
@@ -198,9 +199,12 @@ export const tenantRepository = {
     return httpDelete<Record<string, unknown>>(`/v1/tenant/extensions/${id}`);
   },
 
-  listDidDestinations(type: string): Promise<{ id: string; label: string }[]> {
+  listDidDestinations(
+    type: string,
+    phoneNumberId?: string,
+  ): Promise<{ id: string; label: string }[]> {
     return httpGet<{ data: { id: string; label: string }[] }>(
-      `/v1/tenant/dids/destinations?type=${encodeURIComponent(type)}`,
+      buildDidDestinationsPath(type, phoneNumberId),
     ).then(normalizeList);
   },
 

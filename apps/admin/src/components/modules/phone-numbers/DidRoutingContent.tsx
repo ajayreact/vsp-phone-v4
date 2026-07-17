@@ -1,33 +1,38 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import Link from 'next/link';
+import { useMemo } from 'react';
 import { useTenantDids } from '../../../lib/hooks/queries/use-tenant';
+import { formatExtensionLabel } from '../../../lib/extensions/format-extension-label';
 import { ModuleAccessGate } from '../shared/ModuleShell';
 import { PageContainer, PageHeader } from '../../layout/PageHeader';
 import { QueryState } from '../../feedback/QueryState';
 import { Button } from '../../ui/Button';
 import { Skeleton } from '../../ui/Skeleton';
-import { AssignDidDrawer } from './AssignDidDrawer';
-import { formatExtensionLabel } from '../../../lib/extensions/format-extension-label';
 
 type DidRow = Record<string, unknown> & {
   id: string;
   number: string;
   routing?: { destinationType?: string } | null;
-  line?: { extension?: { extension?: string }; user?: { profile?: { displayName?: string } } };
+  line?: {
+    name?: string;
+    extension?: { id?: string; extension?: string };
+    user?: { profile?: { displayName?: string } };
+  };
 };
 
 export function DidRoutingContent() {
   const query = useTenantDids();
-  const [assignDid, setAssignDid] = useState<DidRow | null>(null);
-
   const rows = useMemo(() => (query.data ?? []) as DidRow[], [query.data]);
 
   return (
     <ModuleAccessGate moduleId="did-routing">
       {({ module }) => (
         <PageContainer>
-          <PageHeader title={module.label} description={module.description} />
+          <PageHeader
+            title={module.label}
+            description="Read-only routing view. DID assignment is performed by Platform Admin; configure each extension from the Extensions workspace."
+          />
           <QueryState
             isLoading={query.isLoading}
             isError={query.isError}
@@ -39,35 +44,35 @@ export function DidRoutingContent() {
             <div className="space-y-3">
               {rows.map((did) => {
                 const ext = did.line?.extension?.extension;
-                const name = (did.line as { name?: string })?.name ?? did.line?.user?.profile?.displayName;
+                const extId = did.line?.extension?.id;
+                const name =
+                  did.line?.name ?? did.line?.user?.profile?.displayName;
                 const dest =
                   did.routing?.destinationType ??
                   (ext ? formatExtensionLabel(ext, name) : 'Unassigned');
                 return (
-                  <button
+                  <div
                     key={did.id}
-                    type="button"
-                    className="flex w-full items-center justify-between rounded-2xl border border-border bg-card px-4 py-4 text-left transition-colors hover:bg-muted/40"
-                    onClick={() => setAssignDid(did)}
+                    className="flex w-full items-center justify-between rounded-2xl border border-border bg-card px-4 py-4"
                   >
                     <div>
                       <p className="font-mono font-semibold">{String(did.number)}</p>
                       <p className="text-sm text-muted-foreground">↓ {dest}</p>
                     </div>
-                    <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); setAssignDid(did); }}>
-                      Edit
-                    </Button>
-                  </button>
+                    {extId ? (
+                      <Link href={`/extensions?configure=${extId}&tab=did`}>
+                        <Button size="sm" variant="outline">
+                          Configure extension
+                        </Button>
+                      </Link>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">Awaiting platform assign</span>
+                    )}
+                  </div>
                 );
               })}
             </div>
           </QueryState>
-          <AssignDidDrawer
-            open={Boolean(assignDid)}
-            did={assignDid}
-            onClose={() => setAssignDid(null)}
-            onSaved={() => void query.refetch()}
-          />
         </PageContainer>
       )}
     </ModuleAccessGate>

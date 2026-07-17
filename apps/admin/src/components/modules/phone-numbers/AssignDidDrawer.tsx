@@ -65,7 +65,7 @@ export function AssignDidDrawer({
 }) {
   const [form, setForm] = useState<AssignDidForm>(emptyAssignDidForm);
   const [error, setError] = useState<string | null>(null);
-  const destinations = useDidDestinations(form.destinationType, open);
+  const destinations = useDidDestinations(form.destinationType, open, did?.id);
   const assign = useAssignDid();
   const extensionsQuery = useTenantExtensions();
   const devicesQuery = useTenantDevices();
@@ -89,6 +89,13 @@ export function AssignDidDrawer({
     });
     setError(null);
   }, [open, did, defaultDestinationType, defaultDestinationId, defaultCallerIdName, extensionsQuery.data]);
+
+  useEffect(() => {
+    if (!form.destinationId || !destinations.data) return;
+    if (!destinations.data.some((d) => d.id === form.destinationId)) {
+      setForm((f) => ({ ...f, destinationId: '' }));
+    }
+  }, [destinations.data, form.destinationId]);
 
   const preview = useMemo(() => {
     if (!did) return null;
@@ -175,18 +182,28 @@ export function AssignDidDrawer({
             {destinations.isLoading ? (
               <Skeleton className="h-10 w-full rounded-xl" />
             ) : (
-              <select
-                className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm"
-                value={form.destinationId}
-                onChange={(e) => setForm({ ...form, destinationId: e.target.value })}
-              >
-                <option value="">Choose…</option>
-                {(destinations.data ?? []).map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.label}
-                  </option>
-                ))}
-              </select>
+              <>
+                <select
+                  className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm"
+                  value={form.destinationId}
+                  onChange={(e) => setForm({ ...form, destinationId: e.target.value })}
+                >
+                  <option value="">Choose…</option>
+                  {(destinations.data ?? []).map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.label}
+                    </option>
+                  ))}
+                </select>
+                {form.destinationType === 'EXTENSION' &&
+                !destinations.isLoading &&
+                (destinations.data?.length ?? 0) === 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    No extensions without a DID. Unassign a number from an extension first (one DID
+                    per extension).
+                  </p>
+                ) : null}
+              </>
             )}
           </label>
 

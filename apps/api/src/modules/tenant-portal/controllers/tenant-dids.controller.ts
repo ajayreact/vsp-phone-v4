@@ -1,4 +1,14 @@
-import { Body, Controller, Get, Param, Post, Query, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  ForbiddenException,
+  Get,
+  Param,
+  Post,
+  Query,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { RouteDestinationType } from '@prisma/client';
 import type { Request } from 'express';
@@ -26,10 +36,20 @@ export class TenantDidsController {
 
   @Get('destinations')
   @RequirePermission(PERMISSIONS.TENANT_DIDS_READ)
-  @ApiOperation({ summary: 'List routable destinations by type' })
-  async destinations(@Query('type') type: RouteDestinationType, @Req() req: Request) {
+  @ApiOperation({
+    summary: 'List routable destinations by type',
+    description:
+      'For EXTENSION/LINE, omits targets that already have an active DID (One DID ↔ One Extension) unless ALLOW_MULTIPLE_DIDS_PER_EXTENSION=true. Pass phoneNumberId when reassigning so the current owner stays selectable.',
+  })
+  async destinations(
+    @Query('type') type: RouteDestinationType,
+    @Query('phoneNumberId') phoneNumberId: string | undefined,
+    @Req() req: Request,
+  ) {
     const user = getJwtUser(req);
-    const data = await this.dids.listDestinations(user.tenantId, type);
+    const data = await this.dids.listDestinations(user.tenantId, type, {
+      forPhoneNumberId: phoneNumberId,
+    });
     return { data };
   }
 
@@ -44,10 +64,17 @@ export class TenantDidsController {
 
   @Post(':id/assign')
   @RequirePermission(PERMISSIONS.TENANT_DIDS_WRITE)
-  @ApiOperation({ summary: 'Assign DID routing destination' })
-  async assign(@Param('id') id: string, @Body() dto: AssignDidDto, @Req() req: Request) {
-    const user = getJwtUser(req);
-    const data = await this.dids.assign(user.tenantId, user.sub, id, dto);
-    return { data };
+  @ApiOperation({
+    summary: 'Assign DID routing destination (disabled for tenants)',
+    description:
+      'Extension Workspace: Platform Admin assigns DIDs to tenants (auto-provisions extension). Tenant portal cannot assign; use Remove DID / Configure on the extension instead.',
+  })
+  async assign(@Param('id') _id: string, @Body() _dto: AssignDidDto, @Req() req: Request) {
+    // Tenant surface only accepts tenant JWTs — this write path is retired.
+    // Platform Admin assigns DIDs via carrier inventory (auto-provisions extensions).
+    getJwtUser(req);
+    throw new ForbiddenException(
+      'DID assignment is managed by Platform Admin. Numbers appear on extensions automatically when assigned to your tenant.',
+    );
   }
 }

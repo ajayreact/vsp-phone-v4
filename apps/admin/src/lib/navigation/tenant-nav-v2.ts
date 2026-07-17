@@ -38,7 +38,8 @@ export const TENANT_MODULES_V2: ModuleDefinition[] = [
     icon: Phone,
     permission: PERMISSIONS.TENANT_EXTENSIONS_READ,
     integration: 'live',
-    description: 'Extension hub — display names, DIDs, devices, and provisioning.',
+    description:
+      'Primary workspace — configure identity, user, DID, softphone, desk phone, voicemail, and more.',
     breadcrumb: ['Extensions'],
     apiEndpoints: ['/v1/tenant/extensions/hub'],
     primary: true,
@@ -72,15 +73,16 @@ export const TENANT_MODULES_V2: ModuleDefinition[] = [
   },
   {
     id: 'devices',
-    label: 'Desk Phones',
+    label: 'Desk phone inventory',
     href: '/people/devices',
     group: 'telephony',
     section: 'extensions',
     icon: Smartphone,
     permission: PERMISSIONS.TENANT_DEVICES_READ,
     integration: 'live',
-    description: 'Desk phone inventory, provisioning URLs, and device commands.',
-    breadcrumb: ['Extensions', 'Desk Phones'],
+    description:
+      'Optional MAC/device inventory. Register and provision desk phones from Extensions → Configure.',
+    breadcrumb: ['Extensions', 'Desk phone inventory'],
     apiEndpoints: ['/v1/tenant/devices', '/v1/tenant/provisioning'],
   },
   {
@@ -119,7 +121,8 @@ export const TENANT_MODULES_V2: ModuleDefinition[] = [
     icon: Phone,
     permission: PERMISSIONS.TENANT_DIDS_READ,
     integration: 'live',
-    description: 'DID inventory — assignment status, carrier, and emergency address.',
+    description:
+      'Read-only DIDs assigned by Platform Admin. Manage users and devices from Extensions → Configure.',
     breadcrumb: ['Phone Numbers', 'Number Inventory'],
     apiEndpoints: ['/v1/tenant/dids'],
   },
