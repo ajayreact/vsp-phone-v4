@@ -1,7 +1,17 @@
 # Extension-First EC2 Deployment Runbook
 
+> **SUPERSEDED (2026-07-18).** Do **not** follow the `vsp_voip` / `vsp-voip-postgres-1` instructions below for VSP Phone v4.
+>
+> Canonical EC2 deploy:
+> - Doc: [`docs/13-production-validation/10-extension-first-ec2-deploy.md`](../../docs/13-production-validation/10-extension-first-ec2-deploy.md)
+> - Compose: `source scripts/platform/ec2-compose-env.sh` (base + prod + host-db; legacy overlay is opt-in only)
+> - Database: **`postgres` / `vsp_phone_v4`** (container `vsp-postgres`)
+>
+> The `vsp_voip` database on `vsp-voip-postgres-1` is **legacy v3 only** and must not be used by the v4 API.
+> Keeping this file for historical reference only.
+
 **Target:** `ubuntu@32.196.41.160` → `/opt/vsp-phone-v4`  
-**Production database:** `vsp_voip` on `vsp-voip-postgres-1`  
+**Production database (LEGACY — DO NOT USE FOR V4):** `vsp_voip` on `vsp-voip-postgres-1`  
 **Branch:** `release/v4.0.0-rc1`  
 **Preserve:** existing `.env` (never overwrite)
 

@@ -20,13 +20,22 @@ services:
   # Safety: if these services start, do not bind host ports (legacy stack owns them).
   postgres:
     ports: !reset []
+    environment:
+      # Align with EC2 app DB name (vsp_phone_v4). Override via POSTGRES_DB in .env.
+      POSTGRES_DB: ${POSTGRES_DB:-vsp_phone_v4}
 
   redis:
     ports: !reset []
 
   api:
     depends_on:
+      postgres:
+        condition: service_healthy
       redis:
+        condition: service_healthy
+      rtpengine:
+        condition: service_healthy
+      kamailio:
         condition: service_healthy
     extra_hosts:
       - 'host.docker.internal:host-gateway'
@@ -65,6 +74,10 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
+      rtpengine:
+        condition: service_started
     environment:
       REDIS_HOST: redis
       KAMAILIO_USRLOC_PERSISTENCE: postgres

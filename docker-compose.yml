@@ -104,11 +104,11 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      # service_started (not healthy): avoid deadlock with kamailio→api dependency
+      # Wait until healthchecks pass so ProductionConfigValidator probes succeed on first boot.
       rtpengine:
-        condition: service_started
+        condition: service_healthy
       kamailio:
-        condition: service_started
+        condition: service_healthy
     networks: [vsp_internal]
     healthcheck:
       test:
