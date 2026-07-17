@@ -78,8 +78,13 @@ services:
       LOG_FORMAT: ${LOG_FORMAT:-json}
       POSTGRES_HOST: postgres
       REDIS_HOST: redis
+      # Compose service DNS — never localhost (localhost inside the container is the API itself).
       DATABASE_URL: postgresql://${POSTGRES_USER:-vsp}:${POSTGRES_PASSWORD:-vsp_dev_password}@postgres:5432/${POSTGRES_DB:-vsp_phone}?schema=public
       REDIS_URL: redis://redis:6379
+      KAMAILIO_HTTP_HOST: kamailio
+      KAMAILIO_HTTP_PORT: ${KAMAILIO_HTTP_PORT:-8880}
+      RTPENGINE_HOST: rtpengine
+      RTPENGINE_NG_PORT: ${RTPENGINE_NG_PORT:-2223}
       TELECOM_SERVICE_AUTH_TOKEN: ${TELECOM_SERVICE_AUTH_TOKEN:-}
       SIP_PLATFORM_DOMAIN: ${SIP_PLATFORM_DOMAIN:-vsp.internal}
       SIP_DEV_PASSWORD: ${SIP_DEV_PASSWORD:-}
@@ -99,6 +104,11 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      # service_started (not healthy): avoid deadlock with kamailio→api dependency
+      rtpengine:
+        condition: service_started
+      kamailio:
+        condition: service_started
     networks: [vsp_internal]
     healthcheck:
       test:
@@ -181,8 +191,7 @@ services:
         condition: service_healthy
       rtpengine:
         condition: service_started
-      api:
-        condition: service_started
+      # Do NOT depend on api — production API probes Kamailio at boot; api→kamailio→api is a deadlock.
     networks: [vsp_internal]
     healthcheck:
       test: ['CMD', '/healthcheck.sh']

@@ -28,7 +28,11 @@ services:
       TELNYX_API_KEY: ${TELNYX_API_KEY:-}
       VSP_PLATFORM_INVENTORY_TENANT_ID: ${VSP_PLATFORM_INVENTORY_TENANT_ID:-}
       CORS_ORIGINS: ${CORS_ORIGINS:-https://admin.vspphone.com,https://app.vspphone.com,https://tenant.vspphone.com}
+      # ProductionConfigValidatorService probes these at boot (warnings → errors in production).
+      KAMAILIO_HTTP_HOST: kamailio
+      KAMAILIO_HTTP_PORT: ${KAMAILIO_HTTP_PORT:-8880}
       RTPENGINE_HOST: rtpengine
+      RTPENGINE_NG_PORT: ${RTPENGINE_NG_PORT:-2223}
       RTPENGINE_REQUIRE_DAEMON: ${RTPENGINE_REQUIRE_DAEMON:-1}
       S3_ENDPOINT: ${S3_ENDPOINT:-http://minio:9000}
       S3_BUCKET: ${S3_BUCKET:-vsp-recordings}
