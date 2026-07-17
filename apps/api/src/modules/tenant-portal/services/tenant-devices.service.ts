@@ -297,6 +297,40 @@ export class TenantDevicesService {
     return this.enrichDevice(tenantId, device);
   }
 
+  /** Marks this device as the primary device for its line; clears isPrimary on siblings. */
+  async makePrimary(tenantId: string, userId: string, id: string) {
+    const existing = await this.require(tenantId, id);
+    if (!existing.lineId) {
+      throw new BadRequestException('Device is not assigned to an extension');
+    }
+    if (existing.isPrimary) {
+      return this.enrichDevice(tenantId, existing);
+    }
+
+    const device = await this.prisma.$transaction(async (tx) => {
+      await tx.device.updateMany({
+        where: { tenantId, lineId: existing.lineId, deletedAt: null, isPrimary: true },
+        data: { isPrimary: false, updatedBy: userId },
+      });
+      return tx.device.update({
+        where: { id },
+        data: { isPrimary: true, updatedBy: userId },
+        include: deviceInclude,
+      });
+    });
+
+    await auditPbxMutation(this.audit, {
+      tenantId,
+      actorUserId: userId,
+      action: 'pbx.device.make_primary',
+      entityType: 'Device',
+      entityId: id,
+      metadata: { lineId: existing.lineId },
+    });
+
+    return this.enrichDevice(tenantId, device);
+  }
+
   async remove(tenantId: string, userId: string, id: string) {
     const existing = await this.require(tenantId, id);
     const mac = existing.macAddress ? normalizeMac(String(existing.macAddress)) : '';

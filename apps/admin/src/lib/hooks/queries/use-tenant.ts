@@ -33,10 +33,11 @@ export function useTenantExtensions(search?: string) {
   });
 }
 
-export function useTenantDids(search?: string) {
+export function useTenantDids(search?: string, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: queryKeys.tenant.dids(search),
     queryFn: () => tenantRepository.listDids(search),
+    enabled: options?.enabled ?? true,
   });
 }
 

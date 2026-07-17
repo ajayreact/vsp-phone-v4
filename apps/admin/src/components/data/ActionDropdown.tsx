@@ -17,16 +17,21 @@ export type ActionItem = {
 export function ActionDropdown({
   items,
   align = 'end',
+  trigger,
 }: {
   items: ActionItem[];
   align?: 'start' | 'end';
+  /** Custom trigger element. Defaults to the compact "..." icon button. */
+  trigger?: ReactNode;
 }) {
   return (
     <DropdownMenu.Root>
       <DropdownMenu.Trigger asChild>
-        <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Actions">
-          <MoreHorizontal className="h-4 w-4" />
-        </Button>
+        {trigger ?? (
+          <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Actions">
+            <MoreHorizontal className="h-4 w-4" />
+          </Button>
+        )}
       </DropdownMenu.Trigger>
       <DropdownMenu.Portal>
         <DropdownMenu.Content

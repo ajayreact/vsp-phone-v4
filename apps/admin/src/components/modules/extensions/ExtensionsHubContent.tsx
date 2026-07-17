@@ -1,6 +1,6 @@
 'use client';
 
-import { RefreshCw, Search, Settings } from 'lucide-react';
+import { Plus, RefreshCw, Search, Settings } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -10,6 +10,7 @@ import {
   type ConfigureTabId,
   type ExtensionHubRow,
 } from '../../../lib/hooks/queries/use-extension-hub';
+import { useCreateTenantExtension } from '../../../lib/hooks/queries/use-tenant-mutations';
 import { PERMISSIONS } from '../../../lib/rbac/permissions';
 import { hasPermission } from '../../../lib/rbac/permissions';
 import { usePermissions } from '../../../lib/auth/AuthProvider';
@@ -19,6 +20,7 @@ import { QueryState } from '../../feedback/QueryState';
 import { PageContainer, PageHeader } from '../../layout/PageHeader';
 import { Button } from '../../ui/Button';
 import { Input } from '../../ui/Input';
+import { Modal } from '../../ui/Modal';
 import { Skeleton } from '../../ui/Skeleton';
 import { ModuleAccessGate } from '../shared/ModuleShell';
 import { ExtensionConfigureModal } from './ExtensionConfigureModal';
@@ -89,15 +91,6 @@ function deviceLabel(row: ExtensionHubRow): string {
   return '—';
 }
 
-function formatLastReg(iso: string | null | undefined): string {
-  if (!iso) return '—';
-  try {
-    return new Date(iso).toLocaleString();
-  } catch {
-    return '—';
-  }
-}
-
 export function ExtensionsHubContent() {
   const permissions = usePermissions();
   const canWrite = hasPermission(permissions, PERMISSIONS.TENANT_EXTENSIONS_WRITE);
@@ -111,9 +104,14 @@ export function ExtensionsHubContent() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [bulkBusy, setBulkBusy] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [newExtension, setNewExtension] = useState('');
+  const [newName, setNewName] = useState('');
+  const [createError, setCreateError] = useState<string | null>(null);
 
   const query = useExtensionHub();
   const restartReg = useExtensionRestartRegistration();
+  const createExt = useCreateTenantExtension();
 
   const rows = useMemo(() => {
     const all = query.data ?? [];
@@ -147,6 +145,26 @@ export function ExtensionsHubContent() {
     openConfigure(row, normalizeConfigureTab(tabParam ?? 'general'));
   }, [searchParams, query.data, openConfigure]);
 
+  const submitCreate = async () => {
+    if (!newExtension.trim()) {
+      setCreateError('Extension number is required.');
+      return;
+    }
+    setCreateError(null);
+    try {
+      await createExt.mutateAsync({
+        extension: newExtension.trim(),
+        lineName: newName.trim() || undefined,
+      });
+      setCreateOpen(false);
+      setNewExtension('');
+      setNewName('');
+      refresh();
+    } catch (e) {
+      setCreateError(e instanceof Error ? e.message : 'Failed to create extension');
+    }
+  };
+
   const bulkRestart = async () => {
     if (!selectedIds.length) return;
     setBulkBusy(true);
@@ -165,42 +183,27 @@ export function ExtensionsHubContent() {
   const columns = useMemo<Column<ExtensionHubRow>[]>(
     () => [
       {
-        key: 'configure',
-        header: 'Configure',
-        cell: (row) => (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => openConfigure(row, 'general')}
-            aria-label={`Configure ${row.label}`}
-          >
-            <Settings className="h-3.5 w-3.5" aria-hidden="true" />
-            Configure
-          </Button>
-        ),
-      },
-      {
         key: 'extension',
-        header: 'Extension Number',
+        header: 'Ext',
         sortable: true,
         sortValue: (r) => r.extension,
         cell: (row) => <span className="font-mono font-medium">{row.extension}</span>,
       },
       {
         key: 'displayName',
-        header: 'Extension Name',
+        header: 'Name',
         sortable: true,
         sortValue: (r) => r.displayName,
         cell: (row) => <span className="font-medium">{row.displayName}</span>,
       },
       {
         key: 'did',
-        header: 'Assigned Numbers',
+        header: 'DID',
         sortable: true,
         sortValue: (r) => assignedNumbers(r).map((d) => d.formatted).join(' '),
         cell: (row) => {
           const numbers = assignedNumbers(row);
-          if (!numbers.length) return <span className="text-muted-foreground">—</span>;
+          if (!numbers.length) return <span className="text-muted-foreground">Unassigned</span>;
           return (
             <div className="flex flex-col gap-0.5">
               {numbers.map((d) => (
@@ -213,30 +216,18 @@ export function ExtensionsHubContent() {
         },
       },
       {
-        key: 'user',
-        header: 'User',
-        sortable: true,
-        sortValue: (r) => r.linkedUser?.displayName ?? r.linkedUser?.email ?? 'Unassigned',
-        cell: (row) =>
-          row.linkedUser ? (
-            <span>{row.linkedUser.displayName || row.linkedUser.email}</span>
-          ) : (
-            <span className="text-muted-foreground">Unassigned</span>
-          ),
-      },
-      {
         key: 'device',
         header: 'Device',
         sortable: true,
         sortValue: (r) => deviceLabel(r),
         cell: (row) => {
           const label = deviceLabel(row);
-          return label === '—' ? <span className="text-muted-foreground">—</span> : <span>{label}</span>;
+          return label === '—' ? <span className="text-muted-foreground">None</span> : <span>{label}</span>;
         },
       },
       {
-        key: 'registration',
-        header: 'Registration Status',
+        key: 'status',
+        header: 'Status',
         sortable: true,
         sortValue: (r) => `${r.onlineStatus}-${r.statusLabel}`,
         cell: (row) => (
@@ -248,56 +239,18 @@ export function ExtensionsHubContent() {
         ),
       },
       {
-        key: 'provision',
-        header: 'Provision Status',
-        sortable: true,
-        sortValue: (r) => r.provisionLabel ?? 'Pending',
-        cell: (row) => {
-          const label = row.provisionLabel ?? 'Pending';
-          const tone =
-            label === 'Configured'
-              ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
-              : label === 'Failed'
-                ? 'bg-destructive/10 text-destructive'
-                : 'bg-amber-500/10 text-amber-800 dark:text-amber-200';
-          return (
-            <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${tone}`}>
-              {label}
-            </span>
-          );
-        },
-      },
-      {
-        key: 'recording',
-        header: 'Call Recording',
-        sortable: true,
-        sortValue: (r) => (r.recordingEnabled ? 'On' : 'Off'),
+        key: 'actions',
+        header: 'Actions',
         cell: (row) => (
-          <span className={row.recordingEnabled ? 'text-foreground' : 'text-muted-foreground'}>
-            {row.recordingEnabled ? 'On' : 'Off'}
-          </span>
-        ),
-      },
-      {
-        key: 'voicemail',
-        header: 'Voicemail',
-        sortable: true,
-        sortValue: (r) => (r.voicemailEnabled ? 'On' : 'Off'),
-        cell: (row) => (
-          <span className={row.voicemailEnabled ? 'text-foreground' : 'text-muted-foreground'}>
-            {row.voicemailEnabled ? 'On' : 'Off'}
-          </span>
-        ),
-      },
-      {
-        key: 'lastRegistration',
-        header: 'Last Registration',
-        sortable: true,
-        sortValue: (r) => r.lastRegistrationAt ?? '',
-        cell: (row) => (
-          <span className="whitespace-nowrap text-xs text-muted-foreground">
-            {formatLastReg(row.lastRegistrationAt)}
-          </span>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => openConfigure(row, 'general')}
+            aria-label={`Configure ${row.label}`}
+          >
+            <Settings className="h-3.5 w-3.5" aria-hidden="true" />
+            Configure
+          </Button>
         ),
       },
     ],
@@ -307,8 +260,9 @@ export function ExtensionsHubContent() {
   const rowActions = useCallback(
     (row: ExtensionHubRow): ActionItem[] => [
       { id: 'configure', label: 'Configure', onSelect: () => openConfigure(row, 'general') },
-      { id: 'sip', label: 'SIP / QR', onSelect: () => openConfigure(row, 'sip') },
-      { id: 'desk', label: 'Desk Phone', onSelect: () => openConfigure(row, 'desk') },
+      { id: 'did', label: 'DID', onSelect: () => openConfigure(row, 'did') },
+      { id: 'device', label: 'Device', onSelect: () => openConfigure(row, 'devices') },
+      { id: 'provisioning', label: 'Provisioning', onSelect: () => openConfigure(row, 'desk') },
       {
         id: 'history',
         label: 'Call History',
@@ -341,6 +295,12 @@ export function ExtensionsHubContent() {
                   <RefreshCw className={`h-4 w-4 ${query.isFetching ? 'animate-spin' : ''}`} aria-hidden="true" />
                   Refresh
                 </Button>
+                {canWrite ? (
+                  <Button size="sm" onClick={() => setCreateOpen(true)}>
+                    <Plus className="h-4 w-4" aria-hidden="true" />
+                    Add Extension
+                  </Button>
+                ) : null}
               </div>
             }
           />
@@ -427,9 +387,9 @@ export function ExtensionsHubContent() {
                   <>
                     <p className="mb-2 font-medium text-foreground">No extensions yet.</p>
                     <p>
-                      Extensions appear when Platform Admin assigns phone numbers to your
-                      tenant. Open Configure on a row to finish employee setup in under two
-                      minutes.
+                      Extensions appear automatically when Platform Admin assigns phone numbers to
+                      your tenant, or add an internal extension (no DID) below. Open Configure on a
+                      row to finish employee setup in under two minutes.
                     </p>
                   </>
                 )}
@@ -463,6 +423,48 @@ export function ExtensionsHubContent() {
             initialTab={configureTab}
             onSaved={refresh}
           />
+
+          <Modal
+            open={createOpen}
+            onClose={() => setCreateOpen(false)}
+            title="Add Extension"
+            description="Creates an internal extension with no DID. Assign a number later from Platform Admin, or manage identity/devices from Configure."
+            footer={
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                <Button variant="ghost" onClick={() => setCreateOpen(false)} disabled={createExt.isPending}>
+                  Cancel
+                </Button>
+                <Button onClick={() => void submitCreate()} disabled={createExt.isPending}>
+                  {createExt.isPending ? 'Creating…' : 'Create'}
+                </Button>
+              </div>
+            }
+          >
+            <div className="space-y-4">
+              {createError ? (
+                <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+                  {createError}
+                </div>
+              ) : null}
+              <label className="block space-y-1.5 text-sm">
+                <span className="font-medium">Extension Number</span>
+                <Input
+                  value={newExtension}
+                  onChange={(e) => setNewExtension(e.target.value)}
+                  placeholder="e.g. 200"
+                  className="font-mono"
+                />
+              </label>
+              <label className="block space-y-1.5 text-sm">
+                <span className="font-medium">Display Name</span>
+                <Input
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  placeholder="e.g. Conference Room"
+                />
+              </label>
+            </div>
+          </Modal>
         </PageContainer>
       )}
     </ModuleAccessGate>

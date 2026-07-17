@@ -20,7 +20,6 @@ import { displayNameFromSession } from '../../lib/rbac/permissions';
 import { useTheme } from '../../lib/theme/ThemeProvider';
 import { GlobalSearch } from './GlobalSearch';
 import { TenantGlobalSearch } from './TenantGlobalSearch';
-import { isTenantPortalV2Enabled } from '../../lib/feature-flags';
 import { Avatar } from '../ui/Skeleton';
 import { Button } from '../ui/Button';
 
@@ -45,7 +44,7 @@ export function Header() {
     <header className="sticky top-0 z-40 flex h-16 items-center gap-4 border-b border-border bg-card/80 px-4 backdrop-blur-md sm:px-6">
       <div className="hidden min-w-0 flex-1 items-center gap-3 md:flex">
         {portal === 'platform' ? <GlobalSearch /> : null}
-        {portal === 'tenant' && isTenantPortalV2Enabled() ? <TenantGlobalSearch /> : null}
+        {portal === 'tenant' ? <TenantGlobalSearch /> : null}
       </div>
 
       <div className="ml-auto flex items-center gap-1.5 sm:gap-2">

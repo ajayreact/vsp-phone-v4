@@ -1,24 +1,23 @@
 import type { PortalType } from '../portal/detect-portal';
 import { detectPortal } from '../portal/detect-portal';
-import { isTenantPortalV2NavEnabled } from '../feature-flags';
 import { hasPermission } from '../rbac/permissions';
 import { NAV_GROUP_LABELS, NAV_GROUP_ORDER } from './config';
 import { OPS_MODULES } from './ops-nav';
 import { PLATFORM_MODULES } from './platform-nav';
-import { TENANT_MODULES } from './tenant-nav';
 import { TENANT_MODULES_V2, buildTenantNavV2Sections } from './tenant-nav-v2';
 import type { ModuleDefinition, TenantNavSection } from '../../types/navigation';
 
 export { NAV_GROUP_LABELS, NAV_GROUP_ORDER };
 export { buildTenantNavV2Sections };
 
+/** Extension Workspace is the permanent tenant architecture — no legacy nav fallback. */
 export function getModulesForPortal(portal?: PortalType): ModuleDefinition[] {
   const resolved = portal ?? detectPortal();
   switch (resolved) {
     case 'platform':
       return PLATFORM_MODULES;
     case 'tenant':
-      return isTenantPortalV2NavEnabled() ? TENANT_MODULES_V2 : TENANT_MODULES;
+      return TENANT_MODULES_V2;
     case 'ops':
     default:
       return OPS_MODULES;
@@ -34,7 +33,7 @@ export function getTenantNavSections(permissions: string[], portal?: PortalType)
 
 export function isTenantAccordionNav(portal?: PortalType): boolean {
   const resolved = portal ?? detectPortal();
-  return resolved === 'tenant' && isTenantPortalV2NavEnabled();
+  return resolved === 'tenant';
 }
 
 export function getModuleByHref(href: string, portal?: PortalType): ModuleDefinition | undefined {
@@ -42,7 +41,7 @@ export function getModuleByHref(href: string, portal?: PortalType): ModuleDefini
   return modules.find((m) => m.href === href);
 }
 
-/** Legacy module ids used by content components → V2 nav module ids */
+/** Legacy module ids still referenced by shared content components → canonical V2 module ids. */
 const TENANT_V2_MODULE_ALIASES: Record<string, string> = {
   organization: 'organization-company',
   'call-routing': 'incoming-routes',
@@ -58,15 +57,13 @@ const TENANT_V2_MODULE_ALIASES: Record<string, string> = {
 
 export function getModuleById(id: string, portal?: PortalType): ModuleDefinition | undefined {
   const modules = getModulesForPortal(portal);
-  let found = modules.find((m) => m.id === id);
+  const found = modules.find((m) => m.id === id);
   if (found) return found;
 
   const resolved = portal ?? detectPortal();
-  if (resolved === 'tenant' && isTenantPortalV2NavEnabled()) {
+  if (resolved === 'tenant') {
     const alias = TENANT_V2_MODULE_ALIASES[id];
-    if (alias) found = modules.find((m) => m.id === alias);
-    if (found) return found;
-    return TENANT_MODULES.find((m) => m.id === id);
+    if (alias) return modules.find((m) => m.id === alias);
   }
   return undefined;
 }

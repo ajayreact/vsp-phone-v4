@@ -42,6 +42,6 @@ Governance lifts only after **General Availability** final sign-off (or a writte
 
 | Exception | Scope | Detail |
 |-----------|--------|--------|
-| **Extension Workspace (V5 UX)** | Tenant portal IA: platform-owned DID assign, read-only Number Inventory, Configure-as-workspace, no tenant Add Extension | [EXTENSION-WORKSPACE-V5.md](./EXTENSION-WORKSPACE-V5.md) |
+| **Extension Workspace (V5 UX)** | Tenant portal IA: Configure-as-workspace (General/DID/Device/Provisioning/Voicemail/Call Features/Recording/Permissions/Activity), tenant-scoped DID assign/change/remove inside Configure, read-only Number Inventory, internal-only Add Extension | [EXTENSION-WORKSPACE-V5.md](./EXTENSION-WORKSPACE-V5.md) |
 
 RC1 certification gates (smoke, call lab, `rc1-validate`) remain authoritative for go-live. V5 UX must not reopen closed ENV defects unless they regress.

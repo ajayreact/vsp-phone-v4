@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { Inter } from 'next/font/google';
 import { AuthProvider } from '../lib/auth/AuthProvider';
 import { ThemeProvider } from '../lib/theme/ThemeProvider';
+import { ToastProvider } from '../lib/toast/ToastProvider';
 import { QueryProvider } from '../providers/QueryProvider';
 import './globals.css';
 
@@ -22,7 +23,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <body className="font-sans antialiased">
         <ThemeProvider>
           <QueryProvider>
-            <AuthProvider>{children}</AuthProvider>
+            <AuthProvider>
+              <ToastProvider>{children}</ToastProvider>
+            </AuthProvider>
           </QueryProvider>
         </ThemeProvider>
       </body>

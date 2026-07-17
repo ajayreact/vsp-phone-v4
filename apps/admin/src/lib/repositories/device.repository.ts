@@ -34,6 +34,10 @@ export const deviceRepository = {
     return httpPost<Record<string, unknown>>(`/v1/tenant/devices/${id}/activate`, {});
   },
 
+  makePrimary(id: string): Promise<Record<string, unknown>> {
+    return httpPost<Record<string, unknown>>(`/v1/tenant/devices/${id}/make-primary`, {});
+  },
+
   cloneDevice(id: string, payload: { name: string; macAddress?: string }): Promise<Record<string, unknown>> {
     return httpPost<Record<string, unknown>>(`/v1/tenant/devices/${id}/clone`, payload);
   },

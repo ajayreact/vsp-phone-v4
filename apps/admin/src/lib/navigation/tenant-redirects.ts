@@ -1,6 +1,7 @@
 /** Legacy tenant routes → Tenant Portal V2 paths (applied when V2 is enabled). */
 export const TENANT_LEGACY_REDIRECTS: Record<string, string> = {
   '/dids': '/extensions',
+  '/devices': '/people/devices',
   '/users': '/people/users',
   '/extensions': '/extensions',
   '/people/extensions': '/extensions',

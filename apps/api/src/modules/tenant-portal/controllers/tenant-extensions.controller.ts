@@ -113,6 +113,47 @@ export class TenantExtensionsController {
     return this.extensions.unassignDid(user.tenantId, user.sub, id);
   }
 
+  @Post(':id/disable')
+  @RequirePermission(PERMISSIONS.TENANT_EXTENSIONS_WRITE)
+  @ApiOperation({ summary: 'Disable extension (deactivate line; stops routing/registration)' })
+  disable(@Param('id') id: string, @Req() req: Request) {
+    const user = getJwtUser(req);
+    return this.extensions.disable(user.tenantId, user.sub, id);
+  }
+
+  @Post(':id/enable')
+  @RequirePermission(PERMISSIONS.TENANT_EXTENSIONS_WRITE)
+  @ApiOperation({ summary: 'Re-enable a previously disabled extension' })
+  enable(@Param('id') id: string, @Req() req: Request) {
+    const user = getJwtUser(req);
+    return this.extensions.enable(user.tenantId, user.sub, id);
+  }
+
+  @Post(':id/archive')
+  @RequirePermission(PERMISSIONS.TENANT_EXTENSIONS_WRITE)
+  @ApiOperation({ summary: 'Archive extension (hide from active workflows; restorable)' })
+  archive(@Param('id') id: string, @Req() req: Request) {
+    const user = getJwtUser(req);
+    return this.extensions.archive(user.tenantId, user.sub, id);
+  }
+
+  @Post(':id/unarchive')
+  @RequirePermission(PERMISSIONS.TENANT_EXTENSIONS_WRITE)
+  @ApiOperation({ summary: 'Restore an archived extension' })
+  unarchive(@Param('id') id: string, @Req() req: Request) {
+    const user = getJwtUser(req);
+    return this.extensions.unarchive(user.tenantId, user.sub, id);
+  }
+
+  @Get(':id/activity')
+  @RequirePermission(PERMISSIONS.TENANT_EXTENSIONS_READ)
+  @ApiOperation({ summary: 'Activity timeline for this extension (audit trail + last call), newest first' })
+  async activity(@Param('id') id: string, @Req() req: Request) {
+    const user = getJwtUser(req);
+    const data = await this.extensions.activity(user.tenantId, id);
+    return { data };
+  }
+
   @Post(':id/mobile-qr')
   @RequirePermission(PERMISSIONS.TENANT_EXTENSIONS_WRITE)
   @ApiOperation({ summary: 'Generate mobile app QR with WebRTC enroll token and deep link' })

@@ -113,6 +113,18 @@ export function useRebootDevice() {
   });
 }
 
+export function useMakePrimaryDevice() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: deviceRepository.makePrimary,
+    onSuccess: () => {
+      invalidateDeviceQueries(qc);
+      void qc.invalidateQueries({ queryKey: ['tenant', 'extensionHub'] });
+      void qc.invalidateQueries({ queryKey: ['tenant', 'extensions', 'detail'] });
+    },
+  });
+}
+
 export function useRollbackDeviceConfig() {
   const qc = useQueryClient();
   return useMutation({

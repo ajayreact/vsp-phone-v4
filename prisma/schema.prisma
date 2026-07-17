@@ -635,11 +635,11 @@ model Tenant {
   ivrFlowVersions        IvrFlowVersion[]
   ivrInteractionLogs     IvrInteractionLog[]
   contacts               Contact[]
-  contactRecents           ContactRecent[]
-  parkingLots              ParkingLot[]
-  blfPanels                BlfPanel[]
-  directoryIntegrations    DirectoryIntegration[]
-  mohPlaylists             MohPlaylist[]
+  contactRecents         ContactRecent[]
+  parkingLots            ParkingLot[]
+  blfPanels              BlfPanel[]
+  directoryIntegrations  DirectoryIntegration[]
+  mohPlaylists           MohPlaylist[]
   mohTracks              MohTrack[]
   mohPlaylistVersions    MohPlaylistVersion[]
   announcements          Announcement[]
@@ -692,11 +692,11 @@ model TenantSettings {
 // ---------------------------------------------------------------------------
 
 model Site {
-  id        String     @id @db.Uuid
-  publicId  String     @unique @map("public_id")
-  tenantId  String     @map("tenant_id") @db.Uuid
-  name      String
-  code      String
+  id            String     @id @db.Uuid
+  publicId      String     @unique @map("public_id")
+  tenantId      String     @map("tenant_id") @db.Uuid
+  name          String
+  code          String
   address       String?
   city          String?
   state         String?
@@ -705,13 +705,13 @@ model Site {
   description   String?
   businessHours String?    @map("business_hours")
   status        SiteStatus @default(ACTIVE)
-  version   Int        @default(1)
-  createdAt DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt DateTime?  @map("deleted_at") @db.Timestamptz(6)
-  createdBy String?    @map("created_by") @db.Uuid
-  updatedBy String?    @map("updated_by") @db.Uuid
-  deletedBy String?    @map("deleted_by") @db.Uuid
+  version       Int        @default(1)
+  createdAt     DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt     DateTime?  @map("deleted_at") @db.Timestamptz(6)
+  createdBy     String?    @map("created_by") @db.Uuid
+  updatedBy     String?    @map("updated_by") @db.Uuid
+  deletedBy     String?    @map("deleted_by") @db.Uuid
 
   tenant            Tenant             @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   creator           User?              @relation("SiteCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
@@ -1167,21 +1167,23 @@ model AuditLog {
 // ---------------------------------------------------------------------------
 
 model Line {
-  id             String     @id @db.Uuid
-  publicId       String     @unique @map("public_id")
-  tenantId       String     @map("tenant_id") @db.Uuid
-  userId         String?    @map("user_id") @db.Uuid
-  /** Canonical SIP identity for this line/extension (shared by all devices). */
-  sipEndpointId  String?    @unique @map("sip_endpoint_id") @db.Uuid
-  name           String
-  status         LineStatus @default(ACTIVE)
-  version        Int        @default(1)
-  createdAt      DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt      DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt      DateTime?  @map("deleted_at") @db.Timestamptz(6)
-  createdBy      String?    @map("created_by") @db.Uuid
-  updatedBy      String?    @map("updated_by") @db.Uuid
-  deletedBy      String?    @map("deleted_by") @db.Uuid
+  id            String     @id @db.Uuid
+  publicId      String     @unique @map("public_id")
+  tenantId      String     @map("tenant_id") @db.Uuid
+  userId        String?    @map("user_id") @db.Uuid
+  /**
+   * Canonical SIP identity for this line/extension (shared by all devices).
+   */
+  sipEndpointId String?    @unique @map("sip_endpoint_id") @db.Uuid
+  name          String
+  status        LineStatus @default(ACTIVE)
+  version       Int        @default(1)
+  createdAt     DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt     DateTime?  @map("deleted_at") @db.Timestamptz(6)
+  createdBy     String?    @map("created_by") @db.Uuid
+  updatedBy     String?    @map("updated_by") @db.Uuid
+  deletedBy     String?    @map("deleted_by") @db.Uuid
 
   tenant                 Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   user                   User?                   @relation(fields: [userId], references: [id], onDelete: Restrict)
@@ -1233,20 +1235,24 @@ model Extension {
   extension    String
   description  String?
   departmentId String?   @map("department_id") @db.Uuid
+  /**
+   * Archived (soft-hidden but browsable/restorable) — distinct from deletedAt (hard soft-delete).
+   */
+  archivedAt   DateTime? @map("archived_at") @db.Timestamptz(6)
   version      Int       @default(1)
-  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
-  createdBy String?   @map("created_by") @db.Uuid
-  updatedBy String?   @map("updated_by") @db.Uuid
-  deletedBy String?   @map("deleted_by") @db.Uuid
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt    DateTime? @map("deleted_at") @db.Timestamptz(6)
+  createdBy    String?   @map("created_by") @db.Uuid
+  updatedBy    String?   @map("updated_by") @db.Uuid
+  deletedBy    String?   @map("deleted_by") @db.Uuid
 
   tenant     Tenant      @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   line       Line        @relation(fields: [lineId], references: [id], onDelete: Restrict)
   department Department? @relation(fields: [departmentId], references: [id], onDelete: Restrict)
   creator    User?       @relation("ExtensionCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
-  updater User?  @relation("ExtensionUpdatedBy", fields: [updatedBy], references: [id], onDelete: Restrict)
-  deleter User?  @relation("ExtensionDeletedBy", fields: [deletedBy], references: [id], onDelete: Restrict)
+  updater    User?       @relation("ExtensionUpdatedBy", fields: [updatedBy], references: [id], onDelete: Restrict)
+  deleter    User?       @relation("ExtensionDeletedBy", fields: [deletedBy], references: [id], onDelete: Restrict)
 
   ringGroupMembers RingGroupMember[]
 
@@ -1254,6 +1260,7 @@ model Extension {
   @@index([tenantId])
   @@index([tenantId, lineId])
   @@index([deletedAt])
+  @@index([tenantId, archivedAt])
   @@map("extensions")
 }
 
@@ -1262,56 +1269,62 @@ model Extension {
 // ---------------------------------------------------------------------------
 
 model Device {
-  id            String       @id @db.Uuid
-  publicId      String       @unique @map("public_id")
-  tenantId      String       @map("tenant_id") @db.Uuid
-  lineId        String?      @map("line_id") @db.Uuid
-  userId        String?      @map("user_id") @db.Uuid
-  /** Shared with sibling devices on the same line (not unique). */
-  sipEndpointId String?      @map("sip_endpoint_id") @db.Uuid
-  name          String
-  deviceType    DeviceType   @map("device_type")
-  status        DeviceStatus @default(PROVISIONING)
-  macAddress    String?      @map("mac_address")
-  manufacturer  DeviceManufacturer? @map("manufacturer")
-  model         String?
-  firmwareVersion String?    @map("firmware_version")
-  provisioningTemplateId String? @map("provisioning_template_id") @db.Uuid
-  lastProvisionedAt DateTime? @map("last_provisioned_at") @db.Timestamptz(6)
-  discoveryStatus String?    @map("discovery_status")
-  provisioningStatus ProvisioningStatus @default(PENDING) @map("provisioning_status")
-  siteId        String?      @map("site_id") @db.Uuid
-  departmentId  String?      @map("department_id") @db.Uuid
-  serialNumber  String?      @map("serial_number")
-  assetTag      String?      @map("asset_tag")
-  location      String?
-  lastSeenAt    DateTime?    @map("last_seen_at") @db.Timestamptz(6)
-  ipAddress     String?      @map("ip_address")
-  transport     String?      @default("UDP")
-  tlsEnabled    Boolean      @default(false) @map("tls_enabled")
-  srtpEnabled   Boolean      @default(false) @map("srtp_enabled")
-  firmwareChannel String?    @map("firmware_channel")
-  version       Int          @default(1)
-  createdAt     DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt     DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt     DateTime?    @map("deleted_at") @db.Timestamptz(6)
-  createdBy     String?      @map("created_by") @db.Uuid
-  updatedBy     String?      @map("updated_by") @db.Uuid
-  deletedBy     String?      @map("deleted_by") @db.Uuid
+  id                     String              @id @db.Uuid
+  publicId               String              @unique @map("public_id")
+  tenantId               String              @map("tenant_id") @db.Uuid
+  lineId                 String?             @map("line_id") @db.Uuid
+  userId                 String?             @map("user_id") @db.Uuid
+  /**
+   * Shared with sibling devices on the same line (not unique).
+   */
+  sipEndpointId          String?             @map("sip_endpoint_id") @db.Uuid
+  name                   String
+  deviceType             DeviceType          @map("device_type")
+  status                 DeviceStatus        @default(PROVISIONING)
+  macAddress             String?             @map("mac_address")
+  manufacturer           DeviceManufacturer? @map("manufacturer")
+  model                  String?
+  firmwareVersion        String?             @map("firmware_version")
+  provisioningTemplateId String?             @map("provisioning_template_id") @db.Uuid
+  lastProvisionedAt      DateTime?           @map("last_provisioned_at") @db.Timestamptz(6)
+  discoveryStatus        String?             @map("discovery_status")
+  provisioningStatus     ProvisioningStatus  @default(PENDING) @map("provisioning_status")
+  siteId                 String?             @map("site_id") @db.Uuid
+  departmentId           String?             @map("department_id") @db.Uuid
+  serialNumber           String?             @map("serial_number")
+  assetTag               String?             @map("asset_tag")
+  location               String?
+  lastSeenAt             DateTime?           @map("last_seen_at") @db.Timestamptz(6)
+  /**
+   * At most one primary device per line — enforced in application logic.
+   */
+  isPrimary              Boolean             @default(false) @map("is_primary")
+  ipAddress              String?             @map("ip_address")
+  transport              String?             @default("UDP")
+  tlsEnabled             Boolean             @default(false) @map("tls_enabled")
+  srtpEnabled            Boolean             @default(false) @map("srtp_enabled")
+  firmwareChannel        String?             @map("firmware_channel")
+  version                Int                 @default(1)
+  createdAt              DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt              DateTime?           @map("deleted_at") @db.Timestamptz(6)
+  createdBy              String?             @map("created_by") @db.Uuid
+  updatedBy              String?             @map("updated_by") @db.Uuid
+  deletedBy              String?             @map("deleted_by") @db.Uuid
 
-  tenant           Tenant             @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  line             Line?              @relation(fields: [lineId], references: [id], onDelete: Restrict)
-  user             User?              @relation(fields: [userId], references: [id], onDelete: Restrict)
-  site             Site?              @relation(fields: [siteId], references: [id], onDelete: Restrict)
-  department       Department?        @relation(fields: [departmentId], references: [id], onDelete: Restrict)
-  sipEndpoint      SIPEndpoint?       @relation(fields: [sipEndpointId], references: [id], onDelete: Restrict)
+  tenant               Tenant                @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  line                 Line?                 @relation(fields: [lineId], references: [id], onDelete: Restrict)
+  user                 User?                 @relation(fields: [userId], references: [id], onDelete: Restrict)
+  site                 Site?                 @relation(fields: [siteId], references: [id], onDelete: Restrict)
+  department           Department?           @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  sipEndpoint          SIPEndpoint?          @relation(fields: [sipEndpointId], references: [id], onDelete: Restrict)
   provisioningTemplate ProvisioningTemplate? @relation(fields: [provisioningTemplateId], references: [id], onDelete: Restrict)
-  creator          User?              @relation("DeviceCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
-  updater          User?              @relation("DeviceUpdatedBy", fields: [updatedBy], references: [id], onDelete: Restrict)
-  deleter          User?              @relation("DeviceDeletedBy", fields: [deletedBy], references: [id], onDelete: Restrict)
-  assignments      DeviceAssignment[]
-  presence         Presence?
-  callParticipants CallParticipant[]
+  creator              User?                 @relation("DeviceCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
+  updater              User?                 @relation("DeviceUpdatedBy", fields: [updatedBy], references: [id], onDelete: Restrict)
+  deleter              User?                 @relation("DeviceDeletedBy", fields: [deletedBy], references: [id], onDelete: Restrict)
+  assignments          DeviceAssignment[]
+  presence             Presence?
+  callParticipants     CallParticipant[]
 
   @@unique([tenantId, macAddress])
   @@index([tenantId])
@@ -1323,6 +1336,7 @@ model Device {
   @@index([tenantId, provisioningStatus])
   @@index([sipEndpointId])
   @@index([deletedAt])
+  @@index([tenantId, lineId, isPrimary])
   @@map("devices")
 }
 
@@ -1463,12 +1477,12 @@ model Carrier {
   updatedBy     String?       @map("updated_by") @db.Uuid
   deletedBy     String?       @map("deleted_by") @db.Uuid
 
-  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  creator      User?         @relation("CarrierCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
-  updater      User?         @relation("CarrierUpdatedBy", fields: [updatedBy], references: [id], onDelete: Restrict)
-  deleter      User?         @relation("CarrierDeletedBy", fields: [deletedBy], references: [id], onDelete: Restrict)
-  phoneNumbers PhoneNumber[]
-  sipEndpoints SIPEndpoint[]
+  tenant         Tenant          @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  creator        User?           @relation("CarrierCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
+  updater        User?           @relation("CarrierUpdatedBy", fields: [updatedBy], references: [id], onDelete: Restrict)
+  deleter        User?           @relation("CarrierDeletedBy", fields: [deletedBy], references: [id], onDelete: Restrict)
+  phoneNumbers   PhoneNumber[]
+  sipEndpoints   SIPEndpoint[]
   outboundRoutes OutboundRoute[]
 
   @@unique([tenantId, code])
@@ -1506,9 +1520,13 @@ model SIPEndpoint {
   creator User?    @relation("SIPEndpointCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
   updater User?    @relation("SIPEndpointUpdatedBy", fields: [updatedBy], references: [id], onDelete: Restrict)
   deleter User?    @relation("SIPEndpointDeletedBy", fields: [deletedBy], references: [id], onDelete: Restrict)
-  /** Line that canonically owns this AoR (0..1). */
+  /**
+   * Line that canonically owns this AoR (0..1).
+   */
   line    Line?    @relation("LineSipEndpoint")
-  /** All devices (WebRTC, desk, mobile) that register under this AoR. */
+  /**
+   * All devices (WebRTC, desk, mobile) that register under this AoR.
+   */
   devices Device[]
 
   @@unique([tenantId, aor])
@@ -1556,19 +1574,19 @@ model Presence {
 // ---------------------------------------------------------------------------
 
 model CallerID {
-  id            String    @id @db.Uuid
-  tenantId      String    @map("tenant_id") @db.Uuid
-  lineId        String    @unique @map("line_id") @db.Uuid
-  phoneNumberId String?   @map("phone_number_id") @db.Uuid
-  callerIdName  String?   @map("caller_id_name")
-  emergencyCallerIdName String? @map("emergency_caller_id_name")
-  version       Int       @default(1)
-  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt     DateTime? @map("deleted_at") @db.Timestamptz(6)
-  createdBy     String?   @map("created_by") @db.Uuid
-  updatedBy     String?   @map("updated_by") @db.Uuid
-  deletedBy     String?   @map("deleted_by") @db.Uuid
+  id                    String    @id @db.Uuid
+  tenantId              String    @map("tenant_id") @db.Uuid
+  lineId                String    @unique @map("line_id") @db.Uuid
+  phoneNumberId         String?   @map("phone_number_id") @db.Uuid
+  callerIdName          String?   @map("caller_id_name")
+  emergencyCallerIdName String?   @map("emergency_caller_id_name")
+  version               Int       @default(1)
+  createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt             DateTime? @map("deleted_at") @db.Timestamptz(6)
+  createdBy             String?   @map("created_by") @db.Uuid
+  updatedBy             String?   @map("updated_by") @db.Uuid
+  deletedBy             String?   @map("deleted_by") @db.Uuid
 
   tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   line        Line         @relation(fields: [lineId], references: [id], onDelete: Restrict)
@@ -1588,27 +1606,27 @@ model CallerID {
 // ---------------------------------------------------------------------------
 
 model RecordingPolicy {
-  id               String    @id @db.Uuid
-  tenantId         String    @map("tenant_id") @db.Uuid
-  lineId           String?   @unique @map("line_id") @db.Uuid
+  id               String              @id @db.Uuid
+  tenantId         String              @map("tenant_id") @db.Uuid
+  lineId           String?             @unique @map("line_id") @db.Uuid
   name             String?
   policyMode       RecordingPolicyMode @default(ON_DEMAND) @map("policy_mode")
-  queueId          String?   @map("queue_id") @db.Uuid
-  ivrId            String?   @map("ivr_id") @db.Uuid
-  recordingEnabled Boolean   @default(false) @map("recording_enabled")
-  recordInbound    Boolean   @default(false) @map("record_inbound")
-  recordOutbound   Boolean   @default(false) @map("record_outbound")
-  retentionDays    Int?      @map("retention_days")
-  archiveAfterDays Int?      @map("archive_after_days")
-  legalHoldDefault Boolean   @default(false) @map("legal_hold_default")
-  pauseAllowed     Boolean   @default(true) @map("pause_allowed")
-  version          Int       @default(1)
-  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt        DateTime? @map("deleted_at") @db.Timestamptz(6)
-  createdBy        String?   @map("created_by") @db.Uuid
-  updatedBy        String?   @map("updated_by") @db.Uuid
-  deletedBy        String?   @map("deleted_by") @db.Uuid
+  queueId          String?             @map("queue_id") @db.Uuid
+  ivrId            String?             @map("ivr_id") @db.Uuid
+  recordingEnabled Boolean             @default(false) @map("recording_enabled")
+  recordInbound    Boolean             @default(false) @map("record_inbound")
+  recordOutbound   Boolean             @default(false) @map("record_outbound")
+  retentionDays    Int?                @map("retention_days")
+  archiveAfterDays Int?                @map("archive_after_days")
+  legalHoldDefault Boolean             @default(false) @map("legal_hold_default")
+  pauseAllowed     Boolean             @default(true) @map("pause_allowed")
+  version          Int                 @default(1)
+  createdAt        DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt        DateTime?           @map("deleted_at") @db.Timestamptz(6)
+  createdBy        String?             @map("created_by") @db.Uuid
+  updatedBy        String?             @map("updated_by") @db.Uuid
+  deletedBy        String?             @map("deleted_by") @db.Uuid
 
   tenant  Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   line    Line?  @relation(fields: [lineId], references: [id], onDelete: Restrict)
@@ -1755,48 +1773,48 @@ model CallParticipant {
 // ---------------------------------------------------------------------------
 
 model Queue {
-  id        String        @id @db.Uuid
-  publicId  String        @unique @map("public_id")
-  tenantId  String        @map("tenant_id") @db.Uuid
-  name      String
-  code      String
-  description String?
-  queueType QueueType     @default(SALES) @map("queue_type")
-  strategy  QueueStrategy @default(ROUND_ROBIN)
-  status    QueueStatus   @default(ACTIVE)
-  wrapUpSec Int           @default(0) @map("wrap_up_sec")
-  slaTargetSec Int?       @map("sla_target_sec")
-  maxWaitSec Int?          @map("max_wait_sec")
-  maxQueueLength Int?      @map("max_queue_length")
-  overflowDestinationType RouteDestinationType? @map("overflow_destination_type")
-  overflowDestinationId String? @map("overflow_destination_id") @db.Uuid
-  overflowQueueId String? @map("overflow_queue_id") @db.Uuid
-  callbackEnabled Boolean @default(false) @map("callback_enabled")
-  scheduledCallbackEnabled Boolean @default(false) @map("scheduled_callback_enabled")
-  priorityCallbackEnabled Boolean @default(false) @map("priority_callback_enabled")
-  positionAnnouncementEnabled Boolean @default(false) @map("position_announcement_enabled")
-  estimatedWaitAnnouncementEnabled Boolean @default(false) @map("estimated_wait_announcement_enabled")
-  timeConditionId String? @map("time_condition_id") @db.Uuid
-  holidayCalendarId String? @map("holiday_calendar_id") @db.Uuid
-  mohPlaylistId String?   @map("moh_playlist_id") @db.Uuid
-  announcementId String?  @map("announcement_id") @db.Uuid
-  recordingPolicyId String? @map("recording_policy_id") @db.Uuid
-  version   Int           @default(1)
-  createdAt DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt DateTime?     @map("deleted_at") @db.Timestamptz(6)
-  createdBy String?       @map("created_by") @db.Uuid
-  updatedBy String?       @map("updated_by") @db.Uuid
-  deletedBy String?       @map("deleted_by") @db.Uuid
+  id                               String                @id @db.Uuid
+  publicId                         String                @unique @map("public_id")
+  tenantId                         String                @map("tenant_id") @db.Uuid
+  name                             String
+  code                             String
+  description                      String?
+  queueType                        QueueType             @default(SALES) @map("queue_type")
+  strategy                         QueueStrategy         @default(ROUND_ROBIN)
+  status                           QueueStatus           @default(ACTIVE)
+  wrapUpSec                        Int                   @default(0) @map("wrap_up_sec")
+  slaTargetSec                     Int?                  @map("sla_target_sec")
+  maxWaitSec                       Int?                  @map("max_wait_sec")
+  maxQueueLength                   Int?                  @map("max_queue_length")
+  overflowDestinationType          RouteDestinationType? @map("overflow_destination_type")
+  overflowDestinationId            String?               @map("overflow_destination_id") @db.Uuid
+  overflowQueueId                  String?               @map("overflow_queue_id") @db.Uuid
+  callbackEnabled                  Boolean               @default(false) @map("callback_enabled")
+  scheduledCallbackEnabled         Boolean               @default(false) @map("scheduled_callback_enabled")
+  priorityCallbackEnabled          Boolean               @default(false) @map("priority_callback_enabled")
+  positionAnnouncementEnabled      Boolean               @default(false) @map("position_announcement_enabled")
+  estimatedWaitAnnouncementEnabled Boolean               @default(false) @map("estimated_wait_announcement_enabled")
+  timeConditionId                  String?               @map("time_condition_id") @db.Uuid
+  holidayCalendarId                String?               @map("holiday_calendar_id") @db.Uuid
+  mohPlaylistId                    String?               @map("moh_playlist_id") @db.Uuid
+  announcementId                   String?               @map("announcement_id") @db.Uuid
+  recordingPolicyId                String?               @map("recording_policy_id") @db.Uuid
+  version                          Int                   @default(1)
+  createdAt                        DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                        DateTime              @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt                        DateTime?             @map("deleted_at") @db.Timestamptz(6)
+  createdBy                        String?               @map("created_by") @db.Uuid
+  updatedBy                        String?               @map("updated_by") @db.Uuid
+  deletedBy                        String?               @map("deleted_by") @db.Uuid
 
-  tenant          Tenant        @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  creator         User?         @relation("QueueCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
-  updater         User?         @relation("QueueUpdatedBy", fields: [updatedBy], references: [id], onDelete: Restrict)
-  deleter         User?         @relation("QueueDeletedBy", fields: [deletedBy], references: [id], onDelete: Restrict)
+  tenant          Tenant          @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  creator         User?           @relation("QueueCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
+  updater         User?           @relation("QueueUpdatedBy", fields: [updatedBy], references: [id], onDelete: Restrict)
+  deleter         User?           @relation("QueueDeletedBy", fields: [deletedBy], references: [id], onDelete: Restrict)
   members         QueueMember[]
   callbacks       QueueCallback[]
   callSessions    CallSession[]
-  ivrDestinations IVRMenu[]     @relation("IVRMenuDestinationQueue")
+  ivrDestinations IVRMenu[]       @relation("IVRMenuDestinationQueue")
 
   @@unique([tenantId, code])
   @@index([tenantId])
@@ -1811,28 +1829,28 @@ model Queue {
 // ---------------------------------------------------------------------------
 
 model QueueMember {
-  id        String            @id @db.Uuid
-  publicId  String            @unique @map("public_id")
-  tenantId  String            @map("tenant_id") @db.Uuid
-  queueId   String            @map("queue_id") @db.Uuid
-  lineId    String            @map("line_id") @db.Uuid
-  priority  Int               @default(0)
-  penalty   Int               @default(0)
-  status    QueueMemberStatus @default(ACTIVE)
-  loggedIn  Boolean           @default(true) @map("logged_in")
-  enabled   Boolean           @default(true)
-  maxConcurrentCalls Int      @default(1) @map("max_concurrent_calls")
-  pausedReason String?        @map("paused_reason")
-  pausedAt  DateTime?         @map("paused_at") @db.Timestamptz(6)
-  skills    Json?             @db.JsonB
-  wrapUpUntil DateTime?       @map("wrap_up_until") @db.Timestamptz(6)
-  version   Int               @default(1)
-  createdAt DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt DateTime?         @map("deleted_at") @db.Timestamptz(6)
-  createdBy String?           @map("created_by") @db.Uuid
-  updatedBy String?           @map("updated_by") @db.Uuid
-  deletedBy String?           @map("deleted_by") @db.Uuid
+  id                 String            @id @db.Uuid
+  publicId           String            @unique @map("public_id")
+  tenantId           String            @map("tenant_id") @db.Uuid
+  queueId            String            @map("queue_id") @db.Uuid
+  lineId             String            @map("line_id") @db.Uuid
+  priority           Int               @default(0)
+  penalty            Int               @default(0)
+  status             QueueMemberStatus @default(ACTIVE)
+  loggedIn           Boolean           @default(true) @map("logged_in")
+  enabled            Boolean           @default(true)
+  maxConcurrentCalls Int               @default(1) @map("max_concurrent_calls")
+  pausedReason       String?           @map("paused_reason")
+  pausedAt           DateTime?         @map("paused_at") @db.Timestamptz(6)
+  skills             Json?             @db.JsonB
+  wrapUpUntil        DateTime?         @map("wrap_up_until") @db.Timestamptz(6)
+  version            Int               @default(1)
+  createdAt          DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt          DateTime?         @map("deleted_at") @db.Timestamptz(6)
+  createdBy          String?           @map("created_by") @db.Uuid
+  updatedBy          String?           @map("updated_by") @db.Uuid
+  deletedBy          String?           @map("deleted_by") @db.Uuid
 
   tenant  Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   queue   Queue  @relation(fields: [queueId], references: [id], onDelete: Restrict)
@@ -1855,53 +1873,53 @@ model QueueMember {
 // ---------------------------------------------------------------------------
 
 model IVR {
-  id        String    @id @db.Uuid
-  publicId  String    @unique @map("public_id")
-  tenantId  String    @map("tenant_id") @db.Uuid
-  name      String
-  code      String
-  description String?
-  extension String?
-  phoneNumberId String? @map("phone_number_id") @db.Uuid
-  language  String    @default("en")
-  status    IvrStatus @default(ACTIVE)
-  flowStatus IvrFlowStatus @default(DRAFT) @map("flow_status")
-  greetingAnnouncementId String? @map("greeting_announcement_id") @db.Uuid
-  timeoutSec Int      @default(10) @map("timeout_sec")
-  invalidRetries Int  @default(3) @map("invalid_retries")
-  invalidOptionDestinationType IvrDestinationType? @map("invalid_option_destination_type")
-  invalidOptionDestinationId String? @map("invalid_option_destination_id") @db.Uuid
-  recordingPolicyId String? @map("recording_policy_id") @db.Uuid
-  timeConditionId String? @map("time_condition_id") @db.Uuid
-  holidayCalendarId String? @map("holiday_calendar_id") @db.Uuid
-  failoverDestinationType RouteDestinationType? @map("failover_destination_type")
-  failoverDestinationId String? @map("failover_destination_id") @db.Uuid
-  emergencyOverrideEnabled Boolean @default(false) @map("emergency_override_enabled")
-  draftFlowJson Json? @map("draft_flow_json") @db.JsonB
-  publishedFlowJson Json? @map("published_flow_json") @db.JsonB
-  publishedVersion Int @default(0) @map("published_version")
-  publishedAt DateTime? @map("published_at") @db.Timestamptz(6)
-  version   Int       @default(1)
-  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
-  createdBy String?   @map("created_by") @db.Uuid
-  updatedBy String?   @map("updated_by") @db.Uuid
-  deletedBy String?   @map("deleted_by") @db.Uuid
+  id                           String                @id @db.Uuid
+  publicId                     String                @unique @map("public_id")
+  tenantId                     String                @map("tenant_id") @db.Uuid
+  name                         String
+  code                         String
+  description                  String?
+  extension                    String?
+  phoneNumberId                String?               @map("phone_number_id") @db.Uuid
+  language                     String                @default("en")
+  status                       IvrStatus             @default(ACTIVE)
+  flowStatus                   IvrFlowStatus         @default(DRAFT) @map("flow_status")
+  greetingAnnouncementId       String?               @map("greeting_announcement_id") @db.Uuid
+  timeoutSec                   Int                   @default(10) @map("timeout_sec")
+  invalidRetries               Int                   @default(3) @map("invalid_retries")
+  invalidOptionDestinationType IvrDestinationType?   @map("invalid_option_destination_type")
+  invalidOptionDestinationId   String?               @map("invalid_option_destination_id") @db.Uuid
+  recordingPolicyId            String?               @map("recording_policy_id") @db.Uuid
+  timeConditionId              String?               @map("time_condition_id") @db.Uuid
+  holidayCalendarId            String?               @map("holiday_calendar_id") @db.Uuid
+  failoverDestinationType      RouteDestinationType? @map("failover_destination_type")
+  failoverDestinationId        String?               @map("failover_destination_id") @db.Uuid
+  emergencyOverrideEnabled     Boolean               @default(false) @map("emergency_override_enabled")
+  draftFlowJson                Json?                 @map("draft_flow_json") @db.JsonB
+  publishedFlowJson            Json?                 @map("published_flow_json") @db.JsonB
+  publishedVersion             Int                   @default(0) @map("published_version")
+  publishedAt                  DateTime?             @map("published_at") @db.Timestamptz(6)
+  version                      Int                   @default(1)
+  createdAt                    DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                    DateTime              @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt                    DateTime?             @map("deleted_at") @db.Timestamptz(6)
+  createdBy                    String?               @map("created_by") @db.Uuid
+  updatedBy                    String?               @map("updated_by") @db.Uuid
+  deletedBy                    String?               @map("deleted_by") @db.Uuid
 
-  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  creator      User?         @relation("IVRCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
-  updater      User?         @relation("IVRUpdatedBy", fields: [updatedBy], references: [id], onDelete: Restrict)
-  deleter      User?         @relation("IVRDeletedBy", fields: [deletedBy], references: [id], onDelete: Restrict)
-  greetingAnnouncement Announcement? @relation(fields: [greetingAnnouncementId], references: [id], onDelete: Restrict)
-  phoneNumber  PhoneNumber?  @relation(fields: [phoneNumberId], references: [id], onDelete: Restrict)
-  timeCondition TimeCondition? @relation("IvrTimeCondition", fields: [timeConditionId], references: [id], onDelete: Restrict)
-  holidayCalendar HolidayCalendar? @relation("IvrHolidayCalendar", fields: [holidayCalendarId], references: [id], onDelete: Restrict)
-  menus        IVRMenu[]
-  flowVersions IvrFlowVersion[]
-  interactionLogs IvrInteractionLog[]
-  callSessions CallSession[]
-  menuDestinations IVRMenu[] @relation("IVRMenuDestinationIvr")
+  tenant               Tenant              @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  creator              User?               @relation("IVRCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
+  updater              User?               @relation("IVRUpdatedBy", fields: [updatedBy], references: [id], onDelete: Restrict)
+  deleter              User?               @relation("IVRDeletedBy", fields: [deletedBy], references: [id], onDelete: Restrict)
+  greetingAnnouncement Announcement?       @relation(fields: [greetingAnnouncementId], references: [id], onDelete: Restrict)
+  phoneNumber          PhoneNumber?        @relation(fields: [phoneNumberId], references: [id], onDelete: Restrict)
+  timeCondition        TimeCondition?      @relation("IvrTimeCondition", fields: [timeConditionId], references: [id], onDelete: Restrict)
+  holidayCalendar      HolidayCalendar?    @relation("IvrHolidayCalendar", fields: [holidayCalendarId], references: [id], onDelete: Restrict)
+  menus                IVRMenu[]
+  flowVersions         IvrFlowVersion[]
+  interactionLogs      IvrInteractionLog[]
+  callSessions         CallSession[]
+  menuDestinations     IVRMenu[]           @relation("IVRMenuDestinationIvr")
 
   @@unique([tenantId, code])
   @@index([tenantId])
@@ -1965,33 +1983,33 @@ model IVRMenu {
 // ---------------------------------------------------------------------------
 
 model Conference {
-  id        String           @id @db.Uuid
-  publicId  String           @unique @map("public_id")
-  tenantId  String           @map("tenant_id") @db.Uuid
-  name      String
-  code      String
-  description String?
-  conferenceType ConferenceType @default(ROOM) @map("conference_type")
-  status    ConferenceStatus @default(ACTIVE)
-  pin       String?
-  moderatorPin String?       @map("moderator_pin")
-  recordingEnabled Boolean @default(false) @map("recording_enabled")
-  lobbyEnabled Boolean @default(false) @map("lobby_enabled")
-  waitingRoomEnabled Boolean @default(false) @map("waiting_room_enabled")
-  maxParticipants Int?      @map("max_participants")
-  lockRoom  Boolean          @default(false) @map("lock_room")
-  muteOnJoin Boolean         @default(false) @map("mute_on_join")
-  mohPlaylistId String?       @map("moh_playlist_id") @db.Uuid
-  announcementId String?     @map("announcement_id") @db.Uuid
-  scheduledAt DateTime?      @map("scheduled_at") @db.Timestamptz(6)
-  moderatorLineId String? @map("moderator_line_id") @db.Uuid
-  version   Int              @default(1)
-  createdAt DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt DateTime?        @map("deleted_at") @db.Timestamptz(6)
-  createdBy String?          @map("created_by") @db.Uuid
-  updatedBy String?          @map("updated_by") @db.Uuid
-  deletedBy String?          @map("deleted_by") @db.Uuid
+  id                 String           @id @db.Uuid
+  publicId           String           @unique @map("public_id")
+  tenantId           String           @map("tenant_id") @db.Uuid
+  name               String
+  code               String
+  description        String?
+  conferenceType     ConferenceType   @default(ROOM) @map("conference_type")
+  status             ConferenceStatus @default(ACTIVE)
+  pin                String?
+  moderatorPin       String?          @map("moderator_pin")
+  recordingEnabled   Boolean          @default(false) @map("recording_enabled")
+  lobbyEnabled       Boolean          @default(false) @map("lobby_enabled")
+  waitingRoomEnabled Boolean          @default(false) @map("waiting_room_enabled")
+  maxParticipants    Int?             @map("max_participants")
+  lockRoom           Boolean          @default(false) @map("lock_room")
+  muteOnJoin         Boolean          @default(false) @map("mute_on_join")
+  mohPlaylistId      String?          @map("moh_playlist_id") @db.Uuid
+  announcementId     String?          @map("announcement_id") @db.Uuid
+  scheduledAt        DateTime?        @map("scheduled_at") @db.Timestamptz(6)
+  moderatorLineId    String?          @map("moderator_line_id") @db.Uuid
+  version            Int              @default(1)
+  createdAt          DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt          DateTime?        @map("deleted_at") @db.Timestamptz(6)
+  createdBy          String?          @map("created_by") @db.Uuid
+  updatedBy          String?          @map("updated_by") @db.Uuid
+  deletedBy          String?          @map("deleted_by") @db.Uuid
 
   tenant          Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   creator         User?                   @relation("ConferenceCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
@@ -2052,40 +2070,40 @@ model ConferenceParticipant {
 // ---------------------------------------------------------------------------
 
 model Voicemail {
-  id        String          @id @db.Uuid
-  publicId  String          @unique @map("public_id")
-  tenantId  String          @map("tenant_id") @db.Uuid
-  lineId    String?         @unique @map("line_id") @db.Uuid
-  name      String?
-  mailboxType VoicemailMailboxType @default(PERSONAL) @map("mailbox_type")
-  mailboxNumber String?     @map("mailbox_number")
-  queueId   String?         @map("queue_id") @db.Uuid
-  ringGroupId String?       @map("ring_group_id") @db.Uuid
-  conferenceId String?      @map("conference_id") @db.Uuid
-  status    VoicemailStatus @default(ACTIVE)
-  pin       String?
-  language  String          @default("en")
-  timezone  String?
-  emailNotify String?       @map("email_notify")
-  emailAttach Boolean       @default(true) @map("email_attach")
-  emailDeleteAfter Boolean @default(false) @map("email_delete_after")
-  transcriptionReady Boolean @default(false) @map("transcription_ready")
-  storageQuotaMb Int?       @map("storage_quota_mb")
-  retentionDays Int?         @map("retention_days")
-  version   Int             @default(1)
-  createdAt DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt DateTime?       @map("deleted_at") @db.Timestamptz(6)
-  createdBy String?         @map("created_by") @db.Uuid
-  updatedBy String?         @map("updated_by") @db.Uuid
-  deletedBy String?         @map("deleted_by") @db.Uuid
+  id                 String               @id @db.Uuid
+  publicId           String               @unique @map("public_id")
+  tenantId           String               @map("tenant_id") @db.Uuid
+  lineId             String?              @unique @map("line_id") @db.Uuid
+  name               String?
+  mailboxType        VoicemailMailboxType @default(PERSONAL) @map("mailbox_type")
+  mailboxNumber      String?              @map("mailbox_number")
+  queueId            String?              @map("queue_id") @db.Uuid
+  ringGroupId        String?              @map("ring_group_id") @db.Uuid
+  conferenceId       String?              @map("conference_id") @db.Uuid
+  status             VoicemailStatus      @default(ACTIVE)
+  pin                String?
+  language           String               @default("en")
+  timezone           String?
+  emailNotify        String?              @map("email_notify")
+  emailAttach        Boolean              @default(true) @map("email_attach")
+  emailDeleteAfter   Boolean              @default(false) @map("email_delete_after")
+  transcriptionReady Boolean              @default(false) @map("transcription_ready")
+  storageQuotaMb     Int?                 @map("storage_quota_mb")
+  retentionDays      Int?                 @map("retention_days")
+  version            Int                  @default(1)
+  createdAt          DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt          DateTime?            @map("deleted_at") @db.Timestamptz(6)
+  createdBy          String?              @map("created_by") @db.Uuid
+  updatedBy          String?              @map("updated_by") @db.Uuid
+  deletedBy          String?              @map("deleted_by") @db.Uuid
 
-  tenant          Tenant    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  line            Line?     @relation(fields: [lineId], references: [id], onDelete: Restrict)
-  creator         User?     @relation("VoicemailCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
-  updater         User?     @relation("VoicemailUpdatedBy", fields: [updatedBy], references: [id], onDelete: Restrict)
-  deleter         User?     @relation("VoicemailDeletedBy", fields: [deletedBy], references: [id], onDelete: Restrict)
-  ivrDestinations IVRMenu[] @relation("IVRMenuDestinationVoicemail")
+  tenant          Tenant              @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  line            Line?               @relation(fields: [lineId], references: [id], onDelete: Restrict)
+  creator         User?               @relation("VoicemailCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
+  updater         User?               @relation("VoicemailUpdatedBy", fields: [updatedBy], references: [id], onDelete: Restrict)
+  deleter         User?               @relation("VoicemailDeletedBy", fields: [deletedBy], references: [id], onDelete: Restrict)
+  ivrDestinations IVRMenu[]           @relation("IVRMenuDestinationVoicemail")
   greetings       VoicemailGreeting[]
   messages        VoicemailMessage[]
 
@@ -2132,13 +2150,13 @@ model Recording {
   updatedBy       String?         @map("updated_by") @db.Uuid
   deletedBy       String?         @map("deleted_by") @db.Uuid
 
-  tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  callSession CallSession @relation(fields: [callSessionId], references: [id], onDelete: Restrict)
-  line        Line?       @relation(fields: [lineId], references: [id], onDelete: Restrict)
-  conference  Conference? @relation(fields: [conferenceId], references: [id], onDelete: Restrict)
-  creator     User?       @relation("RecordingCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
-  updater     User?       @relation("RecordingUpdatedBy", fields: [updatedBy], references: [id], onDelete: Restrict)
-  deleter     User?       @relation("RecordingDeletedBy", fields: [deletedBy], references: [id], onDelete: Restrict)
+  tenant      Tenant               @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  callSession CallSession          @relation(fields: [callSessionId], references: [id], onDelete: Restrict)
+  line        Line?                @relation(fields: [lineId], references: [id], onDelete: Restrict)
+  conference  Conference?          @relation(fields: [conferenceId], references: [id], onDelete: Restrict)
+  creator     User?                @relation("RecordingCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
+  updater     User?                @relation("RecordingUpdatedBy", fields: [updatedBy], references: [id], onDelete: Restrict)
+  deleter     User?                @relation("RecordingDeletedBy", fields: [deletedBy], references: [id], onDelete: Restrict)
   transcript  RecordingTranscript?
 
   @@index([tenantId])
@@ -2204,36 +2222,36 @@ enum ApiKeyStatus {
 }
 
 model PlatformSettings {
-  id                    String   @id @db.Uuid
-  platformName          String   @map("platform_name")
-  supportEmail          String   @map("support_email")
-  defaultTimezone       String   @map("default_timezone")
-  inventoryTenantId     String?  @map("inventory_tenant_id") @db.Uuid
-  stripeEnabled         Boolean  @default(false) @map("stripe_enabled")
-  smtpHost              String?  @map("smtp_host")
-  smtpPort              Int?     @map("smtp_port")
-  smtpUsername          String?  @map("smtp_username")
-  smtpFromEmail         String?  @map("smtp_from_email")
-  smtpUseTls            Boolean  @default(true) @map("smtp_use_tls")
-  smtpConfigured        Boolean  @default(false) @map("smtp_configured")
-  createdAt             DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt             DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id                String   @id @db.Uuid
+  platformName      String   @map("platform_name")
+  supportEmail      String   @map("support_email")
+  defaultTimezone   String   @map("default_timezone")
+  inventoryTenantId String?  @map("inventory_tenant_id") @db.Uuid
+  stripeEnabled     Boolean  @default(false) @map("stripe_enabled")
+  smtpHost          String?  @map("smtp_host")
+  smtpPort          Int?     @map("smtp_port")
+  smtpUsername      String?  @map("smtp_username")
+  smtpFromEmail     String?  @map("smtp_from_email")
+  smtpUseTls        Boolean  @default(true) @map("smtp_use_tls")
+  smtpConfigured    Boolean  @default(false) @map("smtp_configured")
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   @@map("platform_settings")
 }
 
 model Plan {
-  id           String   @id @db.Uuid
-  publicId     String   @unique @map("public_id")
-  name         String
-  description  String?
-  priceCents   Int      @map("price_cents")
-  currency     String   @default("USD")
-  seatLimit    Int      @default(0) @map("seat_limit")
-  didLimit     Int      @default(0) @map("did_limit")
-  active       Boolean  @default(true)
-  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id          String   @id @db.Uuid
+  publicId    String   @unique @map("public_id")
+  name        String
+  description String?
+  priceCents  Int      @map("price_cents")
+  currency    String   @default("USD")
+  seatLimit   Int      @default(0) @map("seat_limit")
+  didLimit    Int      @default(0) @map("did_limit")
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   subscriptions Subscription[]
 
@@ -2265,16 +2283,16 @@ model Subscription {
 }
 
 model BillingAccount {
-  id              String   @id @db.Uuid
-  tenantId        String   @unique @map("tenant_id") @db.Uuid
-  mrrCents        Int      @default(0) @map("mrr_cents")
-  carrierCostCents Int     @default(0) @map("carrier_cost_cents")
-  currency        String   @default("USD")
-  stripeCustomerId String? @map("stripe_customer_id")
-  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id               String   @id @db.Uuid
+  tenantId         String   @unique @map("tenant_id") @db.Uuid
+  mrrCents         Int      @default(0) @map("mrr_cents")
+  carrierCostCents Int      @default(0) @map("carrier_cost_cents")
+  currency         String   @default("USD")
+  stripeCustomerId String?  @map("stripe_customer_id")
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  tenant   Tenant        @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   invoices Invoice[]
   usage    UsageRecord[]
 
@@ -2359,23 +2377,23 @@ model NumberReservation {
 }
 
 model NumberRequest {
-  id                 String              @id @db.Uuid
-  tenantId           String              @map("tenant_id") @db.Uuid
-  phoneNumber        String              @map("phone_number")
-  status             NumberRequestStatus @default(PENDING)
-  requestedBy        String              @map("requested_by") @db.Uuid
-  reviewedBy         String?             @map("reviewed_by") @db.Uuid
-  reservationId      String?             @map("reservation_id") @db.Uuid
-  businessReason     String?             @map("business_reason")
-  priority           String              @default("normal")
-  requestedFeatures  String[]            @default([]) @map("requested_features")
-  internalNotes      String?             @map("internal_notes")
-  duplicateOfId      String?             @map("duplicate_of_id") @db.Uuid
-  bulkRequestId      String?             @map("bulk_request_id") @db.Uuid
-  notes              String?
-  reservationExpiresAt DateTime?         @map("reservation_expires_at") @db.Timestamptz(6)
-  createdAt          DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt          DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id                   String              @id @db.Uuid
+  tenantId             String              @map("tenant_id") @db.Uuid
+  phoneNumber          String              @map("phone_number")
+  status               NumberRequestStatus @default(PENDING)
+  requestedBy          String              @map("requested_by") @db.Uuid
+  reviewedBy           String?             @map("reviewed_by") @db.Uuid
+  reservationId        String?             @map("reservation_id") @db.Uuid
+  businessReason       String?             @map("business_reason")
+  priority             String              @default("normal")
+  requestedFeatures    String[]            @default([]) @map("requested_features")
+  internalNotes        String?             @map("internal_notes")
+  duplicateOfId        String?             @map("duplicate_of_id") @db.Uuid
+  bulkRequestId        String?             @map("bulk_request_id") @db.Uuid
+  notes                String?
+  reservationExpiresAt DateTime?           @map("reservation_expires_at") @db.Timestamptz(6)
+  createdAt            DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   tenant       Tenant              @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   reservations NumberReservation[]
@@ -2432,37 +2450,37 @@ model NumberNotification {
 }
 
 model RingGroup {
-  id        String    @id @db.Uuid
-  publicId  String    @unique @map("public_id")
-  tenantId  String    @map("tenant_id") @db.Uuid
-  name      String
-  description String?
-  extension String?
-  phoneNumberId String? @map("phone_number_id") @db.Uuid
-  strategy  RingGroupStrategy @default(SIMULTANEOUS)
-  timeoutSec Int      @default(30) @map("timeout_sec")
-  retryCount Int      @default(0) @map("retry_count")
-  maxCycles  Int      @default(1) @map("max_cycles")
-  callerIdName String? @map("caller_id_name")
-  recordingPolicyId String? @map("recording_policy_id") @db.Uuid
-  voicemailLineId String? @map("voicemail_line_id") @db.Uuid
-  timeConditionId String? @map("time_condition_id") @db.Uuid
-  holidayCalendarId String? @map("holiday_calendar_id") @db.Uuid
-  mohPlaylistId String? @map("moh_playlist_id") @db.Uuid
-  announcementId String? @map("announcement_id") @db.Uuid
+  id                      String                @id @db.Uuid
+  publicId                String                @unique @map("public_id")
+  tenantId                String                @map("tenant_id") @db.Uuid
+  name                    String
+  description             String?
+  extension               String?
+  phoneNumberId           String?               @map("phone_number_id") @db.Uuid
+  strategy                RingGroupStrategy     @default(SIMULTANEOUS)
+  timeoutSec              Int                   @default(30) @map("timeout_sec")
+  retryCount              Int                   @default(0) @map("retry_count")
+  maxCycles               Int                   @default(1) @map("max_cycles")
+  callerIdName            String?               @map("caller_id_name")
+  recordingPolicyId       String?               @map("recording_policy_id") @db.Uuid
+  voicemailLineId         String?               @map("voicemail_line_id") @db.Uuid
+  timeConditionId         String?               @map("time_condition_id") @db.Uuid
+  holidayCalendarId       String?               @map("holiday_calendar_id") @db.Uuid
+  mohPlaylistId           String?               @map("moh_playlist_id") @db.Uuid
+  announcementId          String?               @map("announcement_id") @db.Uuid
   overflowDestinationType RouteDestinationType? @map("overflow_destination_type")
-  overflowDestinationId String? @map("overflow_destination_id") @db.Uuid
-  status    QueueStatus @default(ACTIVE)
-  version   Int       @default(1)
-  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
-  createdBy String?   @map("created_by") @db.Uuid
-  updatedBy String?   @map("updated_by") @db.Uuid
+  overflowDestinationId   String?               @map("overflow_destination_id") @db.Uuid
+  status                  QueueStatus           @default(ACTIVE)
+  version                 Int                   @default(1)
+  createdAt               DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt               DateTime              @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt               DateTime?             @map("deleted_at") @db.Timestamptz(6)
+  createdBy               String?               @map("created_by") @db.Uuid
+  updatedBy               String?               @map("updated_by") @db.Uuid
 
-  tenant  Tenant            @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  members RingGroupMember[]
-  ivrDestinations IVRMenu[] @relation("IVRMenuDestinationRingGroup")
+  tenant          Tenant            @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  members         RingGroupMember[]
+  ivrDestinations IVRMenu[]         @relation("IVRMenuDestinationRingGroup")
 
   @@index([tenantId, status])
   @@index([tenantId])
@@ -2471,21 +2489,21 @@ model RingGroup {
 }
 
 model RingGroupMember {
-  id          String    @id @db.Uuid
-  tenantId    String    @map("tenant_id") @db.Uuid
-  ringGroupId String    @map("ring_group_id") @db.Uuid
-  extensionId String    @map("extension_id") @db.Uuid
-  priority    Int       @default(0)
-  penalty     Int       @default(0)
-  enabled     Boolean   @default(true)
-  ringDelaySec Int      @default(0) @map("ring_delay_sec")
-  maxCalls    Int?      @map("max_calls")
-  busySkip    Boolean   @default(false) @map("busy_skip")
-  wrapUpSec   Int       @default(0) @map("wrap_up_sec")
-  memberOrder Int       @default(0) @map("member_order")
-  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(6)
+  id           String    @id @db.Uuid
+  tenantId     String    @map("tenant_id") @db.Uuid
+  ringGroupId  String    @map("ring_group_id") @db.Uuid
+  extensionId  String    @map("extension_id") @db.Uuid
+  priority     Int       @default(0)
+  penalty      Int       @default(0)
+  enabled      Boolean   @default(true)
+  ringDelaySec Int       @default(0) @map("ring_delay_sec")
+  maxCalls     Int?      @map("max_calls")
+  busySkip     Boolean   @default(false) @map("busy_skip")
+  wrapUpSec    Int       @default(0) @map("wrap_up_sec")
+  memberOrder  Int       @default(0) @map("member_order")
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt    DateTime? @map("deleted_at") @db.Timestamptz(6)
 
   tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   ringGroup RingGroup @relation(fields: [ringGroupId], references: [id], onDelete: Restrict)
@@ -2497,21 +2515,21 @@ model RingGroupMember {
 }
 
 model QueueCallback {
-  id           String              @id @db.Uuid
-  tenantId     String              @map("tenant_id") @db.Uuid
-  queueId      String              @map("queue_id") @db.Uuid
-  phoneNumber  String              @map("phone_number")
-  callerName   String?             @map("caller_name")
-  priority     Int                 @default(0)
-  status       QueueCallbackStatus @default(PENDING)
-  scheduledAt  DateTime?           @map("scheduled_at") @db.Timestamptz(6)
-  retryCount   Int                 @default(0) @map("retry_count")
-  maxRetries   Int                 @default(3) @map("max_retries")
-  completedAt  DateTime?           @map("completed_at") @db.Timestamptz(6)
-  createdAt    DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt    DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt    DateTime?           @map("deleted_at") @db.Timestamptz(6)
-  createdBy    String?             @map("created_by") @db.Uuid
+  id          String              @id @db.Uuid
+  tenantId    String              @map("tenant_id") @db.Uuid
+  queueId     String              @map("queue_id") @db.Uuid
+  phoneNumber String              @map("phone_number")
+  callerName  String?             @map("caller_name")
+  priority    Int                 @default(0)
+  status      QueueCallbackStatus @default(PENDING)
+  scheduledAt DateTime?           @map("scheduled_at") @db.Timestamptz(6)
+  retryCount  Int                 @default(0) @map("retry_count")
+  maxRetries  Int                 @default(3) @map("max_retries")
+  completedAt DateTime?           @map("completed_at") @db.Timestamptz(6)
+  createdAt   DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt   DateTime?           @map("deleted_at") @db.Timestamptz(6)
+  createdBy   String?             @map("created_by") @db.Uuid
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   queue  Queue  @relation(fields: [queueId], references: [id], onDelete: Restrict)
@@ -2522,23 +2540,23 @@ model QueueCallback {
 }
 
 model TimeCondition {
-  id        String    @id @db.Uuid
-  tenantId  String    @map("tenant_id") @db.Uuid
-  name      String
-  description String?
+  id           String                    @id @db.Uuid
+  tenantId     String                    @map("tenant_id") @db.Uuid
+  name         String
+  description  String?
   scheduleType TimeConditionScheduleType @default(BUSINESS_HOURS) @map("schedule_type")
-  timezone  String
-  version   Int       @default(1)
-  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
-  createdBy String?   @map("created_by") @db.Uuid
-  updatedBy String?   @map("updated_by") @db.Uuid
+  timezone     String
+  version      Int                       @default(1)
+  createdAt    DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime                  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt    DateTime?                 @map("deleted_at") @db.Timestamptz(6)
+  createdBy    String?                   @map("created_by") @db.Uuid
+  updatedBy    String?                   @map("updated_by") @db.Uuid
 
-  tenant Tenant              @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  rules  TimeConditionRule[]
+  tenant        Tenant              @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  rules         TimeConditionRule[]
   inboundRoutes InboundRoute[]
-  ivrs   IVR[] @relation("IvrTimeCondition")
+  ivrs          IVR[]               @relation("IvrTimeCondition")
 
   @@index([tenantId])
   @@map("time_conditions")
@@ -2559,22 +2577,22 @@ model TimeConditionRule {
 }
 
 model HolidayCalendar {
-  id        String    @id @db.Uuid
-  tenantId  String    @map("tenant_id") @db.Uuid
-  name      String
+  id          String    @id @db.Uuid
+  tenantId    String    @map("tenant_id") @db.Uuid
+  name        String
   description String?
-  region    String?
-  version   Int       @default(1)
-  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
-  createdBy String?   @map("created_by") @db.Uuid
-  updatedBy String?   @map("updated_by") @db.Uuid
+  region      String?
+  version     Int       @default(1)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(6)
+  createdBy   String?   @map("created_by") @db.Uuid
+  updatedBy   String?   @map("updated_by") @db.Uuid
 
-  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  holidays Holiday[]
+  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  holidays      Holiday[]
   inboundRoutes InboundRoute[]
-  ivrs     IVR[] @relation("IvrHolidayCalendar")
+  ivrs          IVR[]          @relation("IvrHolidayCalendar")
 
   @@index([tenantId])
   @@map("holiday_calendars")
@@ -2645,22 +2663,22 @@ model LineTelephonySettings {
 }
 
 model ProvisioningTemplate {
-  id           String              @id @db.Uuid
-  tenantId     String              @map("tenant_id") @db.Uuid
-  name         String
-  description  String?
-  templateKind DeviceTemplateKind  @default(CUSTOM) @map("template_kind")
-  manufacturer DeviceManufacturer
-  modelFamily  String?             @map("model_family")
-  firmwareChannel String?          @map("firmware_channel")
-  isDefault    Boolean             @default(false) @map("is_default")
-  config       Json                @db.JsonB
-  version      Int                 @default(1)
-  createdAt    DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt    DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt    DateTime?           @map("deleted_at") @db.Timestamptz(6)
-  createdBy    String?             @map("created_by") @db.Uuid
-  updatedBy    String?             @map("updated_by") @db.Uuid
+  id              String             @id @db.Uuid
+  tenantId        String             @map("tenant_id") @db.Uuid
+  name            String
+  description     String?
+  templateKind    DeviceTemplateKind @default(CUSTOM) @map("template_kind")
+  manufacturer    DeviceManufacturer
+  modelFamily     String?            @map("model_family")
+  firmwareChannel String?            @map("firmware_channel")
+  isDefault       Boolean            @default(false) @map("is_default")
+  config          Json               @db.JsonB
+  version         Int                @default(1)
+  createdAt       DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt       DateTime?          @map("deleted_at") @db.Timestamptz(6)
+  createdBy       String?            @map("created_by") @db.Uuid
+  updatedBy       String?            @map("updated_by") @db.Uuid
 
   tenant  Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   devices Device[]
@@ -2671,24 +2689,24 @@ model ProvisioningTemplate {
 }
 
 model FirmwareRelease {
-  id             String              @id @db.Uuid
-  tenantId       String?             @map("tenant_id") @db.Uuid
+  id             String             @id @db.Uuid
+  tenantId       String?            @map("tenant_id") @db.Uuid
   manufacturer   DeviceManufacturer
-  modelFamily    String              @map("model_family")
+  modelFamily    String             @map("model_family")
   version        String
-  channel        String              @default("stable")
-  downloadUrl    String?             @map("download_url")
-  checksumSha256 String?             @map("checksum_sha256")
-  approved       Boolean             @default(false)
-  approvedAt     DateTime?           @map("approved_at") @db.Timestamptz(6)
-  approvedBy     String?             @map("approved_by") @db.Uuid
-  rolloutPercent Int                 @default(0) @map("rollout_percent")
-  scheduledAt    DateTime?           @map("scheduled_at") @db.Timestamptz(6)
+  channel        String             @default("stable")
+  downloadUrl    String?            @map("download_url")
+  checksumSha256 String?            @map("checksum_sha256")
+  approved       Boolean            @default(false)
+  approvedAt     DateTime?          @map("approved_at") @db.Timestamptz(6)
+  approvedBy     String?            @map("approved_by") @db.Uuid
+  rolloutPercent Int                @default(0) @map("rollout_percent")
+  scheduledAt    DateTime?          @map("scheduled_at") @db.Timestamptz(6)
   notes          String?
-  createdAt      DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt      DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt      DateTime?           @map("deleted_at") @db.Timestamptz(6)
-  createdBy      String?             @map("created_by") @db.Uuid
+  createdAt      DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime?          @map("deleted_at") @db.Timestamptz(6)
+  createdBy      String?            @map("created_by") @db.Uuid
 
   tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: Restrict)
 
@@ -2699,40 +2717,40 @@ model FirmwareRelease {
 }
 
 model InboundRoute {
-  id                String               @id @db.Uuid
-  tenantId          String               @map("tenant_id") @db.Uuid
-  name              String
-  description       String?
-  phoneNumberId     String?              @map("phone_number_id") @db.Uuid
-  priority          Int                  @default(100)
-  destinationType   RouteDestinationType @map("destination_type")
-  destinationLineId String?              @map("destination_line_id") @db.Uuid
-  destinationExtensionId String?         @map("destination_extension_id") @db.Uuid
-  destinationQueueId String?             @map("destination_queue_id") @db.Uuid
-  destinationIvrId  String?              @map("destination_ivr_id") @db.Uuid
-  destinationRingGroupId String?         @map("destination_ring_group_id") @db.Uuid
-  destinationVoicemailId String?       @map("destination_voicemail_id") @db.Uuid
-  destinationConferenceId String?        @map("destination_conference_id") @db.Uuid
-  timeConditionId   String?              @map("time_condition_id") @db.Uuid
-  holidayCalendarId String?              @map("holiday_calendar_id") @db.Uuid
-  openHoursDestinationType RouteDestinationType? @map("open_hours_destination_type")
-  openHoursDestinationId String?          @map("open_hours_destination_id") @db.Uuid
+  id                        String                @id @db.Uuid
+  tenantId                  String                @map("tenant_id") @db.Uuid
+  name                      String
+  description               String?
+  phoneNumberId             String?               @map("phone_number_id") @db.Uuid
+  priority                  Int                   @default(100)
+  destinationType           RouteDestinationType  @map("destination_type")
+  destinationLineId         String?               @map("destination_line_id") @db.Uuid
+  destinationExtensionId    String?               @map("destination_extension_id") @db.Uuid
+  destinationQueueId        String?               @map("destination_queue_id") @db.Uuid
+  destinationIvrId          String?               @map("destination_ivr_id") @db.Uuid
+  destinationRingGroupId    String?               @map("destination_ring_group_id") @db.Uuid
+  destinationVoicemailId    String?               @map("destination_voicemail_id") @db.Uuid
+  destinationConferenceId   String?               @map("destination_conference_id") @db.Uuid
+  timeConditionId           String?               @map("time_condition_id") @db.Uuid
+  holidayCalendarId         String?               @map("holiday_calendar_id") @db.Uuid
+  openHoursDestinationType  RouteDestinationType? @map("open_hours_destination_type")
+  openHoursDestinationId    String?               @map("open_hours_destination_id") @db.Uuid
   afterHoursDestinationType RouteDestinationType? @map("after_hours_destination_type")
-  afterHoursDestinationId String?         @map("after_hours_destination_id") @db.Uuid
-  failoverDestinationType RouteDestinationType? @map("failover_destination_type")
-  failoverDestinationId String?           @map("failover_destination_id") @db.Uuid
-  externalDestination String?            @map("external_destination")
-  enabled           Boolean              @default(true)
-  version           Int                  @default(1)
-  createdAt         DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt         DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt         DateTime?            @map("deleted_at") @db.Timestamptz(6)
-  createdBy         String?              @map("created_by") @db.Uuid
-  updatedBy         String?              @map("updated_by") @db.Uuid
+  afterHoursDestinationId   String?               @map("after_hours_destination_id") @db.Uuid
+  failoverDestinationType   RouteDestinationType? @map("failover_destination_type")
+  failoverDestinationId     String?               @map("failover_destination_id") @db.Uuid
+  externalDestination       String?               @map("external_destination")
+  enabled                   Boolean               @default(true)
+  version                   Int                   @default(1)
+  createdAt                 DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                 DateTime              @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt                 DateTime?             @map("deleted_at") @db.Timestamptz(6)
+  createdBy                 String?               @map("created_by") @db.Uuid
+  updatedBy                 String?               @map("updated_by") @db.Uuid
 
-  tenant      Tenant         @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  phoneNumber PhoneNumber?   @relation(fields: [phoneNumberId], references: [id], onDelete: Restrict)
-  timeCondition TimeCondition? @relation(fields: [timeConditionId], references: [id], onDelete: Restrict)
+  tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  phoneNumber     PhoneNumber?     @relation(fields: [phoneNumberId], references: [id], onDelete: Restrict)
+  timeCondition   TimeCondition?   @relation(fields: [timeConditionId], references: [id], onDelete: Restrict)
   holidayCalendar HolidayCalendar? @relation(fields: [holidayCalendarId], references: [id], onDelete: Restrict)
 
   @@index([tenantId])
@@ -2742,29 +2760,29 @@ model InboundRoute {
 }
 
 model OutboundRoute {
-  id              String    @id @db.Uuid
-  tenantId        String    @map("tenant_id") @db.Uuid
-  name            String
-  description     String?
-  lineId          String?   @map("line_id") @db.Uuid
-  pattern         String
-  prefix          String?
-  suffix          String?
-  stripDigits     Int       @default(0) @map("strip_digits")
-  callerIdPolicy  String?   @map("caller_id_policy")
-  carrierId       String?   @map("carrier_id") @db.Uuid
-  failoverCarrierId String? @map("failover_carrier_id") @db.Uuid
-  priority        Int       @default(100)
-  emergencyRoute  Boolean   @default(false) @map("emergency_route")
-  internationalAllowed Boolean @default(true) @map("international_allowed")
-  normalizeE164   Boolean   @default(true) @map("normalize_e164")
-  enabled         Boolean   @default(true)
-  version         Int       @default(1)
-  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt       DateTime? @map("deleted_at") @db.Timestamptz(6)
-  createdBy       String?   @map("created_by") @db.Uuid
-  updatedBy       String?   @map("updated_by") @db.Uuid
+  id                   String    @id @db.Uuid
+  tenantId             String    @map("tenant_id") @db.Uuid
+  name                 String
+  description          String?
+  lineId               String?   @map("line_id") @db.Uuid
+  pattern              String
+  prefix               String?
+  suffix               String?
+  stripDigits          Int       @default(0) @map("strip_digits")
+  callerIdPolicy       String?   @map("caller_id_policy")
+  carrierId            String?   @map("carrier_id") @db.Uuid
+  failoverCarrierId    String?   @map("failover_carrier_id") @db.Uuid
+  priority             Int       @default(100)
+  emergencyRoute       Boolean   @default(false) @map("emergency_route")
+  internationalAllowed Boolean   @default(true) @map("international_allowed")
+  normalizeE164        Boolean   @default(true) @map("normalize_e164")
+  enabled              Boolean   @default(true)
+  version              Int       @default(1)
+  createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt            DateTime? @map("deleted_at") @db.Timestamptz(6)
+  createdBy            String?   @map("created_by") @db.Uuid
+  updatedBy            String?   @map("updated_by") @db.Uuid
 
   tenant  Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   line    Line?    @relation(fields: [lineId], references: [id], onDelete: Restrict)
@@ -2888,9 +2906,9 @@ model BlfPanel {
   createdBy String?   @map("created_by") @db.Uuid
   updatedBy String?   @map("updated_by") @db.Uuid
 
-  tenant Tenant       @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  user   User?        @relation(fields: [userId], references: [id], onDelete: Restrict)
-  line   Line?        @relation(fields: [lineId], references: [id], onDelete: Restrict)
+  tenant Tenant        @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  user   User?         @relation(fields: [userId], references: [id], onDelete: Restrict)
+  line   Line?         @relation(fields: [lineId], references: [id], onDelete: Restrict)
   keys   BlfPanelKey[]
 
   @@index([tenantId])
@@ -2928,7 +2946,7 @@ enum DirectoryProvider {
 model DirectoryIntegration {
   id        String            @id @db.Uuid
   tenantId  String            @map("tenant_id") @db.Uuid
-  provider  DirectoryProvider   @default(NONE)
+  provider  DirectoryProvider @default(NONE)
   enabled   Boolean           @default(false)
   config    Json?             @db.JsonB
   version   Int               @default(1)
@@ -2994,14 +3012,14 @@ model MohTrack {
 }
 
 model MohPlaylistVersion {
-  id         String   @id @db.Uuid
-  tenantId   String   @map("tenant_id") @db.Uuid
-  playlistId String   @map("playlist_id") @db.Uuid
-  version    Int
-  snapshot   Json     @db.JsonB
-  changeNotes String? @map("change_notes")
-  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  createdBy  String?  @map("created_by") @db.Uuid
+  id          String   @id @db.Uuid
+  tenantId    String   @map("tenant_id") @db.Uuid
+  playlistId  String   @map("playlist_id") @db.Uuid
+  version     Int
+  snapshot    Json     @db.JsonB
+  changeNotes String?  @map("change_notes")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy   String?  @map("created_by") @db.Uuid
 
   tenant   Tenant      @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   playlist MohPlaylist @relation(fields: [playlistId], references: [id], onDelete: Restrict)
@@ -3173,15 +3191,15 @@ model PagingGroupMember {
 }
 
 model VoicemailGreeting {
-  id             String    @id @db.Uuid
-  tenantId       String    @map("tenant_id") @db.Uuid
-  voicemailId    String    @map("voicemail_id") @db.Uuid
+  id             String                @id @db.Uuid
+  tenantId       String                @map("tenant_id") @db.Uuid
+  voicemailId    String                @map("voicemail_id") @db.Uuid
   greetingType   VoicemailGreetingType @map("greeting_type")
-  mediaObjectKey String?   @map("media_object_key")
-  ttsText        String?   @map("tts_text")
-  version        Int       @default(1)
-  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  mediaObjectKey String?               @map("media_object_key")
+  ttsText        String?               @map("tts_text")
+  version        Int                   @default(1)
+  createdAt      DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime              @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   voicemail Voicemail @relation(fields: [voicemailId], references: [id], onDelete: Restrict)
@@ -3192,21 +3210,21 @@ model VoicemailGreeting {
 }
 
 model VoicemailMessage {
-  id             String    @id @db.Uuid
-  publicId       String    @unique @map("public_id")
-  tenantId       String    @map("tenant_id") @db.Uuid
-  voicemailId    String    @map("voicemail_id") @db.Uuid
-  callerId       String?   @map("caller_id")
-  callerName     String?   @map("caller_name")
-  durationSec    Int?      @map("duration_sec")
-  mediaObjectKey String?   @map("media_object_key")
-  readAt         DateTime? @map("read_at") @db.Timestamptz(6)
-  flagged        Boolean   @default(false)
-  notes          String?
-  transcriptionReady Boolean @default(false) @map("transcription_ready")
-  version        Int       @default(1)
-  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+  id                 String    @id @db.Uuid
+  publicId           String    @unique @map("public_id")
+  tenantId           String    @map("tenant_id") @db.Uuid
+  voicemailId        String    @map("voicemail_id") @db.Uuid
+  callerId           String?   @map("caller_id")
+  callerName         String?   @map("caller_name")
+  durationSec        Int?      @map("duration_sec")
+  mediaObjectKey     String?   @map("media_object_key")
+  readAt             DateTime? @map("read_at") @db.Timestamptz(6)
+  flagged            Boolean   @default(false)
+  notes              String?
+  transcriptionReady Boolean   @default(false) @map("transcription_ready")
+  version            Int       @default(1)
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  deletedAt          DateTime? @map("deleted_at") @db.Timestamptz(6)
 
   tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   voicemail Voicemail @relation(fields: [voicemailId], references: [id], onDelete: Restrict)

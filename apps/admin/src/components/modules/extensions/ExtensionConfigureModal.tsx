@@ -1,12 +1,14 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
-import { Check, Copy } from 'lucide-react';
+import { Check, Copy, Eye, EyeOff, QrCode, Star } from 'lucide-react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   useCreateTenantDevice,
   useDeleteTenantDevice,
+  useMakePrimaryDevice,
   useRebootDevice,
   useReprovisionDevice,
 } from '../../../lib/hooks/queries/use-device-mutations';
@@ -15,47 +17,70 @@ import {
   extensionDetailMatchesRow,
   mapExtensionDetailToForm,
   normalizeConfigureTab,
+  useArchiveExtension,
+  useDisableExtension,
+  useEnableExtension,
   useExtensionDetail,
   useExtensionMobileQr,
   useExtensionRestartRegistration,
   useExtensionUnassignDid,
+  useUnarchiveExtension,
   type ConfigureTabId,
   type ExtensionConfigureFormState,
   type ExtensionHubRow,
   type ExtensionMobileQrResult,
 } from '../../../lib/hooks/queries/use-extension-hub';
+import { useExtensionActivity } from '../../../lib/hooks/queries/use-extension-activity';
+import { useAssignDid } from '../../../lib/hooks/queries/use-dids';
 import { useTenantDepartments } from '../../../lib/hooks/queries/use-tenant-organization';
 import { useUpdateTenantExtension } from '../../../lib/hooks/queries/use-tenant-mutations';
-import { useTenantUsers } from '../../../lib/hooks/queries/use-tenant';
+import { useTenantDids, useTenantUsers } from '../../../lib/hooks/queries/use-tenant';
+import { useRevealSipPassword, useResetSipPassword, useSipCredentials } from '../../../lib/hooks/queries/use-sip-credentials';
+import { formatPhoneDisplay } from '../../../lib/extensions/format-extension-label';
 import { deviceRepository } from '../../../lib/repositories/device.repository';
+import { tenantRepository } from '../../../lib/repositories/tenant.repository';
 import { queryKeys } from '../../../lib/query/query-keys';
+import { useToast } from '../../../lib/toast/ToastProvider';
 import { Button } from '../../ui/Button';
 import { Input } from '../../ui/Input';
 import { Modal } from '../../ui/Modal';
 import { Skeleton } from '../../ui/Skeleton';
-import { DeviceModelFields, emptyDeviceModelForm } from './DeviceModelFields';
+import { ActivityTimeline } from './ActivityTimeline';
+import { emptyDeviceModelForm } from './DeviceModelFields';
+import { ExtensionOverviewHeader } from './ExtensionOverviewHeader';
 import { ExtensionQrPanel } from './ExtensionQrPanel';
-import { ExtensionStatusChip } from './ExtensionStatusChip';
+import { ExtensionQuickActionsMenu, type QuickActionHandlers } from './ExtensionQuickActionsMenu';
 
 type ModalTabId = ReturnType<typeof normalizeConfigureTab>;
 
-/** Extension Workspace onboard order — Identity → User → DID → Softphone → SIP → Desk → … */
+const HARDWARE_BRANDS = ['GRANDSTREAM', 'YEALINK', 'FANVIL', 'CISCO', 'POLY', 'SNOM'] as const;
+type AddDeviceChoice = 'MOBILE' | 'WEBRTC' | (typeof HARDWARE_BRANDS)[number];
+const ADD_DEVICE_CHOICES: { id: AddDeviceChoice; label: string }[] = [
+  { id: 'MOBILE', label: 'Mobile App' },
+  { id: 'WEBRTC', label: 'WebRTC' },
+  { id: 'GRANDSTREAM', label: 'Grandstream' },
+  { id: 'YEALINK', label: 'Yealink' },
+  { id: 'FANVIL', label: 'Fanvil' },
+  { id: 'CISCO', label: 'Cisco' },
+  { id: 'POLY', label: 'Poly' },
+  { id: 'SNOM', label: 'Snom' },
+];
+
+/** Extension Workspace tabs — the Configure modal is the single source of truth for one employee's setup. */
 const TABS: { id: ModalTabId; label: string }[] = [
-  { id: 'general', label: 'Identity & User' },
+  { id: 'general', label: 'General' },
   { id: 'did', label: 'DID' },
-  { id: 'devices', label: 'Softphone' },
-  { id: 'sip', label: 'SIP Credentials' },
-  { id: 'desk', label: 'Desk Phone' },
+  { id: 'devices', label: 'Device' },
+  { id: 'desk', label: 'Provisioning' },
   { id: 'voicemail', label: 'Voicemail' },
+  { id: 'callFeatures', label: 'Call Features' },
   { id: 'recording', label: 'Recording' },
-  { id: 'callFeatures', label: 'Call Routing' },
   { id: 'permissions', label: 'Permissions' },
-  { id: 'activity', label: 'Audit History' },
+  { id: 'activity', label: 'Activity' },
 ];
 
 const DIRTY_FIELDS: Record<ModalTabId, (keyof ExtensionConfigureFormState)[]> = {
   general: ['displayName', 'description', 'departmentId', 'linkedUserId', 'callerIdName', 'language', 'timezone'],
-  sip: [],
   devices: [],
   desk: [],
   did: ['callerIdName', 'cnam', 'emergencyAddress'],
@@ -185,8 +210,17 @@ export function ExtensionConfigureModal({
   const [pendingTab, setPendingTab] = useState<ModalTabId | 'close' | null>(null);
   const [unsavedOpen, setUnsavedOpen] = useState(false);
   const [copiedUrl, setCopiedUrl] = useState(false);
+  const [didPickerOpen, setDidPickerOpen] = useState(false);
+  const [didSearch, setDidSearch] = useState('');
+  const [didBusy, setDidBusy] = useState(false);
+  const [addDeviceChoice, setAddDeviceChoice] = useState<AddDeviceChoice>('WEBRTC');
+  const [visitedTabs, setVisitedTabs] = useState<Set<ModalTabId>>(() => new Set([normalizeConfigureTab(initialTab)]));
+  const [revealedPassword, setRevealedPassword] = useState<string | null>(null);
+  const [saveProgress, setSaveProgress] = useState<string | null>(null);
 
   const queryClient = useQueryClient();
+  const toast = useToast();
+  const router = useRouter();
   const activeExtensionIdRef = useRef<string | null>(null);
   const detailQuery = useExtensionDetail(row?.id ?? '', open && Boolean(row?.id));
 
@@ -199,11 +233,22 @@ export function ExtensionConfigureModal({
   const updateExt = useUpdateTenantExtension();
   const createDevice = useCreateTenantDevice();
   const deleteDevice = useDeleteTenantDevice();
+  const makePrimaryDevice = useMakePrimaryDevice();
   const unassignDid = useExtensionUnassignDid();
+  const assignDid = useAssignDid();
   const mobileQr = useExtensionMobileQr();
   const restartReg = useExtensionRestartRegistration();
   const reboot = useRebootDevice();
   const reprovision = useReprovisionDevice();
+  const disableExt = useDisableExtension();
+  const enableExt = useEnableExtension();
+  const archiveExt = useArchiveExtension();
+  const unarchiveExt = useUnarchiveExtension();
+  const revealSipPassword = useRevealSipPassword();
+  const resetSipPassword = useResetSipPassword();
+  const availableDidsQuery = useTenantDids(didSearch, { enabled: visitedTabs.has('did') });
+  const sipCredentialsQuery = useSipCredentials(row?.lineId ?? '', open && visitedTabs.has('devices') && Boolean(row?.lineId));
+  const activityQuery = useExtensionActivity(row?.id ?? '', open && visitedTabs.has('activity') && Boolean(row?.id));
 
   const patchForm = useCallback((patch: Partial<ExtensionConfigureFormState>) => {
     setForm((prev) => ({ ...prev, ...patch }));
@@ -217,7 +262,9 @@ export function ExtensionConfigureModal({
 
   useLayoutEffect(() => {
     if (!open || !row) return;
-    setTab(normalizeConfigureTab(initialTab));
+    const startTab = normalizeConfigureTab(initialTab);
+    setTab(startTab);
+    setVisitedTabs(new Set([startTab]));
     setDeviceForm({
       ...emptyDeviceModelForm,
       name: row.device?.deviceLabel || row.device?.name || `${row.displayName} Phone`,
@@ -229,6 +276,11 @@ export function ExtensionConfigureModal({
     setError(null);
     setPendingTab(null);
     setUnsavedOpen(false);
+    setDidPickerOpen(false);
+    setDidSearch('');
+    setAddDeviceChoice('WEBRTC');
+    setRevealedPassword(null);
+    setSaveProgress(null);
 
     const cached = queryClient.getQueryData<Record<string, unknown>>(
       queryKeys.tenant.extensionDetail(row.id),
@@ -272,7 +324,7 @@ export function ExtensionConfigureModal({
   }, [mobileQr, row]);
 
   useEffect(() => {
-    if (!open || !row || (tab !== 'sip' && tab !== 'devices')) return;
+    if (!open || !row || tab !== 'devices') return;
     void loadQr();
   }, [open, row?.id, tab]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -296,7 +348,7 @@ export function ExtensionConfigureModal({
 
   const isTabDirty = useCallback(
     (targetTab: ModalTabId) => {
-      if (!detailReady && targetTab !== 'sip' && targetTab !== 'devices' && targetTab !== 'desk' && targetTab !== 'activity') {
+      if (!detailReady && targetTab !== 'devices' && targetTab !== 'desk' && targetTab !== 'activity') {
         return false;
       }
       return DIRTY_FIELDS[targetTab].some((field) => form[field] !== baseline[field]);
@@ -316,6 +368,7 @@ export function ExtensionConfigureModal({
   const saveAll = async (andProvision: boolean) => {
     if (!row) return;
     setError(null);
+    setSaveProgress('Saving configuration…');
     try {
       await updateExt.mutateAsync({
         id: row.id,
@@ -345,8 +398,15 @@ export function ExtensionConfigureModal({
 
       if (andProvision) {
         if (row.hasDeskPhone && row.device?.id) {
+          setSaveProgress('Regenerating config…');
           await reprovision.mutateAsync(row.device.id);
+          setSaveProgress('Pushing to device…');
+          if (row.onlineStatus === 'Online') {
+            setSaveProgress('Rebooting…');
+            await reboot.mutateAsync(row.device.id);
+          }
         } else if (deviceForm.macAddress.trim()) {
+          setSaveProgress('Provisioning new device…');
           await createDevice.mutateAsync({
             name: deviceForm.name || `${row.displayName} Phone`,
             deviceType: 'DESK_PHONE',
@@ -364,6 +424,7 @@ export function ExtensionConfigureModal({
             firmwareChannel: deviceForm.firmwareChannel,
           });
         } else {
+          setSaveProgress('Restarting registration…');
           await restartReg.mutateAsync(row.id);
         }
       }
@@ -371,9 +432,14 @@ export function ExtensionConfigureModal({
       commitBaseline();
       invalidateDetail();
       onSaved?.();
+      toast.success(andProvision ? 'Configuration Saved & Provisioned' : 'Configuration Saved');
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Save failed');
+      const message = e instanceof Error ? e.message : 'Save failed';
+      setError(message);
+      toast.error('Save Failed', { description: message });
       throw e;
+    } finally {
+      setSaveProgress(null);
     }
   };
 
@@ -386,34 +452,74 @@ export function ExtensionConfigureModal({
       setBaseline((b) => ({ ...b, selectedDidId: '' }));
       invalidateDetail();
       onSaved?.();
+      toast.success('DID Removed');
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Remove failed');
+      const message = e instanceof Error ? e.message : 'Remove failed';
+      setError(message);
+      toast.error('Remove DID Failed', { description: message });
     }
   };
 
-  const provisionDeskPhone = async () => {
+  /** Assign or change the DID bound to this extension — Change swaps by unassigning first (One DID ↔ One Extension). */
+  const assignSelectedDid = async (phoneNumberId: string) => {
     if (!row) return;
+    setError(null);
+    setDidBusy(true);
+    try {
+      if (row.did && row.did.id !== phoneNumberId) {
+        await unassignDid.mutateAsync(row.id);
+      }
+      await assignDid.mutateAsync({
+        id: phoneNumberId,
+        payload: {
+          destinationType: 'EXTENSION',
+          destinationId: row.id,
+          callerIdName: form.callerIdName || form.cnam || undefined,
+        },
+      });
+      void queryClient.invalidateQueries({ queryKey: ['tenant', 'extensionHub'] });
+      invalidateDetail();
+      setDidPickerOpen(false);
+      setDidSearch('');
+      onSaved?.();
+      toast.success('DID Assigned');
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'Assign DID failed';
+      setError(message);
+      toast.error('Assign DID Failed', { description: message });
+    } finally {
+      setDidBusy(false);
+    }
+  };
+
+  /** Unified Add Device — Mobile App / WebRTC create a softphone stub; hardware brands require a MAC address. */
+  const addDeviceGeneric = async () => {
+    if (!row) return;
+    const isHardware = (HARDWARE_BRANDS as readonly string[]).includes(addDeviceChoice);
+    if (isHardware && !deviceForm.macAddress.trim()) {
+      setError('MAC address is required for hardware devices.');
+      return;
+    }
     setError(null);
     try {
       await createDevice.mutateAsync({
-        name: deviceForm.name || `${row.displayName} Phone`,
-        deviceType: 'DESK_PHONE',
+        name:
+          deviceForm.name ||
+          `${row.displayName} ${isHardware ? 'Phone' : addDeviceChoice === 'MOBILE' ? 'Mobile' : 'Softphone'}`,
+        deviceType: isHardware ? 'DESK_PHONE' : addDeviceChoice,
         lineId: row.lineId,
-        manufacturer: deviceForm.manufacturer,
-        model: deviceForm.model,
-        modelFamily: deviceForm.modelFamily,
-        macAddress: deviceForm.macAddress,
-        serialNumber: deviceForm.serialNumber,
-        assetTag: deviceForm.assetTag,
-        location: deviceForm.location,
-        transport: deviceForm.transport,
-        tlsEnabled: deviceForm.tlsEnabled,
-        srtpEnabled: deviceForm.srtpEnabled,
-        firmwareChannel: deviceForm.firmwareChannel,
+        manufacturer: isHardware ? addDeviceChoice : undefined,
+        model: isHardware ? deviceForm.model : undefined,
+        macAddress: isHardware ? deviceForm.macAddress : undefined,
+        transport: isHardware ? deviceForm.transport : undefined,
       });
+      toast.success('Device Added');
+      invalidateDetail();
       onSaved?.();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Provision failed');
+      const message = e instanceof Error ? e.message : 'Add device failed';
+      setError(message);
+      toast.error('Add Device Failed', { description: message });
     }
   };
 
@@ -424,6 +530,7 @@ export function ExtensionConfigureModal({
       setUnsavedOpen(true);
     } else {
       setTab(next);
+      setVisitedTabs((prev) => (prev.has(next) ? prev : new Set(prev).add(next)));
     }
   };
 
@@ -445,6 +552,7 @@ export function ExtensionConfigureModal({
         onClose();
       } else if (pendingTab) {
         setTab(pendingTab);
+        setVisitedTabs((prev) => (prev.has(pendingTab) ? prev : new Set(prev).add(pendingTab)));
         setPendingTab(null);
       }
     } catch {
@@ -460,6 +568,7 @@ export function ExtensionConfigureModal({
       onClose();
     } else if (pendingTab) {
       setTab(pendingTab);
+      setVisitedTabs((prev) => (prev.has(pendingTab) ? prev : new Set(prev).add(pendingTab)));
       setPendingTab(null);
     }
   };
@@ -472,8 +581,16 @@ export function ExtensionConfigureModal({
 
   const line = detailQuery.data?.line as Record<string, unknown> | undefined;
   const devices = (line?.devices as Record<string, unknown>[] | undefined) ?? [];
-  const primarySip = (devices[0]?.sipEndpoint as Record<string, unknown> | undefined) ?? null;
   const provUrl = String(deskDevice?.provUrl ?? '');
+
+  const availableUnassignedDids = useMemo(() => {
+    type PickRow = { id: string; number: string; line?: { extension?: { extension?: string } } | null; routed?: boolean; routing?: unknown };
+    const all = (availableDidsQuery.data as PickRow[] | undefined) ?? [];
+    return all.filter((d) => {
+      if (row?.did?.id === d.id) return false;
+      return !d.line?.extension?.extension && !d.routed && !d.routing;
+    });
+  }, [availableDidsQuery.data, row?.did?.id]);
 
   const copyProvUrl = async () => {
     if (!provUrl) return;
@@ -482,23 +599,190 @@ export function ExtensionConfigureModal({
     setTimeout(() => setCopiedUrl(false), 2000);
   };
 
+  const copyToClipboard = useCallback(
+    async (text: string, successLabel: string) => {
+      if (!text) {
+        toast.error(`Nothing to copy for ${successLabel.toLowerCase()}`);
+        return;
+      }
+      try {
+        await navigator.clipboard.writeText(text);
+        toast.success(successLabel);
+      } catch (e) {
+        toast.error('Copy failed', { description: e instanceof Error ? e.message : undefined });
+      }
+    },
+    [toast],
+  );
+
+  const makeDevicePrimary = useCallback(
+    (deviceId: string) => {
+      void makePrimaryDevice
+        .mutateAsync(deviceId)
+        .then(() => {
+          toast.success('Primary Device Changed');
+          invalidateDetail();
+          onSaved?.();
+        })
+        .catch((e: unknown) => toast.error('Make Primary Failed', { description: e instanceof Error ? e.message : undefined }));
+    },
+    [makePrimaryDevice, invalidateDetail, onSaved, toast],
+  );
+
+  const doRevealSipPassword = useCallback(() => {
+    if (!row?.lineId) return;
+    void revealSipPassword
+      .mutateAsync(row.lineId)
+      .then((res) => setRevealedPassword(res.password))
+      .catch((e: unknown) => toast.error('Reveal Password Failed', { description: e instanceof Error ? e.message : undefined }));
+  }, [revealSipPassword, row?.lineId, toast]);
+
+  const doResetSipPassword = useCallback(() => {
+    if (!row?.lineId) return;
+    if (!window.confirm('Resetting the SIP password will sign out the currently registered device until it re-registers with the new password. Continue?')) {
+      return;
+    }
+    void resetSipPassword
+      .mutateAsync(row.lineId)
+      .then((res) => {
+        setRevealedPassword(res.password);
+        toast.success('SIP Password Reset');
+        void queryClient.invalidateQueries({ queryKey: queryKeys.tenant.sipCredentials(row.lineId) });
+      })
+      .catch((e: unknown) => toast.error('Reset Password Failed', { description: e instanceof Error ? e.message : undefined }));
+  }, [resetSipPassword, row?.lineId, toast, queryClient]);
+
+  const quickActionHandlers: QuickActionHandlers = useMemo(
+    () => ({
+      onOpenSoftphone: () => router.push('/softphone'),
+      onCopyExtension: () => void copyToClipboard(row?.extension ?? '', 'Extension Copied'),
+      onCopySipUsername: () => {
+        if (!row?.lineId) return;
+        void tenantRepository
+          .getSipCredentials(row.lineId)
+          .then((creds) => copyToClipboard(creds.username, 'SIP Username Copied'))
+          .catch((e: unknown) => toast.error('Could not load SIP username', { description: e instanceof Error ? e.message : undefined }));
+      },
+      onCopyProvisionUrl: () => {
+        if (!row?.device?.id) return;
+        void deviceRepository
+          .getDevice(row.device.id)
+          .then((d) => copyToClipboard(String((d as Record<string, unknown>).provUrl ?? ''), 'Provision URL Copied'))
+          .catch((e: unknown) => toast.error('Could not load provision URL', { description: e instanceof Error ? e.message : undefined }));
+      },
+      onGenerateQr: () => {
+        requestTabChange('devices');
+        void loadQr();
+      },
+      onResetSipPassword: doResetSipPassword,
+      onRestartRegistration: () => {
+        if (!row?.id) return;
+        void restartReg
+          .mutateAsync(row.id)
+          .then(() => {
+            toast.success('Registration Restarted');
+            onSaved?.();
+          })
+          .catch((e: unknown) => toast.error('Restart Registration Failed', { description: e instanceof Error ? e.message : undefined }));
+      },
+      onReProvisionDevice: () => {
+        if (!row?.device?.id) return;
+        void reprovision
+          .mutateAsync(row.device.id)
+          .then(() => {
+            toast.success('Provision Successful');
+            onSaved?.();
+          })
+          .catch((e: unknown) => toast.error('Re-Provision Failed', { description: e instanceof Error ? e.message : undefined }));
+      },
+      onRebootDeskPhone: () => {
+        if (!row?.device?.id) return;
+        void reboot
+          .mutateAsync(row.device.id)
+          .then(() => toast.success('Reboot Command Sent'))
+          .catch((e: unknown) => toast.error('Reboot Failed', { description: e instanceof Error ? e.message : undefined }));
+      },
+      onDisableExtension: () => {
+        if (!row?.id) return;
+        void disableExt
+          .mutateAsync(row.id)
+          .then(() => {
+            toast.success('Extension Disabled');
+            onSaved?.();
+          })
+          .catch((e: unknown) => toast.error('Disable Failed', { description: e instanceof Error ? e.message : undefined }));
+      },
+      onEnableExtension: () => {
+        if (!row?.id) return;
+        void enableExt
+          .mutateAsync(row.id)
+          .then(() => {
+            toast.success('Extension Enabled');
+            onSaved?.();
+          })
+          .catch((e: unknown) => toast.error('Enable Failed', { description: e instanceof Error ? e.message : undefined }));
+      },
+      onArchiveExtension: () => {
+        if (!row?.id) return;
+        void archiveExt
+          .mutateAsync(row.id)
+          .then(() => {
+            toast.success('Extension Archived');
+            onSaved?.();
+          })
+          .catch((e: unknown) => toast.error('Archive Failed', { description: e instanceof Error ? e.message : undefined }));
+      },
+      onUnarchiveExtension: () => {
+        if (!row?.id) return;
+        void unarchiveExt
+          .mutateAsync(row.id)
+          .then(() => {
+            toast.success('Extension Restored');
+            onSaved?.();
+          })
+          .catch((e: unknown) => toast.error('Restore Failed', { description: e instanceof Error ? e.message : undefined }));
+      },
+    }),
+    [
+      router,
+      row,
+      copyToClipboard,
+      toast,
+      doResetSipPassword,
+      restartReg,
+      reprovision,
+      reboot,
+      disableExt,
+      enableExt,
+      archiveExt,
+      unarchiveExt,
+      onSaved,
+    ],
+  );
+
   const saving =
     updateExt.isPending ||
     createDevice.isPending ||
     reprovision.isPending ||
+    reboot.isPending ||
     restartReg.isPending;
 
   const footer = (
-    <div className="flex flex-wrap items-center justify-end gap-2">
-      <Button variant="ghost" onClick={requestClose} disabled={saving}>
-        Cancel
-      </Button>
-      <Button variant="outline" onClick={() => void saveAll(false)} disabled={saving || !detailReady}>
-        Save
-      </Button>
-      <Button onClick={() => void saveAll(true)} disabled={saving || !detailReady}>
-        Save &amp; Provision
-      </Button>
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <span className="text-xs font-medium text-muted-foreground" aria-live="polite">
+        {saveProgress ?? ''}
+      </span>
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <Button variant="ghost" onClick={requestClose} disabled={saving}>
+          Cancel
+        </Button>
+        <Button variant="outline" onClick={() => void saveAll(false)} disabled={saving || !detailReady}>
+          Save
+        </Button>
+        <Button onClick={() => void saveAll(true)} disabled={saving || !detailReady}>
+          Save &amp; Provision
+        </Button>
+      </div>
     </div>
   );
 
@@ -508,10 +792,17 @@ export function ExtensionConfigureModal({
         open={open && Boolean(row)}
         onClose={requestClose}
         title={row ? `Configure ${row.label}` : 'Configure extension'}
-        description="Manage identity, SIP, devices, DIDs, and call features for this extension."
+        description="One screen for this employee — identity, DID, devices, provisioning, voicemail, and call features."
         size="full"
         footer={footer}
       >
+        {row ? (
+          <ExtensionOverviewHeader
+            row={row}
+            actions={<ExtensionQuickActionsMenu row={row} handlers={quickActionHandlers} />}
+          />
+        ) : null}
+
         <div className="mb-5 flex flex-wrap gap-1 border-b border-border pb-3">
           {TABS.map((t) => (
             <button
@@ -527,25 +818,13 @@ export function ExtensionConfigureModal({
           ))}
         </div>
 
-        {row ? (
-          <div className="mb-4 flex flex-wrap items-center gap-3 text-sm">
-            <ExtensionStatusChip
-              status={row.status}
-              onlineStatus={row.onlineStatus}
-              statusLabel={row.statusLabel}
-            />
-            <span className="font-mono text-muted-foreground">{row.extension}</span>
-            {row.did ? <span className="font-mono">{row.did.formatted}</span> : null}
-          </div>
-        ) : null}
-
         {error ? (
           <div className="mb-4 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
             {error}
           </div>
         ) : null}
 
-        {tab !== 'sip' && tab !== 'devices' && tab !== 'desk' && tab !== 'activity' ? (
+        {tab !== 'devices' && tab !== 'desk' && tab !== 'activity' ? (
           detailLoading ? (
             <DetailTabSkeleton />
           ) : detailLoadError ? (
@@ -553,7 +832,7 @@ export function ExtensionConfigureModal({
           ) : null
         ) : null}
 
-        {detailReady || tab === 'sip' || tab === 'devices' || tab === 'desk' || tab === 'activity' ? (
+        {detailReady || tab === 'devices' || tab === 'desk' || tab === 'activity' ? (
           <>
             {tab === 'general' && row ? (
               <div className="grid gap-4 sm:grid-cols-2">
@@ -633,87 +912,92 @@ export function ExtensionConfigureModal({
               </div>
             ) : null}
 
-            {tab === 'sip' && row ? (
-              <div className="grid gap-6 lg:grid-cols-2">
-                <div className="space-y-4">
-                  <Field label="Username">
-                    <Input value={String(primarySip?.authUsername ?? row.extension)} readOnly className="bg-muted/40 font-mono" />
-                  </Field>
-                  <Field label="Authentication ID">
-                    <Input value={String(primarySip?.authUsername ?? row.extension)} readOnly className="bg-muted/40 font-mono" />
-                  </Field>
-                  <Field label="Password">
-                    <Input value="Issued via QR / enroll token" readOnly className="bg-muted/40" />
-                  </Field>
-                  <Field label="Domain">
-                    <Input value={String(primarySip?.aor ?? '—').split('@')[1] ?? '—'} readOnly className="bg-muted/40 font-mono" />
-                  </Field>
-                  <Field label="Registrar">
-                    <Input value={String(primarySip?.aor ?? '—').split('@')[1] ?? '—'} readOnly className="bg-muted/40 font-mono" />
-                  </Field>
-                  <Field label="Transport">
-                    <Input value="UDP / TLS (device dependent)" readOnly className="bg-muted/40" />
-                  </Field>
-                </div>
-                <ExtensionQrPanel
-                  row={row}
-                  qr={qr}
-                  loading={mobileQr.isPending}
-                  onRegenerate={() => void loadQr()}
-                  hasExistingMobile={row.hasMobileApp}
-                />
-              </div>
-            ) : null}
-
             {tab === 'devices' && row ? (
-              <div className="space-y-5">
-                <div className="rounded-xl border border-border">
+              <div className="space-y-6">
+                <div className="overflow-x-auto rounded-xl border border-border">
                   <table className="w-full text-sm">
                     <thead className="border-b border-border bg-muted/40 text-left text-xs uppercase text-muted-foreground">
                       <tr>
                         <th className="px-3 py-2">Type</th>
                         <th className="px-3 py-2">Name</th>
+                        <th className="px-3 py-2">Manufacturer</th>
+                        <th className="px-3 py-2">Model</th>
+                        <th className="px-3 py-2">MAC</th>
                         <th className="px-3 py-2">Status</th>
+                        <th className="px-3 py-2">Last Seen</th>
                         <th className="px-3 py-2">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
                       {devices.length ? (
-                        devices.map((d) => (
-                          <tr key={String(d.id)} className="border-b border-border/60">
-                            <td className="px-3 py-2">{String(d.deviceType ?? '—')}</td>
-                            <td className="px-3 py-2">{String(d.name ?? '—')}</td>
-                            <td className="px-3 py-2">
-                              {String(
-                                (d.sipEndpoint as { registrationStatus?: string } | undefined)?.registrationStatus ??
-                                  '—',
-                              )}
-                            </td>
-                            <td className="px-3 py-2">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                disabled={deleteDevice.isPending}
-                                onClick={() =>
-                                  void deleteDevice
-                                    .mutateAsync(String(d.id))
-                                    .then(() => {
-                                      invalidateDetail();
-                                      onSaved?.();
-                                    })
-                                    .catch((e: unknown) =>
-                                      setError(e instanceof Error ? e.message : 'Remove device failed'),
-                                    )
-                                }
-                              >
-                                Remove Device
-                              </Button>
-                            </td>
-                          </tr>
-                        ))
+                        devices.map((d) => {
+                          const deviceId = String(d.id);
+                          const isPrimary = Boolean(d.isPrimary);
+                          const lastSeen = (d.lastSeenAt as string | null | undefined) ?? null;
+                          return (
+                            <tr key={deviceId} className="border-b border-border/60">
+                              <td className="px-3 py-2">{String(d.deviceType ?? '—')}</td>
+                              <td className="px-3 py-2">
+                                <span className="inline-flex items-center gap-1.5">
+                                  {String(d.name ?? '—')}
+                                  {isPrimary ? (
+                                    <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" aria-label="Primary device" />
+                                  ) : null}
+                                </span>
+                              </td>
+                              <td className="px-3 py-2">{String(d.manufacturer ?? '—')}</td>
+                              <td className="px-3 py-2">{String(d.model ?? '—')}</td>
+                              <td className="px-3 py-2 font-mono text-xs">{String(d.macAddress ?? '—')}</td>
+                              <td className="px-3 py-2">
+                                {String(
+                                  (d.sipEndpoint as { registrationStatus?: string } | undefined)?.registrationStatus ??
+                                    '—',
+                                )}
+                              </td>
+                              <td className="px-3 py-2 text-xs text-muted-foreground">
+                                {lastSeen ? new Date(lastSeen).toLocaleString() : 'Never'}
+                              </td>
+                              <td className="px-3 py-2">
+                                <div className="flex flex-wrap gap-2">
+                                  {!isPrimary && devices.length > 1 ? (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      disabled={makePrimaryDevice.isPending}
+                                      onClick={() => makeDevicePrimary(deviceId)}
+                                    >
+                                      Make Primary
+                                    </Button>
+                                  ) : null}
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    disabled={deleteDevice.isPending}
+                                    onClick={() =>
+                                      void deleteDevice
+                                        .mutateAsync(deviceId)
+                                        .then(() => {
+                                          invalidateDetail();
+                                          onSaved?.();
+                                          toast.success('Device Removed');
+                                        })
+                                        .catch((e: unknown) => {
+                                          const message = e instanceof Error ? e.message : 'Remove device failed';
+                                          setError(message);
+                                          toast.error('Remove Device Failed', { description: message });
+                                        })
+                                    }
+                                  >
+                                    Remove Device
+                                  </Button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })
                       ) : (
                         <tr>
-                          <td colSpan={4} className="px-3 py-6 text-center text-muted-foreground">
+                          <td colSpan={8} className="px-3 py-6 text-center text-muted-foreground">
                             No devices assigned
                           </td>
                         </tr>
@@ -721,27 +1005,141 @@ export function ExtensionConfigureModal({
                     </tbody>
                   </table>
                 </div>
-                <div className="grid gap-3 sm:grid-cols-3">
-                  <div className="rounded-xl border border-border p-4 text-sm">
-                    <p className="font-medium">Softphone</p>
-                    <p className="mt-1 text-muted-foreground">
-                      {row.hasMobileApp || devices.some((d) => d.deviceType === 'WEBRTC') ? 'Configured' : 'Not set'}
-                    </p>
-                  </div>
-                  <div className="rounded-xl border border-border p-4 text-sm">
-                    <p className="font-medium">Mobile App</p>
-                    <p className="mt-1 text-muted-foreground">{row.hasMobileApp ? 'Configured' : 'Not set'}</p>
-                    <Button size="sm" variant="outline" className="mt-3" onClick={() => setTab('sip')}>
-                      Open QR
+
+                <div className="rounded-xl border border-border p-4">
+                  <p className="mb-3 text-sm font-medium">Add Device</p>
+                  <div className="flex flex-wrap items-end gap-3">
+                    <label className="block space-y-1.5 text-sm">
+                      <span className="font-medium">Type</span>
+                      <select
+                        className="h-10 w-48 rounded-xl border border-border bg-background px-3 text-sm"
+                        value={addDeviceChoice}
+                        onChange={(e) => {
+                          const next = e.target.value as AddDeviceChoice;
+                          setAddDeviceChoice(next);
+                          if ((HARDWARE_BRANDS as readonly string[]).includes(next)) {
+                            setDeviceForm((f) => ({ ...f, manufacturer: next }));
+                          }
+                        }}
+                      >
+                        {ADD_DEVICE_CHOICES.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    {(HARDWARE_BRANDS as readonly string[]).includes(addDeviceChoice) ? (
+                      <>
+                        <label className="block space-y-1.5 text-sm">
+                          <span className="font-medium">MAC Address</span>
+                          <Input
+                            value={deviceForm.macAddress}
+                            onChange={(e) => setDeviceForm((f) => ({ ...f, macAddress: e.target.value }))}
+                            placeholder="AA:BB:CC:DD:EE:FF"
+                            className="w-48 font-mono"
+                          />
+                        </label>
+                        <label className="block space-y-1.5 text-sm">
+                          <span className="font-medium">Model</span>
+                          <Input
+                            value={deviceForm.model}
+                            onChange={(e) => setDeviceForm((f) => ({ ...f, model: e.target.value }))}
+                            className="w-40"
+                          />
+                        </label>
+                      </>
+                    ) : null}
+                    <Button onClick={() => void addDeviceGeneric()} disabled={createDevice.isPending}>
+                      Add Device
                     </Button>
                   </div>
-                  <div className="rounded-xl border border-border p-4 text-sm">
-                    <p className="font-medium">Desk Phone</p>
-                    <p className="mt-1 text-muted-foreground">{row.hasDeskPhone ? 'Configured' : 'Not set'}</p>
-                    <Button size="sm" variant="outline" className="mt-3" onClick={() => setTab('desk')}>
-                      {row.hasDeskPhone ? 'Manage' : 'Add Device'}
-                    </Button>
+                </div>
+
+                <div className="grid gap-6 lg:grid-cols-2">
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-medium">SIP Credentials</p>
+                      {sipCredentialsQuery.isFetching ? (
+                        <span className="text-xs text-muted-foreground">Loading…</span>
+                      ) : null}
+                    </div>
+                    <Field label="Username">
+                      <div className="flex gap-2">
+                        <Input
+                          value={sipCredentialsQuery.data?.username ?? row.extension}
+                          readOnly
+                          className="bg-muted/40 font-mono"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          onClick={() =>
+                            void copyToClipboard(sipCredentialsQuery.data?.username ?? row.extension, 'Username Copied')
+                          }
+                          aria-label="Copy SIP username"
+                        >
+                          <Copy className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </Field>
+                    <Field label="Password" hint="Hidden by default — reveal only when needed.">
+                      <div className="flex gap-2">
+                        <Input
+                          type={revealedPassword ? 'text' : 'password'}
+                          value={revealedPassword ?? '••••••••••••'}
+                          readOnly
+                          className="bg-muted/40 font-mono"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          disabled={revealSipPassword.isPending}
+                          onClick={() => (revealedPassword ? setRevealedPassword(null) : doRevealSipPassword())}
+                          aria-label={revealedPassword ? 'Hide password' : 'Reveal password'}
+                        >
+                          {revealedPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          disabled={!revealedPassword}
+                          onClick={() => revealedPassword && void copyToClipboard(revealedPassword, 'Password Copied')}
+                          aria-label="Copy password"
+                        >
+                          <Copy className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </Field>
+                    <Field label="Domain">
+                      <Input value={sipCredentialsQuery.data?.domain ?? '—'} readOnly className="bg-muted/40 font-mono" />
+                    </Field>
+                    <Field label="Outbound Proxy">
+                      <Input value={sipCredentialsQuery.data?.outboundProxy ?? '—'} readOnly className="bg-muted/40 font-mono" />
+                    </Field>
+                    <Field label="Transport">
+                      <Input value={sipCredentialsQuery.data?.transport ?? 'UDP'} readOnly className="bg-muted/40" />
+                    </Field>
+                    <div className="flex flex-wrap gap-2">
+                      <Button size="sm" variant="outline" disabled={resetSipPassword.isPending} onClick={doResetSipPassword}>
+                        Reset Password
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => void loadQr()} disabled={mobileQr.isPending}>
+                        <QrCode className="h-4 w-4" />
+                        Generate QR
+                      </Button>
+                    </div>
                   </div>
+                  <ExtensionQrPanel
+                    row={row}
+                    qr={qr}
+                    loading={mobileQr.isPending}
+                    onRegenerate={() => void loadQr()}
+                    hasExistingMobile={row.hasMobileApp}
+                  />
                 </div>
               </div>
             ) : null}
@@ -749,58 +1147,124 @@ export function ExtensionConfigureModal({
             {tab === 'desk' && row ? (
               <div className="space-y-5">
                 {row.hasDeskPhone && deskDevice ? (
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <Field label="Vendor">
-                      <Input value={String(deskDevice.manufacturer ?? '—')} readOnly className="bg-muted/40" />
-                    </Field>
-                    <Field label="Model">
-                      <Input value={String(deskDevice.model ?? '—')} readOnly className="bg-muted/40" />
-                    </Field>
-                    <Field label="MAC Address">
-                      <Input value={String(deskDevice.macAddress ?? '—')} readOnly className="bg-muted/40 font-mono" />
-                    </Field>
-                    <Field label="Provision URL">
-                      <div className="flex gap-2">
-                        <Input value={provUrl || '—'} readOnly className="bg-muted/40 font-mono text-xs" />
+                  <div className="grid gap-6 lg:grid-cols-[1fr_auto]">
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <Field label="Vendor">
+                        <Input value={String(deskDevice.manufacturer ?? '—')} readOnly className="bg-muted/40" />
+                      </Field>
+                      <Field label="Model">
+                        <Input value={String(deskDevice.model ?? '—')} readOnly className="bg-muted/40" />
+                      </Field>
+                      <Field label="Firmware">
+                        <Input value={String(deskDevice.firmwareVersion ?? '—')} readOnly className="bg-muted/40" />
+                      </Field>
+                      <Field label="MAC Address">
+                        <Input value={String(deskDevice.macAddress ?? '—')} readOnly className="bg-muted/40 font-mono" />
+                      </Field>
+                      <Field label="Configuration Version">
+                        <Input value={String(deskDevice.version ?? deskDevice.configVersion ?? '—')} readOnly className="bg-muted/40" />
+                      </Field>
+                      <Field label="Last Provision">
+                        <Input
+                          value={
+                            deskDevice.lastProvisionedAt
+                              ? new Date(String(deskDevice.lastProvisionedAt)).toLocaleString()
+                              : 'Never'
+                          }
+                          readOnly
+                          className="bg-muted/40"
+                        />
+                      </Field>
+                      <Field label="Provision URL">
+                        <div className="flex gap-2">
+                          <Input value={provUrl || '—'} readOnly className="bg-muted/40 font-mono text-xs" />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            disabled={!provUrl}
+                            onClick={() => void copyProvUrl()}
+                            aria-label="Copy provision URL"
+                          >
+                            {copiedUrl ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                          </Button>
+                        </div>
+                      </Field>
+                      <div className="flex flex-wrap gap-2 sm:col-span-2">
                         <Button
-                          type="button"
                           variant="outline"
-                          size="icon"
-                          disabled={!provUrl}
-                          onClick={() => void copyProvUrl()}
-                          aria-label="Copy provision URL"
+                          disabled={!row.device?.id || reprovision.isPending}
+                          onClick={() =>
+                            row.device?.id &&
+                            void reprovision
+                              .mutateAsync(row.device.id)
+                              .then(() => {
+                                onSaved?.();
+                                toast.success('Provision Successful');
+                              })
+                              .catch((e: unknown) =>
+                                toast.error('Regenerate Config Failed', { description: e instanceof Error ? e.message : undefined }),
+                              )
+                          }
                         >
-                          {copiedUrl ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                          Regenerate Config
+                        </Button>
+                        <Button
+                          variant="outline"
+                          disabled={!row.device?.id || reprovision.isPending}
+                          onClick={() =>
+                            row.device?.id &&
+                            void reprovision
+                              .mutateAsync(row.device.id)
+                              .then(() => {
+                                onSaved?.();
+                                toast.success('Re-Provision Successful');
+                              })
+                              .catch((e: unknown) =>
+                                toast.error('Re-Provision Failed', { description: e instanceof Error ? e.message : undefined }),
+                              )
+                          }
+                        >
+                          Re-Provision
+                        </Button>
+                        <Button
+                          variant="outline"
+                          disabled={!row.device?.id || reboot.isPending}
+                          onClick={() =>
+                            row.device?.id &&
+                            void reboot
+                              .mutateAsync(row.device.id)
+                              .then(() => toast.success('Reboot Command Sent'))
+                              .catch((e: unknown) =>
+                                toast.error('Reboot Failed', { description: e instanceof Error ? e.message : undefined }),
+                              )
+                          }
+                        >
+                          Reboot Device
                         </Button>
                       </div>
-                    </Field>
-                    <div className="flex flex-wrap gap-2 sm:col-span-2">
-                      <Button
-                        variant="outline"
-                        disabled={!row.device?.id || reprovision.isPending}
-                        onClick={() => row.device?.id && void reprovision.mutateAsync(row.device.id).then(() => onSaved?.())}
-                      >
-                        Regenerate Config
-                      </Button>
-                      <Button
-                        variant="outline"
-                        disabled={!row.device?.id || reboot.isPending}
-                        onClick={() => row.device?.id && void reboot.mutateAsync(row.device.id)}
-                      >
-                        Reboot Device
-                      </Button>
                     </div>
+                    {provUrl ? (
+                      <div className="flex flex-col items-center gap-2 rounded-xl border border-border p-3">
+                        <img
+                          src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(provUrl)}`}
+                          alt="Provisioning URL QR code"
+                          width={160}
+                          height={160}
+                          className="rounded-lg"
+                        />
+                        <span className="text-xs text-muted-foreground">Scan to provision</span>
+                      </div>
+                    ) : null}
                   </div>
                 ) : (
-                  <>
-                    <p className="text-sm text-muted-foreground">
-                      Add a desk phone for this extension. Provision URL is available after the device is created.
-                    </p>
-                    <DeviceModelFields form={deviceForm} setForm={setDeviceForm} deskPhone />
-                    <Button onClick={() => void provisionDeskPhone()} disabled={createDevice.isPending}>
-                      Add Device
+                  <div className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+                    <p className="mb-3 font-medium text-foreground">No desk phone yet.</p>
+                    <p className="mb-4">Add a desk phone from the Device tab to see its vendor, model, MAC, and provisioning URL here.</p>
+                    <Button variant="outline" onClick={() => setTab('devices')}>
+                      Go to Device tab
                     </Button>
-                  </>
+                  </div>
                 )}
               </div>
             ) : null}
@@ -808,17 +1272,60 @@ export function ExtensionConfigureModal({
             {tab === 'did' && row ? (
               <div className="space-y-4 max-w-xl">
                 <p className="text-sm text-muted-foreground">
-                  DID is read-only here (One DID ↔ One Extension). Platform Admin assigns numbers to
-                  your tenant and auto-creates this extension. Removing a DID keeps the extension and
-                  marks it Inactive.
+                  One DID ↔ One Extension. Numbers are assigned to your tenant by Platform Admin, then bound to an
+                  extension here. Assign, change, or remove the number for this extension without leaving Configure.
                 </p>
-                <Field label="Assigned Number">
+                <Field label="Primary DID">
                   {row.did ? (
                     <Input value={row.did.formatted} readOnly className="bg-muted/40 font-mono" />
                   ) : (
                     <Input value="No DID assigned" readOnly className="bg-muted/40 font-mono" />
                   )}
                 </Field>
+                <div className="flex flex-wrap gap-2">
+                  <Button variant="outline" onClick={() => setDidPickerOpen((v) => !v)}>
+                    {row.did ? 'Change DID' : 'Assign DID'}
+                  </Button>
+                  {row.did ? (
+                    <Button variant="outline" onClick={() => void removeDid()} disabled={unassignDid.isPending}>
+                      Remove DID (mark extension Inactive)
+                    </Button>
+                  ) : null}
+                </div>
+
+                {didPickerOpen ? (
+                  <div className="rounded-xl border border-border p-3">
+                    <Input
+                      placeholder="Search available numbers…"
+                      value={didSearch}
+                      onChange={(e) => setDidSearch(e.target.value)}
+                      className="mb-3"
+                    />
+                    <div className="max-h-56 space-y-1 overflow-y-auto">
+                      {availableDidsQuery.isLoading ? (
+                        <p className="px-1 py-2 text-sm text-muted-foreground">Loading…</p>
+                      ) : availableUnassignedDids.length ? (
+                        availableUnassignedDids.map((d) => (
+                          <button
+                            key={d.id}
+                            type="button"
+                            disabled={didBusy}
+                            onClick={() => void assignSelectedDid(d.id)}
+                            className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left text-sm font-mono hover:bg-muted disabled:opacity-50"
+                          >
+                            <span>{formatPhoneDisplay(String(d.number))}</span>
+                            <span className="text-xs text-primary">Select</span>
+                          </button>
+                        ))
+                      ) : (
+                        <p className="px-1 py-2 text-sm text-muted-foreground">
+                          No unassigned numbers. Ask Platform Admin to assign more DIDs to your tenant.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ) : null}
+
                 <Field label="CNAM">
                   <Input value={form.cnam} onChange={(e) => patchForm({ cnam: e.target.value, callerIdName: e.target.value })} />
                 </Field>
@@ -829,11 +1336,22 @@ export function ExtensionConfigureModal({
                     placeholder="Service address for E911"
                   />
                 </Field>
-                {row.did ? (
-                  <Button variant="outline" onClick={() => void removeDid()} disabled={unassignDid.isPending}>
-                    Remove DID (mark extension Inactive)
+
+                <div className="mt-2 rounded-xl border border-dashed border-border bg-muted/20 p-4 opacity-70">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-medium text-muted-foreground">Secondary DIDs</p>
+                    <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      Coming soon
+                    </span>
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Multiple DIDs per extension are not yet supported. This section is reserved for future
+                    secondary-number assignment.
+                  </p>
+                  <Button variant="outline" size="sm" className="mt-3" disabled>
+                    Add Secondary DID
                   </Button>
-                ) : null}
+                </div>
               </div>
             ) : null}
 
@@ -976,45 +1494,38 @@ export function ExtensionConfigureModal({
 
             {tab === 'activity' && row ? (
               <div className="space-y-4 text-sm">
-                <div className="rounded-xl border border-border p-4">
-                  <h3 className="font-medium">Registration History</h3>
-                  <p className="mt-2 text-muted-foreground">
-                    Last registration:{' '}
-                    {row.lastRegistrationAt
-                      ? new Date(row.lastRegistrationAt).toLocaleString()
-                      : 'Never'}
-                  </p>
-                  <p className="mt-1 text-muted-foreground">Status: {row.registrationLabel}</p>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="mt-3"
-                    onClick={() => void restartReg.mutateAsync(row.id).then(() => onSaved?.())}
-                  >
-                    Restart Registration
-                  </Button>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h3 className="font-medium">Activity Timeline</h3>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={restartReg.isPending}
+                      onClick={() =>
+                        void restartReg
+                          .mutateAsync(row.id)
+                          .then(() => {
+                            onSaved?.();
+                            toast.success('Registration Restarted');
+                          })
+                          .catch((e: unknown) =>
+                            toast.error('Restart Registration Failed', {
+                              description: e instanceof Error ? e.message : undefined,
+                            }),
+                          )
+                      }
+                    >
+                      Restart Registration
+                    </Button>
+                    <Link
+                      href={`/reports/cdr?extension=${encodeURIComponent(row.extension)}`}
+                      className="text-xs text-primary underline"
+                    >
+                      Open call history
+                    </Link>
+                  </div>
                 </div>
-                <div className="rounded-xl border border-border p-4">
-                  <h3 className="font-medium">Recent Calls</h3>
-                  <p className="mt-2 text-muted-foreground">
-                    {row.lastCallRelative ? `Last call ${row.lastCallRelative}` : 'No calls yet'}
-                  </p>
-                  <Link
-                    href={`/reports/cdr?extension=${encodeURIComponent(row.extension)}`}
-                    className="mt-3 inline-flex text-primary underline"
-                  >
-                    Open call history
-                  </Link>
-                </div>
-                <div className="rounded-xl border border-border p-4">
-                  <h3 className="font-medium">Audit Log</h3>
-                  <p className="mt-2 text-muted-foreground">
-                    Extension configuration changes are recorded in tenant audit logs.
-                  </p>
-                  <Link href="/settings/audit" className="mt-3 inline-flex text-primary underline">
-                    View audit log
-                  </Link>
-                </div>
+                <ActivityTimeline events={activityQuery.data} loading={activityQuery.isLoading} />
               </div>
             ) : null}
           </>

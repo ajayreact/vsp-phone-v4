@@ -37,7 +37,6 @@ Reference: `.env.production.template`, `.env.example`, `docs/07-deployment/ENVIR
 | Variable | Purpose |
 |----------|---------|
 | `NEXT_PUBLIC_PORTAL` | Dev only — portal override on localhost |
-| `NEXT_PUBLIC_TENANT_PORTAL_V2` | Tenant nav v2 feature flag |
 
 ## Telecom / SIP
 

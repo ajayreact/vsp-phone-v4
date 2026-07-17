@@ -277,7 +277,7 @@ export class PlatformTenantsService {
     const siteCode = slugFromName(dto.siteLocationCode?.trim() || dto.siteName?.trim() || 'main-office').slice(0, 32);
     const timezone = dto.timezone?.trim() || dto.adminTimezone?.trim() || 'America/New_York';
     const siteTimezone = dto.siteTimezone?.trim() || timezone;
-    let createdSubscriptionId = subscriptionId;
+    const createdSubscriptionId = subscriptionId;
 
     await this.prisma.$transaction(async (tx) => {
       await tx.tenant.create({

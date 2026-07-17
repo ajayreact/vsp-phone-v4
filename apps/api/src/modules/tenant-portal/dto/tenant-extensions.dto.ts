@@ -43,11 +43,6 @@ export class CreateExtensionDto {
 
   @ApiPropertyOptional()
   @IsOptional()
-  @IsUUID()
-  phoneNumberId?: string;
-
-  @ApiPropertyOptional()
-  @IsOptional()
   @IsString()
   @MaxLength(128)
   emergencyCallerIdName?: string;

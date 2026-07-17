@@ -1,7 +1,6 @@
 import {
   Body,
   Controller,
-  ForbiddenException,
   Get,
   Param,
   Post,
@@ -65,16 +64,15 @@ export class TenantDidsController {
   @Post(':id/assign')
   @RequirePermission(PERMISSIONS.TENANT_DIDS_WRITE)
   @ApiOperation({
-    summary: 'Assign DID routing destination (disabled for tenants)',
+    summary: 'Assign / change / remove a DID → extension binding (Extension Workspace)',
     description:
-      'Extension Workspace: Platform Admin assigns DIDs to tenants (auto-provisions extension). Tenant portal cannot assign; use Remove DID / Configure on the extension instead.',
+      'Platform Admin assigns raw numbers to a tenant (auto-provisioning the extension). Once a number belongs to the ' +
+      'tenant, tenant admins may (re)bind it to one of their own extensions from Configure → DID. Scoped to tenant-owned ' +
+      'numbers only; enforces One DID ↔ One Extension via assertCanBindDidToLine.',
   })
-  async assign(@Param('id') _id: string, @Body() _dto: AssignDidDto, @Req() req: Request) {
-    // Tenant surface only accepts tenant JWTs — this write path is retired.
-    // Platform Admin assigns DIDs via carrier inventory (auto-provisions extensions).
-    getJwtUser(req);
-    throw new ForbiddenException(
-      'DID assignment is managed by Platform Admin. Numbers appear on extensions automatically when assigned to your tenant.',
-    );
+  async assign(@Param('id') id: string, @Body() dto: AssignDidDto, @Req() req: Request) {
+    const user = getJwtUser(req);
+    const data = await this.dids.assign(user.tenantId, user.sub, id, dto);
+    return { data };
   }
 }

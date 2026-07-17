@@ -1,11 +1,23 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { LineStatus, PresenceStatus, Prisma } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { EnterpriseAuditService } from '../../enterprise-observability/audit/enterprise-audit.service';
+import { ProvisioningVaultService } from '../../provisioning/vault/provisioning-vault.service';
 import { PrismaService } from '../../telecom/prisma/prisma.service';
 import type { CreateLineDto, LineTelephonySettingsDto, UpdateLineDto } from '../dto/tenant-lines.dto';
 import { auditPbxMutation } from '../utils/tenant-pbx-audit';
 import { assertPhoneNumberBelongsToTenant, newPublicId, tenantScope } from '../utils/tenant.util';
+import { LineSipEndpointService } from './line-sip-endpoint.service';
+
+export type SipCredentialsView = {
+  sipEndpointId: string;
+  username: string;
+  domain: string;
+  outboundProxy: string;
+  transport: string;
+  hasPassword: boolean;
+};
 
 const lineInclude = {
   user: { select: { id: true, email: true, profile: { select: { firstName: true, lastName: true, displayName: true } } } },
@@ -20,10 +32,17 @@ const lineInclude = {
 
 @Injectable()
 export class TenantLinesService {
+  private readonly registrarHost: string;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: EnterpriseAuditService,
-  ) {}
+    private readonly lineSip: LineSipEndpointService,
+    private readonly vault: ProvisioningVaultService,
+    private readonly config: ConfigService,
+  ) {
+    this.registrarHost = (this.config.get<string>('SIP_REGISTRAR_HOST') || '').trim();
+  }
 
   async list(tenantId: string, search?: string) {
     if (!this.prisma.connected) return [];
@@ -239,6 +258,85 @@ export class TenantLinesService {
         ...this.settingsPatch(dto),
       } as Prisma.LineTelephonySettingsUncheckedCreateInput,
     });
+  }
+
+  /** SIP credentials for the line's shared endpoint — never returns plaintext password. */
+  async getSipCredentials(tenantId: string, lineId: string): Promise<SipCredentialsView> {
+    await this.require(tenantId, lineId);
+    const sipEndpoint = await this.lineSip.resolveOrCreateForLine({ tenantId, lineId });
+    const primaryDevice = await this.prisma.device.findFirst({
+      where: { tenantId, lineId, deletedAt: null },
+      select: { transport: true },
+      orderBy: [{ isPrimary: 'desc' }, { updatedAt: 'desc' }],
+    });
+
+    return this.toSipCredentialsView(sipEndpoint, primaryDevice?.transport ?? null);
+  }
+
+  /** Reveal the current plaintext SIP password once (never fetched eagerly by the UI). */
+  async revealSipPassword(tenantId: string, actorUserId: string, lineId: string) {
+    await this.require(tenantId, lineId);
+    const sipEndpoint = await this.lineSip.resolveOrCreateForLine({ tenantId, lineId });
+    let password = this.vault.resolveDeskSipPassword(sipEndpoint.id);
+    if (!password) {
+      password = this.vault.issueDeskSip({
+        sipEndpointId: sipEndpoint.id,
+        authUsername: sipEndpoint.authUsername,
+        realm: this.realmFromAor(sipEndpoint.aor),
+      }).password;
+    }
+
+    await auditPbxMutation(this.audit, {
+      tenantId,
+      actorUserId,
+      action: 'pbx.sip.reveal_password',
+      entityType: 'Line',
+      entityId: lineId,
+      metadata: { sipEndpointId: sipEndpoint.id },
+    });
+
+    return { password };
+  }
+
+  /** Rotate the SIP password. Invalidates any currently-registered device until it re-registers. */
+  async resetSipPassword(tenantId: string, actorUserId: string, lineId: string) {
+    await this.require(tenantId, lineId);
+    const sipEndpoint = await this.lineSip.resolveOrCreateForLine({ tenantId, lineId });
+    const { password, version } = this.vault.issueDeskSip({
+      sipEndpointId: sipEndpoint.id,
+      authUsername: sipEndpoint.authUsername,
+      realm: this.realmFromAor(sipEndpoint.aor),
+    });
+
+    await auditPbxMutation(this.audit, {
+      tenantId,
+      actorUserId,
+      action: 'pbx.sip.reset_password',
+      entityType: 'Line',
+      entityId: lineId,
+      metadata: { sipEndpointId: sipEndpoint.id, version },
+    });
+
+    return { password };
+  }
+
+  private toSipCredentialsView(
+    sipEndpoint: { id: string; authUsername: string; aor: string },
+    transport: string | null,
+  ): SipCredentialsView {
+    const domain = this.realmFromAor(sipEndpoint.aor);
+    return {
+      sipEndpointId: sipEndpoint.id,
+      username: sipEndpoint.authUsername,
+      domain,
+      outboundProxy: this.registrarHost || domain,
+      transport: transport ?? 'UDP',
+      hasPassword: Boolean(this.vault.resolveDeskSipPassword(sipEndpoint.id)),
+    };
+  }
+
+  private realmFromAor(aor: string): string {
+    return aor.split('@').pop() ?? aor;
   }
 
   private async require(tenantId: string, id: string) {

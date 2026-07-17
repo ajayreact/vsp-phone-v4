@@ -29,9 +29,9 @@ export function extensionNeedsBusinessSetup(opts: {
   extension: string;
   displayName: string;
   hasLinkedUser: boolean;
-  status: 'Registered' | 'Provisioned' | 'NoDevice' | 'RegistrationFailed' | 'Inactive';
+  status: 'Registered' | 'Provisioned' | 'NoDevice' | 'RegistrationFailed' | 'Inactive' | 'Archived';
 }): boolean {
-  if (opts.status === 'Inactive') return false;
+  if (opts.status === 'Inactive' || opts.status === 'Archived') return false;
   if (opts.status === 'NoDevice') return true;
   const incomplete =
     !opts.hasLinkedUser ||

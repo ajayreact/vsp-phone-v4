@@ -9,7 +9,8 @@ export type ExtensionHubStatus =
   | 'Provisioned'
   | 'NoDevice'
   | 'RegistrationFailed'
-  | 'Inactive';
+  | 'Inactive'
+  | 'Archived';
 
 export type ExtensionHubStats = {
   totalExtensions: number;
@@ -54,6 +55,9 @@ export type ExtensionHubRow = {
   voicemailEnabled: boolean;
   linkedUser: { id: string; email: string; displayName: string | null } | null;
   lineStatus?: 'ACTIVE' | 'INACTIVE';
+  createdAt?: string;
+  archivedAt?: string | null;
+  archived?: boolean;
 };
 
 export type ExtensionMobileQrResult = {
@@ -133,9 +137,45 @@ export function useExtensionRestartRegistration() {
   });
 }
 
+function invalidateExtensionQueries(qc: ReturnType<typeof useQueryClient>, id?: string) {
+  void qc.invalidateQueries({ queryKey: ['tenant', 'extensionHub'] });
+  if (id) void qc.invalidateQueries({ queryKey: queryKeys.tenant.extensionDetail(id) });
+}
+
+export function useDisableExtension() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => tenantRepository.disableExtension(id),
+    onSuccess: (_data, id) => invalidateExtensionQueries(qc, id),
+  });
+}
+
+export function useEnableExtension() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => tenantRepository.enableExtension(id),
+    onSuccess: (_data, id) => invalidateExtensionQueries(qc, id),
+  });
+}
+
+export function useArchiveExtension() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => tenantRepository.archiveExtension(id),
+    onSuccess: (_data, id) => invalidateExtensionQueries(qc, id),
+  });
+}
+
+export function useUnarchiveExtension() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => tenantRepository.unarchiveExtension(id),
+    onSuccess: (_data, id) => invalidateExtensionQueries(qc, id),
+  });
+}
+
 export type ConfigureTabId =
   | 'general'
-  | 'sip'
   | 'devices'
   | 'desk'
   | 'did'
@@ -148,12 +188,14 @@ export type ConfigureTabId =
   | 'overview'
   | 'phone'
   | 'mobile'
+  | 'sip'
   | 'callHandling'
   | 'advanced';
 
+/** Tabs per the Extension Workspace spec: General, DID, Device, Provisioning ('desk'), Voicemail, Call Features, Recording, Permissions, Activity. */
 export function normalizeConfigureTab(tab: ConfigureTabId | undefined): Exclude<
   ConfigureTabId,
-  'overview' | 'phone' | 'mobile' | 'callHandling' | 'advanced'
+  'overview' | 'phone' | 'mobile' | 'sip' | 'callHandling' | 'advanced'
 > {
   switch (tab) {
     case 'overview':
@@ -162,13 +204,14 @@ export function normalizeConfigureTab(tab: ConfigureTabId | undefined): Exclude<
     case 'phone':
       return 'did';
     case 'mobile':
-      return 'sip';
+    case 'sip':
+      return 'devices';
     case 'callHandling':
       return 'callFeatures';
     case 'advanced':
       return 'permissions';
     default:
-      return tab as Exclude<ConfigureTabId, 'overview' | 'phone' | 'mobile' | 'callHandling' | 'advanced'>;
+      return tab as Exclude<ConfigureTabId, 'overview' | 'phone' | 'mobile' | 'sip' | 'callHandling' | 'advanced'>;
   }
 }
 

@@ -106,6 +106,46 @@ export const tenantRepository = {
     return httpPost(`/v1/tenant/extensions/${id}/restart-registration`, {});
   },
 
+  disableExtension(id: string): Promise<Record<string, unknown>> {
+    return httpPost(`/v1/tenant/extensions/${id}/disable`, {});
+  },
+
+  enableExtension(id: string): Promise<Record<string, unknown>> {
+    return httpPost(`/v1/tenant/extensions/${id}/enable`, {});
+  },
+
+  archiveExtension(id: string): Promise<Record<string, unknown>> {
+    return httpPost(`/v1/tenant/extensions/${id}/archive`, {});
+  },
+
+  unarchiveExtension(id: string): Promise<Record<string, unknown>> {
+    return httpPost(`/v1/tenant/extensions/${id}/unarchive`, {});
+  },
+
+  getExtensionActivity(
+    id: string,
+  ): Promise<import('../hooks/queries/use-extension-activity').ActivityEvent[]> {
+    return httpGet<{ data: import('../hooks/queries/use-extension-activity').ActivityEvent[] }>(
+      `/v1/tenant/extensions/${id}/activity`,
+    ).then(normalizeList);
+  },
+
+  getSipCredentials(
+    lineId: string,
+  ): Promise<import('../hooks/queries/use-sip-credentials').SipCredentialsView> {
+    return httpGet<{ data: import('../hooks/queries/use-sip-credentials').SipCredentialsView }>(
+      `/v1/tenant/lines/${lineId}/sip-credentials`,
+    ).then(unwrapData);
+  },
+
+  revealSipPassword(lineId: string): Promise<{ password: string }> {
+    return httpPost(`/v1/tenant/lines/${lineId}/sip-credentials/reveal`, {});
+  },
+
+  resetSipPassword(lineId: string): Promise<{ password: string }> {
+    return httpPost(`/v1/tenant/lines/${lineId}/sip-credentials/reset`, {});
+  },
+
   listDids(search?: string): Promise<Record<string, unknown>[]> {
     const q = search ? `?search=${encodeURIComponent(search)}` : '';
     return httpGet<{ data: Record<string, unknown>[] }>(`/v1/tenant/dids${q}`).then(normalizeList);

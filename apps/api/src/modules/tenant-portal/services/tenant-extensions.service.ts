@@ -23,6 +23,7 @@ import type {
   RenameExtensionDisplayNameDto,
   UpdateExtensionDto,
 } from '../dto/tenant-extensions.dto';
+import { type ActivityEvent, describeAuditAction } from '../utils/activity-timeline.util';
 import {
   markLineInactiveAfterDidRemoval,
 } from '../utils/did-extension-binding';
@@ -42,7 +43,8 @@ export type ExtensionHubStatus =
   | 'Provisioned'
   | 'NoDevice'
   | 'RegistrationFailed'
-  | 'Inactive';
+  | 'Inactive'
+  | 'Archived';
 
 export type ExtensionHubStats = {
   totalExtensions: number;
@@ -89,6 +91,9 @@ export type ExtensionHubRow = {
   voicemailEnabled: boolean;
   linkedUser: { id: string; email: string; displayName: string | null } | null;
   lineStatus: 'ACTIVE' | 'INACTIVE';
+  createdAt: string;
+  archivedAt: string | null;
+  archived: boolean;
 };
 
 const extensionInclude = {
@@ -242,12 +247,14 @@ export class TenantExtensionsService {
           userId: dto.userId,
           name: displayName,
           callerIdName: dto.callerIdName,
-          phoneNumberId: dto.phoneNumberId,
           emergencyCallerIdName: dto.emergencyCallerIdName,
           settings: dto.settings,
         });
         lineId = line.id;
       } else {
+        // Add Extension is permanently DID-agnostic — no phoneNumberId here.
+        // DIDs are only ever bound via Platform Admin auto-provisioning or
+        // the Extensions → Configure → DID workflow (assertCanBindDidToLine).
         const ext = await this.autoProvision.ensureFullyProvisionedExtension(
           tenantId,
           dto.extension,
@@ -256,16 +263,14 @@ export class TenantExtensionsService {
             displayName,
             description: dto.description,
             departmentId: dto.departmentId,
-            phoneNumberId: dto.phoneNumberId,
           },
         );
         return this.getById(tenantId, ext.id);
       }
-    } else if (dto.settings || dto.callerIdName || dto.emergencyCallerIdName || dto.phoneNumberId || dto.displayName) {
+    } else if (dto.settings || dto.callerIdName || dto.emergencyCallerIdName || dto.displayName) {
       await this.lines.update(tenantId, userId, lineId, {
         name: dto.displayName ?? dto.lineName,
         callerIdName: dto.callerIdName,
-        phoneNumberId: dto.phoneNumberId,
         emergencyCallerIdName: dto.emergencyCallerIdName,
         settings: dto.settings,
       });
@@ -785,6 +790,170 @@ export class TenantExtensionsService {
     return this.mobileQr(tenantId, actorUserId, id);
   }
 
+  /** Disable extension: deactivates the line (stops inbound routing/registration) without deleting anything. */
+  async disable(tenantId: string, actorUserId: string, id: string) {
+    const existing = await this.require(tenantId, id);
+    if (existing.archivedAt) {
+      throw new BadRequestException('Unarchive this extension before disabling it');
+    }
+    const line = await this.prisma.line.findFirst({ where: { id: existing.lineId, tenantId } });
+    if (!line) throw new NotFoundException('Line not found');
+    if (line.status === LineStatus.INACTIVE) {
+      throw new BadRequestException('Extension is already disabled');
+    }
+
+    await this.prisma.line.update({
+      where: { id: existing.lineId },
+      data: { status: LineStatus.INACTIVE, updatedBy: actorUserId, version: { increment: 1 } },
+    });
+
+    await auditPbxMutation(this.audit, {
+      tenantId,
+      actorUserId,
+      action: 'pbx.extension.disable',
+      entityType: 'Extension',
+      entityId: id,
+      metadata: { extension: existing.extension },
+    });
+
+    return this.getById(tenantId, id);
+  }
+
+  /** Re-enable a previously disabled extension. */
+  async enable(tenantId: string, actorUserId: string, id: string) {
+    const existing = await this.require(tenantId, id);
+    if (existing.archivedAt) {
+      throw new BadRequestException('Unarchive this extension before enabling it');
+    }
+    const line = await this.prisma.line.findFirst({ where: { id: existing.lineId, tenantId } });
+    if (!line) throw new NotFoundException('Line not found');
+    if (line.status !== LineStatus.INACTIVE) {
+      throw new BadRequestException('Extension is already enabled');
+    }
+
+    await this.prisma.line.update({
+      where: { id: existing.lineId },
+      data: { status: LineStatus.ACTIVE, updatedBy: actorUserId, version: { increment: 1 } },
+    });
+
+    await auditPbxMutation(this.audit, {
+      tenantId,
+      actorUserId,
+      action: 'pbx.extension.enable',
+      entityType: 'Extension',
+      entityId: id,
+      metadata: { extension: existing.extension },
+    });
+
+    return this.getById(tenantId, id);
+  }
+
+  /** Archive: hides the extension from active workflows while keeping it browsable/restorable. */
+  async archive(tenantId: string, actorUserId: string, id: string) {
+    const existing = await this.require(tenantId, id);
+    if (existing.archivedAt) {
+      throw new BadRequestException('Extension is already archived');
+    }
+
+    await this.prisma.extension.update({
+      where: { id: existing.id },
+      data: { archivedAt: new Date(), updatedBy: actorUserId, version: { increment: 1 } },
+    });
+
+    await auditPbxMutation(this.audit, {
+      tenantId,
+      actorUserId,
+      action: 'pbx.extension.archive',
+      entityType: 'Extension',
+      entityId: id,
+      metadata: { extension: existing.extension },
+    });
+
+    return this.getById(tenantId, id);
+  }
+
+  /** Unarchive: restores an archived extension to normal Extensions workspace visibility. */
+  async unarchive(tenantId: string, actorUserId: string, id: string) {
+    const existing = await this.require(tenantId, id);
+    if (!existing.archivedAt) {
+      throw new BadRequestException('Extension is not archived');
+    }
+
+    await this.prisma.extension.update({
+      where: { id: existing.id },
+      data: { archivedAt: null, updatedBy: actorUserId, version: { increment: 1 } },
+    });
+
+    await auditPbxMutation(this.audit, {
+      tenantId,
+      actorUserId,
+      action: 'pbx.extension.unarchive',
+      entityType: 'Extension',
+      entityId: id,
+      metadata: { extension: existing.extension },
+    });
+
+    return this.getById(tenantId, id);
+  }
+
+  /** Activity timeline: AuditLog entries touching this extension's resources, newest first, plus a synthetic Last Call entry. */
+  async activity(tenantId: string, id: string): Promise<ActivityEvent[]> {
+    const extension = await this.getById(tenantId, id);
+    const line = extension.line as unknown as {
+      devices?: Array<{ id: string }>;
+      phoneNumbers?: Array<{ id: string }>;
+      voicemail?: { id: string } | null;
+    };
+
+    const resourceIds = new Set<string>([extension.id, extension.lineId]);
+    for (const d of line.devices ?? []) resourceIds.add(d.id);
+    for (const p of line.phoneNumbers ?? []) resourceIds.add(p.id);
+    if (line.voicemail?.id) resourceIds.add(line.voicemail.id);
+
+    const entries = await this.audit.query({ tenantId, limit: 200 });
+    const events: ActivityEvent[] = entries
+      .filter((e) => e.resourceId && resourceIds.has(e.resourceId))
+      .map((e) => ({
+        id: e.auditId,
+        action: e.action,
+        label: describeAuditAction(e.action),
+        detail: this.summarizeAuditDetail(e.detail),
+        at: e.ts,
+        actorUserId: e.actorUserId,
+      }));
+
+    const lastCallAt = await this.loadLastCallAt(tenantId, extension.lineId);
+    if (lastCallAt) {
+      events.push({
+        id: `last-call-${lastCallAt.getTime()}`,
+        action: 'pbx.call.last',
+        label: 'Last Call',
+        at: lastCallAt.toISOString(),
+      });
+    }
+
+    events.sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
+    return events.slice(0, 50);
+  }
+
+  private summarizeAuditDetail(detail: Record<string, unknown> | undefined): string | undefined {
+    if (!detail) return undefined;
+    if (typeof detail.number === 'string') return detail.number;
+    if (typeof detail.extension === 'string') return `Ext. ${detail.extension}`;
+    if (typeof detail.displayName === 'string') return detail.displayName;
+    return undefined;
+  }
+
+  private async loadLastCallAt(tenantId: string, lineId: string): Promise<Date | null> {
+    const session = await this.prisma.callSession.findFirst({
+      where: { tenantId, deletedAt: null, OR: [{ fromLineId: lineId }, { toLineId: lineId }] },
+      orderBy: { createdAt: 'desc' },
+      select: { startedAt: true, endedAt: true, createdAt: true },
+    });
+    if (!session) return null;
+    return session.startedAt ?? session.endedAt ?? session.createdAt;
+  }
+
   private async ensureMobileDevice(
     tenantId: string,
     actorUserId: string,
@@ -971,6 +1140,7 @@ export class TenantExtensionsService {
     const resolved = this.resolveHubStatus(devices, line.presence?.status);
     let { status, statusLabel, registrationLabel, onlineStatus } = resolved;
     const lineStatus = line.status === LineStatus.INACTIVE ? 'INACTIVE' : 'ACTIVE';
+    const archived = Boolean(row.archivedAt);
 
     const linkedUser = user
       ? {
@@ -984,7 +1154,12 @@ export class TenantExtensionsService {
         }
       : null;
 
-    if (lineStatus === 'INACTIVE') {
+    if (archived) {
+      status = 'Archived';
+      statusLabel = 'Archived';
+      onlineStatus = 'Offline';
+      registrationLabel = 'Archived';
+    } else if (lineStatus === 'INACTIVE') {
       status = 'Inactive';
       statusLabel = 'Inactive';
       onlineStatus = 'Offline';
@@ -1052,6 +1227,9 @@ export class TenantExtensionsService {
       voicemailEnabled,
       linkedUser,
       lineStatus,
+      createdAt: row.createdAt.toISOString(),
+      archivedAt: row.archivedAt ? row.archivedAt.toISOString() : null,
+      archived,
     };
   }
 

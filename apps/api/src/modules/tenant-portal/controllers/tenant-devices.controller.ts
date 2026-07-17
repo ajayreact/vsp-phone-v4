@@ -140,6 +140,14 @@ export class TenantDevicesController {
     return this.devices.activate(user.tenantId, user.sub, id);
   }
 
+  @Post(':id/make-primary')
+  @RequirePermission(PERMISSIONS.TENANT_DEVICES_WRITE)
+  @ApiOperation({ summary: 'Mark device as primary for its extension (clears primary on siblings)' })
+  makePrimary(@Param('id') id: string, @Req() req: Request) {
+    const user = getJwtUser(req);
+    return this.devices.makePrimary(user.tenantId, user.sub, id);
+  }
+
   @Post(':id/clone')
   @RequirePermission(PERMISSIONS.TENANT_DEVICES_WRITE)
   @ApiOperation({ summary: 'Clone device configuration to new device' })

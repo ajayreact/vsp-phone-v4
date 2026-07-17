@@ -70,4 +70,29 @@ export class TenantLinesController {
     const user = getJwtUser(req);
     return this.lines.remove(user.tenantId, user.sub, id);
   }
+
+  @Get(':id/sip-credentials')
+  @RequirePermission(PERMISSIONS.TENANT_EXTENSIONS_READ)
+  @ApiOperation({ summary: 'Get SIP credentials for the line (password never returned in plaintext)' })
+  async getSipCredentials(@Param('id') id: string, @Req() req: Request) {
+    const user = getJwtUser(req);
+    const data = await this.lines.getSipCredentials(user.tenantId, id);
+    return { data };
+  }
+
+  @Post(':id/sip-credentials/reveal')
+  @RequirePermission(PERMISSIONS.TENANT_EXTENSIONS_WRITE)
+  @ApiOperation({ summary: 'Reveal current SIP password once' })
+  revealSipPassword(@Param('id') id: string, @Req() req: Request) {
+    const user = getJwtUser(req);
+    return this.lines.revealSipPassword(user.tenantId, user.sub, id);
+  }
+
+  @Post(':id/sip-credentials/reset')
+  @RequirePermission(PERMISSIONS.TENANT_EXTENSIONS_WRITE)
+  @ApiOperation({ summary: 'Rotate SIP password (invalidates current device registration)' })
+  resetSipPassword(@Param('id') id: string, @Req() req: Request) {
+    const user = getJwtUser(req);
+    return this.lines.resetSipPassword(user.tenantId, user.sub, id);
+  }
 }
