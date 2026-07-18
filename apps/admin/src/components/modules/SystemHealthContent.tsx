@@ -3,6 +3,8 @@
 import { motion } from 'framer-motion';
 import { RefreshCw } from 'lucide-react';
 import { useOpsHealth } from '../../lib/hooks/queries/use-ops';
+import { usePlatformSystemHealth } from '../../lib/hooks/queries/use-platform';
+import { usePortal } from '../../lib/portal/PortalProvider';
 import type { InfraHealthCheck } from '../../types/telecom';
 import { QueryState } from '../feedback/QueryState';
 import { PageContainer, PageHeader } from '../layout/PageHeader';
@@ -46,7 +48,12 @@ function healthBadge(status: string): 'healthy' | 'warning' | 'error' {
 }
 
 export function SystemHealthContent() {
-  const health = useOpsHealth();
+  const portal = usePortal();
+  const isPlatform = portal === 'platform';
+  // Platform Admin → /v1/platform/system-health; Ops → /v1/ops/health (never cross portal APIs).
+  const platformHealth = usePlatformSystemHealth({ enabled: isPlatform });
+  const opsHealth = useOpsHealth({ enabled: !isPlatform });
+  const health = isPlatform ? platformHealth : opsHealth;
 
   return (
     <ModuleAccessGate moduleId="system-health">

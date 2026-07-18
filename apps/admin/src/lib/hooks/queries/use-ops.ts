@@ -12,11 +12,12 @@ export function useOpsDashboard(tenantId?: string) {
   });
 }
 
-export function useOpsHealth() {
+export function useOpsHealth(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: queryKeys.ops.health(),
     queryFn: () => opsRepository.getHealth(),
     refetchInterval: 30_000,
+    enabled: options?.enabled ?? true,
   });
 }
 

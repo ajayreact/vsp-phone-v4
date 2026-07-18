@@ -21,6 +21,15 @@ export function usePlatformDashboard() {
   });
 }
 
+export function usePlatformSystemHealth(options?: { enabled?: boolean }) {
+  return useQuery({
+    queryKey: queryKeys.platform.systemHealth(),
+    queryFn: () => platformRepository.getSystemHealth(),
+    refetchInterval: 30_000,
+    enabled: options?.enabled ?? true,
+  });
+}
+
 export function usePlatformTenants(filters?: { search?: string; status?: string }) {
   return useQuery({
     queryKey: queryKeys.platform.tenants(filters),

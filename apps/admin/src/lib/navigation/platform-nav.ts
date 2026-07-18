@@ -256,6 +256,6 @@ export const PLATFORM_MODULES: ModuleDefinition[] = [
     integration: 'live',
     description: 'Platform readiness, dependency checks, and deployment status.',
     breadcrumb: ['Infrastructure', 'System Health'],
-    apiEndpoints: ['/v1/ops/health'],
+    apiEndpoints: ['/v1/platform/system-health'],
   },
 ];

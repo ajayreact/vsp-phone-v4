@@ -1,6 +1,7 @@
 export const queryKeys = {
   platform: {
     dashboard: () => ['platform', 'dashboard'] as const,
+    systemHealth: () => ['platform', 'system-health'] as const,
     tenants: (filters?: Record<string, string>) => ['platform', 'tenants', filters ?? {}] as const,
     tenant: (id: string) => ['platform', 'tenants', id] as const,
     billing: () => ['platform', 'billing', 'summary'] as const,

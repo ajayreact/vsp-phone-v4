@@ -2,6 +2,7 @@ import type {
   ApiDataResponse,
   AuditLogRecord,
   OnboardTenantResult,
+  OpsHealthDetail,
   OrganizationRecord,
   PlatformApiKeyRecord,
   PlatformBillingSummary,
@@ -125,6 +126,11 @@ export type CreateApiKeyPayload = {
 export const platformRepository = {
   getDashboard(): Promise<PlatformDashboardSnapshot> {
     return httpGet<ApiDataResponse<PlatformDashboardSnapshot>>('/v1/platform/dashboard').then(unwrapData);
+  },
+
+  /** Platform-plane System Health — never call /v1/ops from platform JWT. */
+  getSystemHealth(): Promise<OpsHealthDetail> {
+    return httpGet<OpsHealthDetail>('/v1/platform/system-health');
   },
 
   listTenants(params?: { search?: string; status?: string }): Promise<PlatformTenantRecord[]> {

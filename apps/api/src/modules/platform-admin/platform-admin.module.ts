@@ -3,6 +3,7 @@ import { AuthModule } from '../auth/auth.module';
 import { CarrierAdminModule } from '../carrier-admin/carrier-admin.module';
 import { EnterpriseObservabilityCoreModule } from '../enterprise-observability/enterprise-observability-core.module';
 import { EnterpriseSecurityCoreModule } from '../enterprise-security/enterprise-security-core.module';
+import { ProductionPlatformCoreModule } from '../production-platform/production-platform-core.module';
 import { RecordingCoreModule } from '../recording/recording-core.module';
 import { TelecomInfrastructureModule } from '../telecom/telecom-infrastructure.module';
 import { PlatformApiKeysController } from './controllers/platform-api-keys.controller';
@@ -15,6 +16,7 @@ import { PlatformProvisioningSettingsController } from './controllers/platform-p
 import { PlatformRolesController } from './controllers/platform-roles.controller';
 import { PlatformSearchController } from './controllers/platform-search.controller';
 import { PlatformSettingsController } from './controllers/platform-settings.controller';
+import { PlatformSystemHealthController } from './controllers/platform-system-health.controller';
 import {
   PlatformAssetsController,
   PlatformTenantsController,
@@ -33,6 +35,7 @@ import { PlatformProvisioningSettingsService } from './services/platform-provisi
 import { PlatformRolesService } from './services/platform-roles.service';
 import { PlatformSearchService } from './services/platform-search.service';
 import { PlatformSettingsService } from './services/platform-settings.service';
+import { PlatformSystemHealthService } from './services/platform-system-health.service';
 import { PlatformTenantsService } from './services/platform-tenants.service';
 import { PlatformUsersService } from './services/platform-users.service';
 import { TenantResetService } from './services/tenant-reset.service';
@@ -43,11 +46,13 @@ import { TenantResetService } from './services/tenant-reset.service';
     EnterpriseSecurityCoreModule,
     AuthModule,
     EnterpriseObservabilityCoreModule,
+    ProductionPlatformCoreModule,
     CarrierAdminModule,
     RecordingCoreModule,
   ],
   controllers: [
     PlatformDashboardController,
+    PlatformSystemHealthController,
     PlatformTenantsController,
     PlatformAssetsController,
     PlatformBillingController,
@@ -64,6 +69,7 @@ import { TenantResetService } from './services/tenant-reset.service';
   ],
   providers: [
     PlatformDashboardService,
+    PlatformSystemHealthService,
     PlatformTenantsService,
     TenantResetService,
     TenantDevToolsService,
@@ -81,6 +87,7 @@ import { TenantResetService } from './services/tenant-reset.service';
   ],
   exports: [
     PlatformDashboardService,
+    PlatformSystemHealthService,
     PlatformTenantsService,
     TenantResetService,
     PlatformBillingService,
