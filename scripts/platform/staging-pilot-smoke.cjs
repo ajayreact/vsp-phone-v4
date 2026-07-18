@@ -117,14 +117,14 @@ async function main() {
     process.exit(1);
   }
 
-  // B2 — inventory tenant configured
+  // B2 — Global Inventory (ownerTenantId NULL); no fake inventory tenant
   const settings = await api('GET', '/v1/platform/settings', { token: platformToken });
   const inventoryTenantId = unwrap(settings)?.inventoryTenantId;
   record(
     'B2 Inventory',
-    'inventoryTenantId configured',
-    Boolean(inventoryTenantId),
-    inventoryTenantId || 'missing',
+    'no inventory tenant required (Global Inventory)',
+    inventoryTenantId == null || inventoryTenantId === '',
+    inventoryTenantId ? `legacy inventoryTenantId still set: ${inventoryTenantId}` : 'ownerTenantId=NULL model',
   );
 
   const plansRes = await api('GET', '/v1/platform/billing/plans', { token: platformToken });
@@ -221,8 +221,7 @@ async function main() {
     const rows = unwrap(inv) || [];
     const available = (Array.isArray(rows) ? rows : []).filter(
       (n) =>
-        (n.status === 'available' || n.status === 'AVAILABLE') &&
-        (!n.assignedTenantId || n.assignedTenantId === inventoryTenantId),
+        (n.status === 'available' || n.status === 'AVAILABLE') && !n.assignedTenantId,
     );
     record('Numbers', 'Inventory available', available.length >= 3, `available=${available.length}`);
 

@@ -592,6 +592,7 @@ model Tenant {
   devices                Device[]
   deviceAssignments      DeviceAssignment[]
   phoneNumbers           PhoneNumber[]
+  ownedPhoneNumbers      PhoneNumber[]           @relation("PhoneNumberOwner")
   numberAssignments      NumberAssignment[]
   carriers               Carrier[]
   sipEndpoints           SIPEndpoint[]
@@ -1389,7 +1390,15 @@ model DeviceAssignment {
 model PhoneNumber {
   id        String            @id @db.Uuid
   publicId  String            @unique @map("public_id")
-  tenantId  String            @map("tenant_id") @db.Uuid
+  /**
+   * Owning customer tenant. NULL = Global Inventory (no fake inventory tenant).
+   */
+  ownerTenantId String?       @map("owner_tenant_id") @db.Uuid
+  /**
+   * Assigned / scoped tenant. NULL when in Global Inventory.
+   * For tenant-owned numbers this matches ownerTenantId.
+   */
+  tenantId  String?           @map("tenant_id") @db.Uuid
   siteId    String?           @map("site_id") @db.Uuid
   lineId    String?           @map("line_id") @db.Uuid
   carrierId String?           @map("carrier_id") @db.Uuid
@@ -1407,7 +1416,8 @@ model PhoneNumber {
   updatedBy String?           @map("updated_by") @db.Uuid
   deletedBy String?           @map("deleted_by") @db.Uuid
 
-  tenant                Tenant             @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  ownerTenant           Tenant?            @relation("PhoneNumberOwner", fields: [ownerTenantId], references: [id], onDelete: Restrict)
+  tenant                Tenant?            @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   site                  Site?              @relation(fields: [siteId], references: [id], onDelete: Restrict)
   line                  Line?              @relation(fields: [lineId], references: [id], onDelete: Restrict)
   carrier               Carrier?           @relation(fields: [carrierId], references: [id], onDelete: Restrict)
@@ -1420,7 +1430,7 @@ model PhoneNumber {
   inboundRoutes         InboundRoute[]
   ivrs                  IVR[]
 
-  @@unique([tenantId, number])
+  @@index([ownerTenantId])
   @@index([tenantId])
   @@index([tenantId, siteId])
   @@index([tenantId, lineId])
@@ -1473,7 +1483,10 @@ model NumberAssignment {
 model Carrier {
   id            String        @id @db.Uuid
   publicId      String        @unique @map("public_id")
-  tenantId      String        @map("tenant_id") @db.Uuid
+  /**
+   * NULL = platform-level carrier integration (e.g. single Telnyx).
+   */
+  tenantId      String?       @map("tenant_id") @db.Uuid
   name          String
   code          String
   carrierType   CarrierType   @map("carrier_type")
@@ -1487,7 +1500,7 @@ model Carrier {
   updatedBy     String?       @map("updated_by") @db.Uuid
   deletedBy     String?       @map("deleted_by") @db.Uuid
 
-  tenant         Tenant          @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  tenant         Tenant?         @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   creator        User?           @relation("CarrierCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
   updater        User?           @relation("CarrierUpdatedBy", fields: [updatedBy], references: [id], onDelete: Restrict)
   deleter        User?           @relation("CarrierDeletedBy", fields: [deletedBy], references: [id], onDelete: Restrict)
@@ -1495,10 +1508,10 @@ model Carrier {
   sipEndpoints   SIPEndpoint[]
   outboundRoutes OutboundRoute[]
 
-  @@unique([tenantId, code])
   @@index([tenantId])
   @@index([tenantId, carrierType])
   @@index([tenantId, status])
+  @@index([carrierType])
   @@index([deletedAt])
   @@map("carriers")
 }

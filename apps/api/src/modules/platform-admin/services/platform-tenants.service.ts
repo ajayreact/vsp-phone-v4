@@ -127,7 +127,11 @@ export class PlatformTenantsService {
   async list(params: { search?: string; status?: TenantStatus }): Promise<TenantRecord[]> {
     if (!this.prisma.connected) return [];
 
-    const where: Record<string, unknown> = { deletedAt: null };
+    const where: Record<string, unknown> = {
+      deletedAt: null,
+      // Global Inventory is not a tenant — never surface inventory/system slugs.
+      slug: { notIn: ['platform-inventory', 'inventory'] },
+    };
     if (params.status) where.status = params.status;
     if (params.search?.trim()) {
       const q = params.search.trim();

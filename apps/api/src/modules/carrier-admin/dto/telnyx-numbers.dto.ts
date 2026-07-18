@@ -492,7 +492,16 @@ export class TelnyxNumberResponseDto {
   assignedSiteId?: string | null;
 
   @ApiPropertyOptional()
+  assignedUserId?: string | null;
+
+  @ApiPropertyOptional()
+  assignedUserName?: string | null;
+
+  @ApiPropertyOptional()
   assignedExtension?: string | null;
+
+  @ApiPropertyOptional()
+  registrationStatus?: string | null;
 
   @ApiPropertyOptional()
   assignedIvr?: string | null;

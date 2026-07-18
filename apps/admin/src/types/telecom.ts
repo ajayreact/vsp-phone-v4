@@ -22,6 +22,8 @@ export type InfraHealthCheck = {
   status: InfraHealthStatus;
   latencyMs?: number;
   message?: string;
+  version?: string;
+  failureReason?: string;
   lastSuccessfulCheck?: string;
 };
 
@@ -115,7 +117,10 @@ export type TelnyxNumberRecord = {
   assignedTenantId: string | null;
   assignedTenantName: string | null;
   assignedSiteId?: string | null;
+  assignedUserId?: string | null;
+  assignedUserName?: string | null;
   assignedExtension: string | null;
+  registrationStatus?: string | null;
   assignedIvr: string | null;
   assignedQueue: string | null;
   assignedRingGroup?: string | null;

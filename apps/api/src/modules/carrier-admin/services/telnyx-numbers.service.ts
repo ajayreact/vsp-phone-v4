@@ -78,6 +78,9 @@ type SyncState = {
   conflicts: number;
 };
 
+/** Redis audit stream key for Global Inventory ops (not a real tenant UUID). */
+const GLOBAL_INVENTORY_AUDIT_TENANT = 'global-inventory';
+
 function normalizeE164(raw: string): string {
   const digits = raw.replace(/\D/g, '');
   if (raw.startsWith('+')) return `+${digits}`;
@@ -187,8 +190,7 @@ export class TelnyxNumbersService {
   async triggerSync(actorUserId?: string): Promise<TelnyxSyncStatusDto> {
     await this.syncFromTelnyxIfEnabled(true);
     const status = await this.getSyncStatus();
-    const inventoryTenantId = await this.resolveInventoryTenantId();
-    this.logAudit(inventoryTenantId, actorUserId, 'telnyx.sync.manual', 'telnyx_inventory', undefined, status as unknown as Record<string, unknown>);
+    this.logAudit(GLOBAL_INVENTORY_AUDIT_TENANT, actorUserId, 'telnyx.sync.manual', 'telnyx_inventory', undefined, status as unknown as Record<string, unknown>);
     return status;
   }
 
@@ -217,11 +219,7 @@ export class TelnyxNumbersService {
 
     const rows = await this.prisma.phoneNumber.findMany({
       where,
-      include: {
-        tenant: { select: { id: true, name: true } },
-        line: { include: { extension: true } },
-        carrier: true,
-      },
+      include: this.phoneNumberInclude(),
       orderBy: { createdAt: 'desc' },
     });
 
@@ -244,54 +242,39 @@ export class TelnyxNumbersService {
 
   async listMarketplaceInventory(search?: string): Promise<TelnyxNumberResponseDto[]> {
     if (!this.prisma.connected) return [];
-    const inventoryTenantId = await this.resolveInventoryTenantId();
 
     const where: Prisma.PhoneNumberWhereInput = {
-      deletedAt: null,
-      tenantId: inventoryTenantId,
+      ...this.globalInventoryWhere(),
       carrier: { carrierType: CarrierType.TELNYX, deletedAt: null },
       lineId: null,
     };
 
     if (search?.trim()) {
       const q = search.trim();
-      where.OR = [
-        { number: { contains: q, mode: 'insensitive' } },
-        { tenant: { name: { contains: q, mode: 'insensitive' } } },
-      ];
+      where.OR = [{ number: { contains: q, mode: 'insensitive' } }];
     }
 
     const rows = await this.prisma.phoneNumber.findMany({
       where,
-      include: {
-        tenant: { select: { id: true, name: true } },
-        line: { include: { extension: true } },
-        carrier: true,
-      },
+      include: this.phoneNumberInclude(),
       orderBy: { createdAt: 'desc' },
       take: 500,
     });
 
     const mapped = await Promise.all(rows.map(async (r) => this.toResponse(r, await this.loadMeta(r))));
-    // Inventory tenant only — never expose numbers assigned to customer tenants.
+    // Global inventory only — never expose numbers assigned to customer tenants.
     return mapped.filter((n) => n.status === 'available' && !n.assignedExtension && !n.assignedTenantId);
   }
 
   async findInventoryNumberByE164(e164: string): Promise<TelnyxNumberResponseDto | null> {
     const normalized = normalizeE164(e164);
-    const inventoryTenantId = await this.resolveInventoryTenantId();
     const row = await this.prisma.phoneNumber.findFirst({
       where: {
         number: normalized,
-        deletedAt: null,
-        tenantId: inventoryTenantId,
+        ...this.globalInventoryWhere(),
         carrier: { carrierType: CarrierType.TELNYX },
       },
-      include: {
-        tenant: { select: { id: true, name: true } },
-        line: { include: { extension: true } },
-        carrier: true,
-      },
+      include: this.phoneNumberInclude(),
     });
     if (!row) return null;
     const meta = await this.loadMeta(row);
@@ -322,7 +305,7 @@ export class TelnyxNumbersService {
     });
 
     const auditEntries = await this.audit.query({
-      tenantId: row.tenantId,
+      tenantId: row.tenantId ?? GLOBAL_INVENTORY_AUDIT_TENANT,
       limit: 50,
       actionPrefix: 'telnyx.',
     });
@@ -451,8 +434,7 @@ export class TelnyxNumbersService {
       },
     });
 
-    const inventoryTenantId = await this.resolveInventoryTenantId();
-    this.logAudit(inventoryTenantId, actorUserId, 'telnyx.number.reserved', 'number_reservation', reservation.id, {
+    this.logAudit(GLOBAL_INVENTORY_AUDIT_TENANT, actorUserId, 'telnyx.number.reserved', 'number_reservation', reservation.id, {
       phoneNumber: e164,
       expiresAt: expiresAt.toISOString(),
     });
@@ -467,7 +449,6 @@ export class TelnyxNumbersService {
   }
 
   async purchase(dto: PurchaseTelnyxNumberDto, actorUserId?: string): Promise<TelnyxNumberResponseDto> {
-    const inventoryTenantId = await this.resolveInventoryTenantId();
 
     if (dto.reservationId) {
       const reservation = await this.prisma.numberReservation.findFirst({
@@ -517,7 +498,7 @@ export class TelnyxNumbersService {
       throw new BadRequestException('phoneNumber is required when TELNYX_API_KEY is not configured');
     }
 
-    const carrier = await this.ensureTelnyxCarrier(inventoryTenantId);
+    const carrier = await this.ensurePlatformTelnyxCarrier();
     const existing = await this.prisma.phoneNumber.findFirst({
       where: { number: e164, deletedAt: null },
     });
@@ -536,18 +517,16 @@ export class TelnyxNumbersService {
       data: {
         id,
         publicId: this.buildPublicId(meta),
-        tenantId: inventoryTenantId,
+        ownerTenantId: null,
+        tenantId: null,
         carrierId: carrier.id,
         number: e164,
         status: PhoneNumberStatus.PORTING,
+        available: true,
         createdBy: actorUserId,
         updatedBy: actorUserId,
       },
-      include: {
-        tenant: { select: { id: true, name: true } },
-        line: { include: { extension: true } },
-        carrier: true,
-      },
+      include: this.phoneNumberInclude(),
     });
 
     await this.persistMeta(carrier.id, created.id, meta);
@@ -561,7 +540,7 @@ export class TelnyxNumbersService {
 
     await this.syncFromTelnyxIfEnabled(false);
 
-    this.logAudit(inventoryTenantId, actorUserId, 'telnyx.number.purchased', 'phone_number', id, {
+    this.logAudit(GLOBAL_INVENTORY_AUDIT_TENANT, actorUserId, 'telnyx.number.purchased', 'phone_number', id, {
       phoneNumber: e164,
       telnyxId: meta.telnyxId,
     });
@@ -598,7 +577,7 @@ export class TelnyxNumbersService {
     });
     await this.persistMeta(row.carrierId!, id, meta);
 
-    this.logAudit(row.tenantId, actorUserId, 'telnyx.number.updated', 'phone_number', id, { fields: Object.keys(dto) });
+    this.logAudit(row.tenantId ?? GLOBAL_INVENTORY_AUDIT_TENANT, actorUserId, 'telnyx.number.updated', 'phone_number', id, { fields: Object.keys(dto) });
 
     return this.getById(id);
   }
@@ -636,10 +615,12 @@ export class TelnyxNumbersService {
         await tx.phoneNumber.update({
           where: { id },
           data: {
+            ownerTenantId: dto.tenantId,
             tenantId: dto.tenantId,
             siteId: dto.siteId ?? null,
             lineId: null,
             status: PhoneNumberStatus.ACTIVE,
+            available: false,
             updatedBy: actorUserId,
           },
         });
@@ -762,7 +743,7 @@ export class TelnyxNumbersService {
       where: { id },
       data: { status: PhoneNumberStatus.INACTIVE, updatedBy: actorUserId },
     });
-    this.logAudit(row.tenantId, actorUserId, 'telnyx.number.suspended', 'phone_number', id);
+    this.logAudit(row.tenantId ?? GLOBAL_INVENTORY_AUDIT_TENANT, actorUserId, 'telnyx.number.suspended', 'phone_number', id);
     return this.getById(id);
   }
 
@@ -772,7 +753,7 @@ export class TelnyxNumbersService {
       where: { id },
       data: { status: PhoneNumberStatus.ACTIVE, updatedBy: actorUserId },
     });
-    this.logAudit(row.tenantId, actorUserId, 'telnyx.number.activated', 'phone_number', id);
+    this.logAudit(row.tenantId ?? GLOBAL_INVENTORY_AUDIT_TENANT, actorUserId, 'telnyx.number.activated', 'phone_number', id);
     return this.getById(id);
   }
 
@@ -802,7 +783,7 @@ export class TelnyxNumbersService {
       });
     });
 
-    this.logAudit(row.tenantId, actorUserId, 'telnyx.number.released', 'phone_number', id, { phoneNumber: row.number });
+    this.logAudit(row.tenantId ?? GLOBAL_INVENTORY_AUDIT_TENANT, actorUserId, 'telnyx.number.released', 'phone_number', id, { phoneNumber: row.number });
   }
 
   async bulkAssign(dto: BulkAssignTelnyxNumbersDto, actorUserId?: string) {
@@ -894,8 +875,7 @@ export class TelnyxNumbersService {
       await this.persistMeta(row.carrierId!, id, meta);
       updated.push(await this.getById(id));
     }
-    const inventoryTenantId = await this.resolveInventoryTenantId();
-    this.logAudit(inventoryTenantId, actorUserId, 'telnyx.numbers.bulk_tagged', 'telnyx_inventory', undefined, {
+    this.logAudit(GLOBAL_INVENTORY_AUDIT_TENANT, actorUserId, 'telnyx.numbers.bulk_tagged', 'telnyx_inventory', undefined, {
       ids: dto.ids,
       tags: dto.tags,
     });
@@ -919,8 +899,7 @@ export class TelnyxNumbersService {
   private async syncFromTelnyxIfEnabled(manual = false): Promise<void> {
     if (!this.telnyx.enabled || !this.prisma.connected) return;
 
-    const inventoryTenantId = await this.resolveInventoryTenantId();
-    const carrier = await this.ensureTelnyxCarrier(inventoryTenantId);
+    const carrier = await this.ensurePlatformTelnyxCarrier();
     const state: SyncState = {
       lastSyncAt: null,
       status: 'running',
@@ -958,10 +937,12 @@ export class TelnyxNumbersService {
             data: {
               id,
               publicId: this.buildPublicId(meta),
-              tenantId: inventoryTenantId,
+              ownerTenantId: null,
+              tenantId: null,
               carrierId: carrier.id,
               number: e164,
               status: PhoneNumberStatus.ACTIVE,
+              available: true,
             },
           });
           await this.persistMeta(carrier.id, id, meta);
@@ -997,36 +978,14 @@ export class TelnyxNumbersService {
     return meta.telnyxId ? `telnyx:${meta.telnyxId}` : `local:${randomUUID()}`;
   }
 
-  /**
-   * Platform Inventory Tenant only — never fall back to "oldest tenant".
-   * Misconfiguration must fail loudly so purchased DIDs never attach to a customer.
-   */
-  async resolveInventoryTenantId(): Promise<string> {
-    const settings = await this.prisma.platformSettings.findFirst();
-    const configured =
-      settings?.inventoryTenantId?.trim() ||
-      this.config.get<string>('VSP_PLATFORM_INVENTORY_TENANT_ID')?.trim();
-
-    if (!configured) {
-      throw new BadRequestException(
-        'Platform Inventory Tenant is not configured. Set platformSettings.inventoryTenantId or VSP_PLATFORM_INVENTORY_TENANT_ID to the dedicated inventory tenant (e.g. Platform Inventory).',
-      );
-    }
-
-    const tenant = await this.prisma.tenant.findFirst({
-      where: { id: configured, deletedAt: null },
-    });
-    if (!tenant) {
-      throw new BadRequestException(
-        `Platform Inventory Tenant not found: ${configured}. Create/restore the inventory tenant and update configuration.`,
-      );
-    }
-    return tenant.id;
+  /** Global Inventory = PhoneNumber.ownerTenantId IS NULL (no fake inventory tenant). */
+  private globalInventoryWhere(): Prisma.PhoneNumberWhereInput {
+    return { ownerTenantId: null, deletedAt: null };
   }
 
-  private async ensureTelnyxCarrier(tenantId: string) {
+  private async ensurePlatformTelnyxCarrier() {
     const existing = await this.prisma.carrier.findFirst({
-      where: { tenantId, carrierType: CarrierType.TELNYX, deletedAt: null },
+      where: { tenantId: null, carrierType: CarrierType.TELNYX, deletedAt: null },
       orderBy: { createdAt: 'asc' },
     });
     if (existing) return existing;
@@ -1034,14 +993,18 @@ export class TelnyxNumbersService {
     return this.prisma.carrier.create({
       data: {
         id: randomUUID(),
-        publicId: `carrier-telnyx-${tenantId.slice(0, 8)}`,
-        tenantId,
+        publicId: `carrier-telnyx-platform-${randomUUID().slice(0, 8)}`,
+        tenantId: null,
         name: 'Telnyx',
         code: 'telnyx',
         carrierType: CarrierType.TELNYX,
         configuration: { sipHost: this.config.get('TELNYX_SIP_HOST', 'sip.telnyx.com') },
       },
     });
+  }
+
+  private async ensureTelnyxCarrier(_tenantId?: string) {
+    return this.ensurePlatformTelnyxCarrier();
   }
 
   private metaKey(phoneNumberId: string): string {
@@ -1090,8 +1053,7 @@ export class TelnyxNumbersService {
   }
 
   private async loadSyncState(): Promise<SyncState> {
-    const inventoryTenantId = await this.resolveInventoryTenantId();
-    const carrier = await this.ensureTelnyxCarrier(inventoryTenantId);
+    const carrier = await this.ensurePlatformTelnyxCarrier();
     const cfg = (carrier.configuration ?? {}) as Record<string, unknown>;
     const sync = cfg.telnyxSync as SyncState | undefined;
     return (
@@ -1120,14 +1082,29 @@ export class TelnyxNumbersService {
   private async findRow(id: string) {
     const row = await this.prisma.phoneNumber.findFirst({
       where: { id, deletedAt: null },
-      include: {
-        tenant: { select: { id: true, name: true } },
-        line: { include: { extension: true } },
-        carrier: true,
-      },
+      include: this.phoneNumberInclude(),
     });
     if (!row) throw new NotFoundException('Phone number not found');
     return row;
+  }
+
+  private phoneNumberInclude() {
+    return {
+      tenant: { select: { id: true, name: true } },
+      line: {
+        include: {
+          extension: true,
+          user: { select: { id: true, email: true, profile: { select: { displayName: true } } } },
+          devices: {
+            where: { deletedAt: null },
+            select: { name: true, status: true, isPrimary: true },
+            orderBy: [{ isPrimary: 'desc' as const }, { createdAt: 'asc' as const }],
+            take: 5,
+          },
+        },
+      },
+      carrier: true,
+    };
   }
 
   private toResponse(
@@ -1135,25 +1112,40 @@ export class TelnyxNumbersService {
       id: string;
       number: string;
       status: PhoneNumberStatus;
-      tenantId: string;
+      ownerTenantId?: string | null;
+      tenantId: string | null;
       siteId?: string | null;
       lineId: string | null;
       createdAt: Date;
-      tenant: { id: string; name: string };
-      line: { extension: { extension: string } | null } | null;
+      tenant: { id: string; name: string } | null;
+      line: {
+        extension: { extension: string } | null;
+        user?: { id: string; email: string; profile?: { displayName: string | null } | null } | null;
+        devices?: Array<{ name: string; status: string; isPrimary: boolean }>;
+      } | null;
     },
     meta?: StoredTelnyxMeta,
   ): TelnyxNumberResponseDto {
     const m = meta ?? { purchasedAt: row.createdAt.toISOString(), region: 'US', monthlyCost: 0, tags: [] };
     const assigned = Boolean(row.lineId);
-    const inventoryTenantId = this.config.get<string>('VSP_PLATFORM_INVENTORY_TENANT_ID');
-    const isInventory = inventoryTenantId ? row.tenantId === inventoryTenantId : !assigned;
+    const isInventory = row.ownerTenantId == null;
 
     let status: TelnyxNumberResponseDto['status'] = 'available';
     if (row.status === PhoneNumberStatus.PORTING) status = 'porting';
     else if (row.status === PhoneNumberStatus.INACTIVE) status = 'suspended';
     else if (assigned || (!isInventory && row.tenantId)) status = 'active';
     else status = 'available';
+
+    const primaryDevice =
+      row.line?.devices?.find((d) => d.isPrimary) ?? row.line?.devices?.[0] ?? null;
+    const user = row.line?.user;
+    const assignedUserName =
+      user?.profile?.displayName?.trim() || user?.email?.split('@')[0] || null;
+    const registrationStatus = primaryDevice?.status
+      ? String(primaryDevice.status).toLowerCase()
+      : assigned
+        ? 'unregistered'
+        : null;
 
     return {
       id: row.id,
@@ -1169,10 +1161,13 @@ export class TelnyxNumbersService {
       emergencyEnabled: Boolean(m.emergencyEnabled),
       emergencyAddress: m.emergencyAddress ?? null,
       cnam: m.cnam ?? null,
-      assignedTenantId: assigned || !isInventory ? row.tenant.id : null,
-      assignedTenantName: assigned || !isInventory ? row.tenant.name : null,
+      assignedTenantId: isInventory ? null : row.tenant?.id ?? row.tenantId,
+      assignedTenantName: isInventory ? null : row.tenant?.name ?? null,
       assignedSiteId: m.assignedSiteId ?? row.siteId ?? null,
+      assignedUserId: user?.id ?? null,
+      assignedUserName,
       assignedExtension: row.line?.extension?.extension ?? null,
+      registrationStatus,
       assignedIvr: m.assignedIvr ?? null,
       assignedQueue: m.assignedQueue ?? null,
       assignedRingGroup: m.assignedRingGroup ?? null,
@@ -1188,6 +1183,7 @@ export class TelnyxNumbersService {
       regulatoryBundle: m.regulatoryBundle ?? null,
     };
   }
+
 
   private logAudit(
     tenantId: string,

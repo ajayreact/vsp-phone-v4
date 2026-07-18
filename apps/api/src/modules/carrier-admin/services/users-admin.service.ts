@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { UserStatus } from '@prisma/client';
+import { DeviceStatus, UserStatus } from '@prisma/client';
 import { PrismaService } from '../../telecom/prisma/prisma.service';
 
 export type UserAdminRecord = {
@@ -9,6 +9,10 @@ export type UserAdminRecord = {
   email: string;
   role: string;
   extension: string | null;
+  extensionId: string | null;
+  primaryDid: string | null;
+  primaryDevice: string | null;
+  registrationStatus: string | null;
   status: string;
   tenantId: string;
   tenantName: string;
@@ -29,6 +33,24 @@ function mapUserStatus(status: UserStatus): string {
   }
 }
 
+function mapRegistration(status: DeviceStatus | undefined | null): string | null {
+  if (!status) return null;
+  switch (status) {
+    case DeviceStatus.REGISTERED:
+    case DeviceStatus.ONLINE:
+    case DeviceStatus.BUSY:
+      return 'registered';
+    case DeviceStatus.OFFLINE:
+      return 'offline';
+    case DeviceStatus.UNREGISTERED:
+      return 'unregistered';
+    case DeviceStatus.PROVISIONING:
+      return 'provisioning';
+    default:
+      return String(status).toLowerCase();
+  }
+}
+
 @Injectable()
 export class UsersAdminService {
   constructor(private readonly prisma: PrismaService) {}
@@ -41,7 +63,10 @@ export class UsersAdminService {
   }): Promise<UserAdminRecord[]> {
     if (!this.prisma.connected) return [];
 
-    const where: Record<string, unknown> = { deletedAt: null };
+    const where: Record<string, unknown> = {
+      deletedAt: null,
+      tenant: { deletedAt: null, slug: { notIn: ['platform-inventory', 'inventory'] } },
+    };
     if (params.tenantId?.trim()) {
       where.tenantId = params.tenantId.trim();
     }
@@ -81,7 +106,21 @@ export class UsersAdminService {
         },
         lines: {
           where: { deletedAt: null },
-          include: { extension: { select: { extension: true } } },
+          include: {
+            extension: { select: { id: true, extension: true } },
+            phoneNumbers: {
+              where: { deletedAt: null },
+              select: { number: true },
+              take: 1,
+              orderBy: { createdAt: 'asc' },
+            },
+            devices: {
+              where: { deletedAt: null },
+              select: { name: true, status: true, isPrimary: true },
+              orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }],
+              take: 5,
+            },
+          },
           take: 1,
         },
       },
@@ -91,13 +130,19 @@ export class UsersAdminService {
 
     return rows.map((u) => {
       const displayName = u.profile?.displayName ?? u.username ?? u.email.split('@')[0] ?? u.email;
+      const line = u.lines[0];
+      const primaryDevice = line?.devices?.find((d) => d.isPrimary) ?? line?.devices?.[0] ?? null;
       return {
         id: u.id,
         name: displayName,
         displayName,
         email: u.email,
         role: u.userRoles[0]?.role.name ?? 'User',
-        extension: u.lines[0]?.extension?.extension ?? null,
+        extension: line?.extension?.extension ?? null,
+        extensionId: line?.extension?.id ?? null,
+        primaryDid: line?.phoneNumbers?.[0]?.number ?? null,
+        primaryDevice: primaryDevice?.name ?? null,
+        registrationStatus: mapRegistration(primaryDevice?.status ?? null),
         status: mapUserStatus(u.status),
         tenantId: u.tenant.id,
         tenantName: u.tenant.name,

@@ -1,10 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import {
   CallLifecycleState,
-  CarrierType,
   DeviceStatus,
-  NumberReservationStatus,
-  PhoneNumberStatus,
   TenantStatus,
 } from '@prisma/client';
 import {
@@ -13,27 +10,26 @@ import {
 } from '../../enterprise-observability/health/enterprise-health.service';
 import { PrismaService } from '../../telecom/prisma/prisma.service';
 
-const BYTES_PER_RECORDING_SECOND = 8000;
-
-export type PlatformDashboardComponents = {
-  api: HealthCheckResult;
-  postgres: HealthCheckResult;
-  redis: HealthCheckResult;
-  kamailio: HealthCheckResult;
-  rtpengine: HealthCheckResult;
-};
+export type PlatformDashboardComponents = Record<string, HealthCheckResult>;
 
 export type PlatformDashboardSnapshot = {
   ts: string;
   totalTenants: number;
   activeTenants: number;
-  pendingTenantApprovals: number;
-  /** Kept for backward compatibility; not shown on Platform Dashboard. */
+  totalUsers: number;
   totalExtensions: number;
+  totalDevices: number;
+  totalNumbers: number;
+  concurrentCalls: number;
+  /** Active call channels (same as concurrent for RC1). */
+  channels: number;
+  healthStatus: 'up' | 'degraded' | 'down';
+  components: PlatformDashboardComponents;
+  // Backward-compatible fields retained for older clients
+  pendingTenantApprovals: number;
   registeredDevices: number;
   onlineDevices: number;
   offlineDevices: number;
-  concurrentCalls: number;
   sipRegistrations: number;
   totalPurchasedDids: number;
   telnyxInventory: number;
@@ -47,8 +43,7 @@ export type PlatformDashboardSnapshot = {
   grossMarginCents: number;
   recordingCount: number;
   storageBytesEstimate: number;
-  carrierStatus: Awaited<ReturnType<EnterpriseHealthService['checkTelnyx']>>;
-  components: PlatformDashboardComponents;
+  carrierStatus: HealthCheckResult;
   activeAlerts: number;
 };
 
@@ -60,10 +55,7 @@ export class PlatformDashboardService {
   ) {}
 
   async snapshot(): Promise<PlatformDashboardSnapshot> {
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
     const ts = new Date().toISOString();
-
     const activeStates = [
       CallLifecycleState.DIALING,
       CallLifecycleState.RINGING,
@@ -72,48 +64,40 @@ export class PlatformDashboardService {
       CallLifecycleState.HOLD,
       CallLifecycleState.PARK,
     ];
-
     const connected = this.prisma.connected;
+    const systemSlugFilter = { notIn: ['platform-inventory', 'inventory'] };
 
     const [
       totalTenants,
       activeTenants,
-      pendingTenantApprovals,
+      totalUsers,
       totalExtensions,
-      registeredDevices,
-      onlineDevices,
-      offlineDevices,
+      totalDevices,
+      totalNumbers,
       concurrentCalls,
-      totalPurchasedDids,
-      telnyxInventory,
-      assignedDids,
-      unassignedDids,
-      reservedDids,
-      failedCallsToday,
-      todaysCallMinutes,
-      billingAgg,
-      recordingAgg,
       healthAll,
     ] = await Promise.all([
-      connected ? this.prisma.tenant.count({ where: { deletedAt: null } }) : Promise.resolve(0),
       connected
-        ? this.prisma.tenant.count({
-            where: { deletedAt: null, status: TenantStatus.ACTIVE },
-          })
+        ? this.prisma.tenant.count({ where: { deletedAt: null, slug: systemSlugFilter } })
         : Promise.resolve(0),
       connected
         ? this.prisma.tenant.count({
-            where: { deletedAt: null, status: TenantStatus.PENDING },
+            where: { deletedAt: null, status: TenantStatus.ACTIVE, slug: systemSlugFilter },
           })
         : Promise.resolve(0),
       connected
-        ? this.prisma.extension.count({ where: { deletedAt: null } })
-        : Promise.resolve(0),
-      connected
-        ? this.prisma.device.count({
+        ? this.prisma.user.count({
             where: {
               deletedAt: null,
-              status: { in: [DeviceStatus.REGISTERED, DeviceStatus.ONLINE, DeviceStatus.BUSY] },
+              tenant: { deletedAt: null, slug: systemSlugFilter },
+            },
+          })
+        : Promise.resolve(0),
+      connected
+        ? this.prisma.extension.count({
+            where: {
+              deletedAt: null,
+              tenant: { deletedAt: null, slug: systemSlugFilter },
             },
           })
         : Promise.resolve(0),
@@ -121,150 +105,68 @@ export class PlatformDashboardService {
         ? this.prisma.device.count({
             where: {
               deletedAt: null,
-              status: { in: [DeviceStatus.ONLINE, DeviceStatus.REGISTERED, DeviceStatus.BUSY] },
+              tenant: { deletedAt: null, slug: systemSlugFilter },
             },
-          })
-        : Promise.resolve(0),
-      connected
-        ? this.prisma.device.count({
-            where: {
-              deletedAt: null,
-              status: { in: [DeviceStatus.OFFLINE, DeviceStatus.UNREGISTERED] },
-            },
-          })
-        : Promise.resolve(0),
-      connected
-        ? this.prisma.callSession.count({
-            where: { deletedAt: null, state: { in: activeStates } },
           })
         : Promise.resolve(0),
       connected
         ? this.prisma.phoneNumber.count({ where: { deletedAt: null } })
         : Promise.resolve(0),
       connected
-        ? this.prisma.phoneNumber.count({
-            where: {
-              deletedAt: null,
-              carrier: { carrierType: CarrierType.TELNYX, deletedAt: null },
-            },
-          })
-        : Promise.resolve(0),
-      connected
-        ? this.prisma.phoneNumber.count({
-            where: {
-              deletedAt: null,
-              lineId: { not: null },
-              status: PhoneNumberStatus.ACTIVE,
-            },
-          })
-        : Promise.resolve(0),
-      connected
-        ? this.prisma.phoneNumber.count({
-            where: {
-              deletedAt: null,
-              lineId: null,
-              status: PhoneNumberStatus.ACTIVE,
-            },
-          })
-        : Promise.resolve(0),
-      connected
-        ? this.prisma.numberReservation.count({
-            where: { status: NumberReservationStatus.ACTIVE },
-          })
-        : Promise.resolve(0),
-      connected
         ? this.prisma.callSession.count({
-            where: {
-              deletedAt: null,
-              state: CallLifecycleState.ENDED,
-              startedAt: { gte: todayStart },
-              endedAt: { not: null },
-            },
+            where: { deletedAt: null, state: { in: activeStates } },
           })
         : Promise.resolve(0),
-      connected ? this.sumTodaysCallMinutes(todayStart) : Promise.resolve(0),
-      connected
-        ? this.prisma.billingAccount.aggregate({
-            _sum: { mrrCents: true, carrierCostCents: true },
-          })
-        : Promise.resolve({ _sum: { mrrCents: null, carrierCostCents: null } }),
-      connected
-        ? this.prisma.recording.aggregate({
-            where: { deletedAt: null },
-            _count: true,
-            _sum: { durationSeconds: true },
-          })
-        : Promise.resolve({ _count: 0, _sum: { durationSeconds: null } }),
       this.health.checkAll(),
     ]);
 
-    const mrrCents = billingAgg._sum.mrrCents ?? 0;
-    const carrierCostCents = billingAgg._sum.carrierCostCents ?? 0;
-    const grossMarginCents = mrrCents - carrierCostCents;
-    const recordingCount = recordingAgg._count;
-    const storageBytesEstimate =
-      (recordingAgg._sum.durationSeconds ?? 0) * BYTES_PER_RECORDING_SECOND;
+    const registeredDevices = connected
+      ? await this.prisma.device.count({
+          where: {
+            deletedAt: null,
+            status: { in: [DeviceStatus.REGISTERED, DeviceStatus.ONLINE, DeviceStatus.BUSY] },
+          },
+        })
+      : 0;
 
-    const components: PlatformDashboardComponents = {
-      api: healthAll.api,
-      postgres: healthAll.postgres,
-      redis: healthAll.redis,
-      kamailio: healthAll.kamailio,
-      rtpengine: healthAll.rtpengine,
-    };
+    const core = [healthAll.api, healthAll.database ?? healthAll.postgres, healthAll.redis];
+    const healthStatus: 'up' | 'degraded' | 'down' = core.some((c) => c?.status === 'down')
+      ? 'down'
+      : core.some((c) => c?.status === 'degraded')
+        ? 'degraded'
+        : 'up';
 
     return {
       ts,
       totalTenants,
       activeTenants,
-      pendingTenantApprovals,
+      totalUsers,
       totalExtensions,
-      registeredDevices,
-      onlineDevices,
-      offlineDevices,
+      totalDevices,
+      totalNumbers,
       concurrentCalls,
+      channels: concurrentCalls,
+      healthStatus,
+      components: healthAll,
+      pendingTenantApprovals: 0,
+      registeredDevices,
+      onlineDevices: registeredDevices,
+      offlineDevices: Math.max(0, totalDevices - registeredDevices),
       sipRegistrations: registeredDevices,
-      totalPurchasedDids,
-      telnyxInventory,
-      assignedDids,
-      unassignedDids,
-      reservedDids,
-      failedCallsToday,
-      todaysCallMinutes,
-      mrrCents,
-      carrierCostCents,
-      grossMarginCents,
-      recordingCount,
-      storageBytesEstimate,
-      carrierStatus: healthAll.telnyx,
-      components,
+      totalPurchasedDids: totalNumbers,
+      telnyxInventory: totalNumbers,
+      assignedDids: 0,
+      unassignedDids: 0,
+      reservedDids: 0,
+      failedCallsToday: 0,
+      todaysCallMinutes: 0,
+      mrrCents: 0,
+      carrierCostCents: 0,
+      grossMarginCents: 0,
+      recordingCount: 0,
+      storageBytesEstimate: 0,
+      carrierStatus: healthAll.carrier ?? healthAll.telnyx,
       activeAlerts: 0,
     };
-  }
-
-  /** Sum answered (or started) call duration for sessions that ended today, in whole minutes. */
-  private async sumTodaysCallMinutes(todayStart: Date): Promise<number> {
-    const sessions = await this.prisma.callSession.findMany({
-      where: {
-        deletedAt: null,
-        state: { in: [CallLifecycleState.ENDED, CallLifecycleState.ARCHIVED] },
-        endedAt: { gte: todayStart, not: null },
-      },
-      select: {
-        answeredAt: true,
-        startedAt: true,
-        endedAt: true,
-      },
-    });
-
-    let totalSeconds = 0;
-    for (const s of sessions) {
-      if (!s.endedAt) continue;
-      const start = s.answeredAt ?? s.startedAt;
-      if (!start) continue;
-      const seconds = Math.max(0, Math.floor((s.endedAt.getTime() - start.getTime()) / 1000));
-      totalSeconds += seconds;
-    }
-    return Math.floor(totalSeconds / 60);
   }
 }

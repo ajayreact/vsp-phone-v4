@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import Link from 'next/link';
 import { Pencil, KeyRound, UserCheck, UserX, Trash2, Phone } from 'lucide-react';
 import { usePortal } from '../../lib/portal/PortalProvider';
 import {
@@ -101,18 +102,59 @@ export function UsersContent() {
   const columns: Column<UserRow>[] = useMemo(() => {
     const base: Column<UserRow>[] = [
       {
+        key: 'extension',
+        header: 'Extension',
+        sortable: true,
+        cell: (r) => {
+          if (!r.extension) return '—';
+          const label = formatExtensionLabel(r.extension, r.displayName || r.name);
+          if (r.extensionId && portal === 'tenant') {
+            return (
+              <Link
+                href={`/extensions?configure=${encodeURIComponent(r.extensionId)}`}
+                className="font-medium text-primary underline-offset-2 hover:underline"
+              >
+                {label}
+              </Link>
+            );
+          }
+          return <span className="font-medium text-primary">{label}</span>;
+        },
+      },
+      {
         key: 'name',
-        header: 'Name',
+        header: 'User',
         sortable: true,
         cell: (r) => <span className="font-medium">{r.displayName || r.name}</span>,
       },
+      {
+        key: 'primaryDid',
+        header: 'Primary DID',
+        cell: (r) =>
+          r.primaryDid ? <span className="font-mono text-sm">{r.primaryDid}</span> : '—',
+      },
+      {
+        key: 'primaryDevice',
+        header: 'Primary Device',
+        cell: (r) => r.primaryDevice ?? '—',
+      },
+      {
+        key: 'registration',
+        header: 'Registration Status',
+        cell: (r) => {
+          const s = (r.registrationStatus ?? '').toLowerCase();
+          if (!s) return '—';
+          const badge =
+            s === 'registered' || s === 'online' || s === 'busy'
+              ? 'online'
+              : s === 'offline' || s === 'unregistered'
+                ? 'offline'
+                : 'pending';
+          return <StatusBadge status={badge} />;
+        },
+      },
       { key: 'email', header: 'Email', cell: (r) => r.email },
       { key: 'role', header: 'Role', cell: (r) => <Badge variant="outline">{r.role}</Badge> },
-      {
-        key: 'extension',
-        header: 'Extension',
-        cell: (r) => (r.extension ? formatExtensionLabel(r.extension, r.displayName || r.name) : '—'),
-      },
     ];
     if (portal === 'platform') {
       base.push({ key: 'tenant', header: 'Tenant', cell: (r) => r.tenantName ?? '—' });

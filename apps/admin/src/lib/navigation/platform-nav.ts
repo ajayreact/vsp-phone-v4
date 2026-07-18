@@ -25,14 +25,14 @@ import { PERMISSIONS } from '../rbac/permissions';
 export const PLATFORM_MODULES: ModuleDefinition[] = [
   {
     id: 'dashboard',
-    label: 'Dashboard',
+    label: 'Operations Center',
     href: '/dashboard',
     group: 'platform',
     icon: LayoutDashboard,
     permission: PERMISSIONS.PLATFORM_DASHBOARD_READ,
     integration: 'live',
-    description: 'Platform-wide KPIs — tenants, revenue, carrier inventory, and alerts.',
-    breadcrumb: ['Platform', 'Dashboard'],
+    description: 'Operations Center — tenants, users, extensions, devices, numbers, calls, channels, health.',
+    breadcrumb: ['Platform', 'Operations Center'],
     apiEndpoints: ['/v1/platform/dashboard'],
   },
   {
@@ -252,7 +252,7 @@ export const PLATFORM_MODULES: ModuleDefinition[] = [
     href: '/system-health',
     group: 'infrastructure',
     icon: Activity,
-    permission: PERMISSIONS.OPS_HEALTH_READ,
+    permission: PERMISSIONS.PLATFORM_SUPER_ADMIN,
     integration: 'live',
     description: 'Platform readiness, dependency checks, and deployment status.',
     breadcrumb: ['Infrastructure', 'System Health'],

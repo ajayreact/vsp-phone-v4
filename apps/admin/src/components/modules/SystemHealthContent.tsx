@@ -13,14 +13,25 @@ import { Skeleton } from '../ui/Skeleton';
 import { cn } from '../../lib/utils/cn';
 import { ModuleAccessGate } from './shared/ModuleShell';
 
-const SERVICE_LABELS: Record<string, string> = {
-  api: 'API Gateway',
-  postgres: 'PostgreSQL',
-  redis: 'Redis',
-  kamailio: 'Kamailio',
-  rtpengine: 'RTPengine',
-  telnyx: 'Telnyx Carrier',
-};
+const SERVICE_ORDER: Array<{ id: string; name: string }> = [
+  { id: 'api', name: 'API' },
+  { id: 'database', name: 'Database' },
+  { id: 'postgres', name: 'Database' },
+  { id: 'redis', name: 'Redis' },
+  { id: 'kamailio', name: 'Kamailio' },
+  { id: 'rtpengine', name: 'RTPengine' },
+  { id: 'provisioning', name: 'Provisioning' },
+  { id: 'carrier', name: 'Carrier' },
+  { id: 'telnyx', name: 'Carrier' },
+  { id: 'docker', name: 'Docker' },
+  { id: 'nginx', name: 'Nginx' },
+  { id: 'ssl', name: 'SSL' },
+  { id: 'disk', name: 'Disk' },
+  { id: 'memory', name: 'Memory' },
+  { id: 'cpu', name: 'CPU' },
+  { id: 'uptime', name: 'Uptime' },
+  { id: 'version', name: 'Version' },
+];
 
 const statusColor = {
   up: 'border-success/30 bg-success/5',
@@ -40,15 +51,21 @@ export function SystemHealthContent() {
   return (
     <ModuleAccessGate moduleId="system-health">
       {({ module }) => {
-        const components = health.data?.components;
+        const components = health.data?.components ?? {};
         const readiness = health.data?.readiness;
-        const services = components
-          ? (Object.entries(components) as [string, InfraHealthCheck][]).map(([id, check]) => ({
-              id,
-              name: SERVICE_LABELS[id] ?? id,
-              ...check,
-            }))
-          : [];
+        const seen = new Set<string>();
+        const services: Array<{ id: string; name: string } & InfraHealthCheck> = [];
+
+        for (const def of SERVICE_ORDER) {
+          const check = components[def.id] as InfraHealthCheck | undefined;
+          if (!check) continue;
+          // Prefer canonical keys (database/carrier) over aliases (postgres/telnyx).
+          if (def.id === 'postgres' && components.database) continue;
+          if (def.id === 'telnyx' && components.carrier) continue;
+          if (seen.has(def.name)) continue;
+          seen.add(def.name);
+          services.push({ id: def.id, name: def.name, ...check });
+        }
 
         return (
           <PageContainer>
@@ -71,7 +88,7 @@ export function SystemHealthContent() {
                 onRetry={() => void health.refetch()}
                 skeleton={
                   <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                    {Array.from({ length: 6 }).map((_, i) => (
+                    {Array.from({ length: 12 }).map((_, i) => (
                       <Skeleton key={i} className="h-28 rounded-2xl" />
                     ))}
                   </div>
@@ -89,7 +106,13 @@ export function SystemHealthContent() {
                       <CardBody className="flex items-center justify-between py-5">
                         <div>
                           <p className="text-sm font-semibold">{svc.name}</p>
-                          {svc.message ? <p className="mt-1 text-xs text-muted-foreground">{svc.message}</p> : null}
+                          {svc.message ? (
+                            <p className="mt-1 text-xs text-muted-foreground">{svc.message}</p>
+                          ) : svc.version ? (
+                            <p className="mt-1 text-xs text-muted-foreground">{svc.version}</p>
+                          ) : svc.failureReason ? (
+                            <p className="mt-1 text-xs text-muted-foreground">{svc.failureReason}</p>
+                          ) : null}
                         </div>
                         <div className="flex items-center gap-2">
                           {svc.latencyMs != null ? (

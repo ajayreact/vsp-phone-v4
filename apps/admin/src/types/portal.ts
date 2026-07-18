@@ -2,25 +2,23 @@ import type { InfraHealthCheck } from './telecom';
 
 export type ApiDataResponse<T> = { data: T };
 
-export type PlatformDashboardComponents = {
-  api: InfraHealthCheck;
-  postgres: InfraHealthCheck;
-  redis: InfraHealthCheck;
-  kamailio: InfraHealthCheck;
-  rtpengine: InfraHealthCheck;
-};
+export type PlatformDashboardComponents = Record<string, InfraHealthCheck>;
 
 export type PlatformDashboardSnapshot = {
   ts: string;
   totalTenants: number;
   activeTenants: number;
-  pendingTenantApprovals: number;
-  /** Kept for API compatibility; not shown on Platform Dashboard. */
+  totalUsers: number;
   totalExtensions: number;
+  totalDevices: number;
+  totalNumbers: number;
+  concurrentCalls: number;
+  channels: number;
+  healthStatus: 'up' | 'degraded' | 'down';
+  pendingTenantApprovals: number;
   registeredDevices: number;
   onlineDevices: number;
   offlineDevices: number;
-  concurrentCalls: number;
   sipRegistrations: number;
   totalPurchasedDids: number;
   telnyxInventory: number;
@@ -83,12 +81,17 @@ export type PlatformPlanRecord = {
 export type PlatformCarrierRecord = {
   id: string;
   publicId: string;
-  tenantId: string;
-  tenantName: string;
+  tenantId: string | null;
+  tenantName: string | null;
   name: string;
   code: string;
   carrierType: string;
   status: string;
+  apiStatus: 'up' | 'down' | 'degraded' | 'unknown';
+  webhookStatus: 'configured' | 'missing' | 'unknown';
+  numbersCount: number;
+  trunksCount: number;
+  lastSyncAt: string | null;
   healthStatus: 'up' | 'down' | 'degraded' | 'unknown';
 };
 
@@ -151,6 +154,10 @@ export type UserRecord = {
   email: string;
   role: string;
   extension: string | null;
+  extensionId?: string | null;
+  primaryDid?: string | null;
+  primaryDevice?: string | null;
+  registrationStatus?: string | null;
   status: string;
   tenantId?: string;
   tenantName?: string;

@@ -55,28 +55,22 @@ async function main() {
   }
 
   try {
-    // Platform Inventory
-    const settings = await client.query(
-      `SELECT inventory_tenant_id FROM platform_settings ORDER BY created_at ASC LIMIT 1`,
+    // Global Inventory — no fake inventory tenant
+    const invTenants = await client.query(
+      `SELECT id, slug FROM tenants WHERE slug IN ('platform-inventory','inventory') AND deleted_at IS NULL`,
     );
-    const invId = settings.rows[0]?.inventory_tenant_id || process.env.VSP_PLATFORM_INVENTORY_TENANT_ID;
-    if (!invId) {
-      record('Platform Inventory configured', false, 'inventory_tenant_id missing');
-    } else {
-      const t = await client.query(
-        `SELECT id, name, slug, status FROM tenants WHERE id = $1 AND deleted_at IS NULL`,
-        [invId],
-      );
-      if (!t.rows[0]) {
-        record('Platform Inventory exists', false, `id=${invId} not found`);
-      } else {
-        record(
-          'Platform Inventory exists',
-          true,
-          `${t.rows[0].name} (${t.rows[0].slug})`,
-        );
-      }
-    }
+    record(
+      'Global Inventory (no inventory tenant)',
+      invTenants.rows.length === 0,
+      invTenants.rows.length
+        ? `still active: ${invTenants.rows.map((r) => r.slug).join(',')}`
+        : 'owner_tenant_id NULL model',
+    );
+    const col = await client.query(
+      `SELECT 1 FROM information_schema.columns
+       WHERE table_name = 'phone_numbers' AND column_name = 'owner_tenant_id'`,
+    );
+    record('phone_numbers.owner_tenant_id', col.rows.length > 0, col.rows.length ? 'present' : 'missing');
 
     // Migrations — prisma migrate status
     try {

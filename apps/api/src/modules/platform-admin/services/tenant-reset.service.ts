@@ -3,7 +3,6 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import {
   ApiKeyStatus,
   LineStatus,
@@ -51,7 +50,6 @@ export class TenantResetService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: EnterpriseAuditService,
-    private readonly config: ConfigService,
   ) {}
 
   async resetPbx(
@@ -153,16 +151,10 @@ export class TenantResetService {
     const tenant = await this.requireMutableTenant(tenantId);
     this.assertConfirm(tenant.displayName, 'delete', dto.confirmPhrase);
 
-    const inventoryTenantId = await this.resolveInventoryTenantId();
-    if (inventoryTenantId === tenantId) {
-      throw new BadRequestException('Cannot delete the platform inventory tenant');
-    }
-
     const didsReleased = await this.prisma.$transaction(
       async (tx) => {
-        const n = await this.releaseDidsToInventory(tx, {
+        const n = await this.releaseDidsToGlobalInventory(tx, {
           tenantId,
-          inventoryTenantId,
           actorUserId,
         });
 
@@ -219,7 +211,7 @@ export class TenantResetService {
       action: 'tenant.deleted',
       resourceType: 'tenant',
       resourceId: tenantId,
-      detail: { didsReleasedToInventory: didsReleased, inventoryTenantId },
+      detail: { didsReleasedToGlobalInventory: didsReleased },
     });
 
     const row = await this.prisma.tenant.findFirst({ where: { id: tenantId } });
@@ -373,9 +365,10 @@ export class TenantResetService {
     await tx.user.deleteMany({ where: { tenantId } });
   }
 
-  private async releaseDidsToInventory(
+  /** Return DIDs to Global Inventory (ownerTenantId/tenantId NULL). */
+  private async releaseDidsToGlobalInventory(
     tx: Prisma.TransactionClient,
-    params: { tenantId: string; inventoryTenantId: string; actorUserId: string },
+    params: { tenantId: string; actorUserId: string },
   ): Promise<number> {
     const phones = await tx.phoneNumber.findMany({
       where: { tenantId: params.tenantId, deletedAt: null },
@@ -386,13 +379,13 @@ export class TenantResetService {
       await detachDidFromPriorExtension(tx, {
         phoneNumberId: phone.id,
         actorUserId: params.actorUserId,
-        nextTenantId: params.inventoryTenantId,
         markUnassignedInTenant: false,
       });
       await tx.phoneNumber.update({
         where: { id: phone.id },
         data: {
-          tenantId: params.inventoryTenantId,
+          ownerTenantId: null,
+          tenantId: null,
           siteId: null,
           lineId: null,
           status: PhoneNumberStatus.ACTIVE,
@@ -402,21 +395,6 @@ export class TenantResetService {
       });
     }
     return phones.length;
-  }
-
-  private async resolveInventoryTenantId(): Promise<string> {
-    const settings = await this.prisma.platformSettings.findFirst({
-      orderBy: { createdAt: 'asc' },
-    });
-    const id =
-      settings?.inventoryTenantId?.trim() ||
-      this.config.get<string>('VSP_PLATFORM_INVENTORY_TENANT_ID')?.trim();
-    if (!id) {
-      throw new BadRequestException(
-        'Platform Inventory Tenant is not configured. Set VSP_PLATFORM_INVENTORY_TENANT_ID.',
-      );
-    }
-    return id;
   }
 
   private assertConfirm(displayName: string, op: LifecycleOp, phrase: string): void {

@@ -6,7 +6,7 @@ import { usePortal } from '../../lib/portal/PortalProvider';
 import { usePlatformCarriers } from '../../lib/hooks/queries/use-platform';
 import { useOpsCarriersHealth } from '../../lib/hooks/queries/use-ops';
 import type { PlatformCarrierRecord } from '../../types/portal';
-import { Badge, StatusBadge } from '../ui/Badge';
+import { StatusBadge } from '../ui/Badge';
 import type { Column } from '../data/DataTable';
 import { ModuleAccessGate, ModuleListShell, withRowIds } from './shared/ModuleShell';
 import { QueryState } from '../feedback/QueryState';
@@ -17,20 +17,48 @@ import { Skeleton } from '../ui/Skeleton';
 
 type CarrierRow = PlatformCarrierRecord & { id: string };
 
+function healthBadge(status: string): 'healthy' | 'warning' | 'error' {
+  if (status === 'up' || status === 'configured') return 'healthy';
+  if (status === 'degraded' || status === 'missing' || status === 'unknown') return 'warning';
+  return 'error';
+}
+
 const columns: Column<CarrierRow>[] = [
   { key: 'name', header: 'Carrier', sortable: true, cell: (r) => <span className="font-medium">{r.name}</span> },
-  { key: 'tenant', header: 'Tenant', cell: (r) => r.tenantName },
-  { key: 'type', header: 'Type', cell: (r) => <Badge variant="outline">{r.carrierType}</Badge> },
-  { key: 'code', header: 'Code', cell: (r) => <span className="font-mono text-xs">{r.code}</span> },
-  { key: 'status', header: 'Status', cell: (r) => <StatusBadge status={r.status === 'ACTIVE' ? 'active' : 'pending'} /> },
+  {
+    key: 'api',
+    header: 'API',
+    cell: (r) => <StatusBadge status={healthBadge(r.apiStatus ?? r.healthStatus)} />,
+  },
+  {
+    key: 'webhook',
+    header: 'Webhook',
+    cell: (r) => <StatusBadge status={healthBadge(r.webhookStatus ?? 'unknown')} />,
+  },
+  {
+    key: 'numbers',
+    header: 'Numbers',
+    cell: (r) => <span className="tabular-nums">{r.numbersCount ?? 0}</span>,
+  },
+  {
+    key: 'trunks',
+    header: 'Trunks',
+    cell: (r) => <span className="tabular-nums">{r.trunksCount ?? 0}</span>,
+  },
+  {
+    key: 'lastSync',
+    header: 'Last Sync',
+    cell: (r) =>
+      r.lastSyncAt ? (
+        <span className="text-xs text-muted-foreground">{new Date(r.lastSyncAt).toLocaleString()}</span>
+      ) : (
+        '—'
+      ),
+  },
   {
     key: 'health',
     header: 'Health',
-    cell: (r) => (
-      <StatusBadge
-        status={r.healthStatus === 'up' ? 'healthy' : r.healthStatus === 'degraded' ? 'warning' : 'error'}
-      />
-    ),
+    cell: (r) => <StatusBadge status={healthBadge(r.healthStatus)} />,
   },
 ];
 
@@ -89,7 +117,7 @@ export function CarriersContent() {
           query={{ ...platformQuery, data: rows }}
           columns={columns}
           emptyTitle="No carrier integrations"
-          emptyDescription="Carrier adapters will appear here once configured for tenants."
+          emptyDescription="Platform carrier integrations (e.g. Telnyx) appear here once configured."
         />
       )}
     </ModuleAccessGate>

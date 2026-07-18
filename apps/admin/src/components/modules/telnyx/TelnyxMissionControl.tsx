@@ -61,8 +61,36 @@ type TabId = (typeof TABS)[number]['id'];
 const inventoryColumns: Column<TelnyxNumberRecord>[] = [
   { key: 'number', header: 'Number', sortable: true, cell: (r) => <span className="font-mono text-sm font-medium">{r.number}</span> },
   { key: 'region', header: 'Region', cell: (r) => r.region },
-  { key: 'tenant', header: 'Tenant', cell: (r) => r.assignedTenantName ?? <span className="text-muted-foreground">Available</span> },
-  { key: 'ext', header: 'Extension', cell: (r) => r.assignedExtension ?? '—' },
+  {
+    key: 'assignedUser',
+    header: 'Assigned User',
+    cell: (r) => r.assignedUserName ?? '—',
+  },
+  {
+    key: 'assignedExt',
+    header: 'Assigned Extension',
+    cell: (r) => r.assignedExtension ?? '—',
+  },
+  {
+    key: 'tenant',
+    header: 'Tenant',
+    cell: (r) => r.assignedTenantName ?? <span className="text-muted-foreground">Global Inventory</span>,
+  },
+  {
+    key: 'registration',
+    header: 'Registration',
+    cell: (r) => {
+      const s = (r.registrationStatus ?? '').toLowerCase();
+      if (!s) return '—';
+      const badge =
+        s === 'registered' || s === 'online' || s === 'busy'
+          ? 'online'
+          : s === 'offline' || s === 'unregistered'
+            ? 'offline'
+            : 'pending';
+      return <StatusBadge status={badge} />;
+    },
+  },
   { key: 'sms', header: 'SMS', cell: (r) => (r.smsEnabled ? '✓' : '—') },
   { key: 'e911', header: 'E911', cell: (r) => (r.emergencyEnabled ? '✓' : '—') },
   { key: 'cost', header: 'Cost/mo', cell: (r) => <span className="tabular-nums">${r.monthlyCost.toFixed(2)}</span> },

@@ -27,7 +27,7 @@ const CHECKS = [
   { key: 'TELNYX_API_KEY', required: 'prod' },
   { key: 'TELNYX_WEBHOOK_SECRET', required: 'prod' },
   { key: 'TELNYX_API_BASE_URL', required: false },
-  { key: 'VSP_PLATFORM_INVENTORY_TENANT_ID', required: 'prod' },
+  { key: 'VSP_PLATFORM_INVENTORY_TENANT_ID', required: false, note: 'deprecated — Global Inventory uses ownerTenantId NULL' },
   { key: 'TELECOM_SERVICE_AUTH_TOKEN', required: 'prod' },
   { key: 'CORS_ORIGINS', required: 'prod' },
   { key: 'BACKUP_LOCATION', required: 'prod' },

@@ -45,7 +45,7 @@ export class OpsCenterController {
   }
 
   @Get('health')
-  @RequirePermission(PERMISSIONS.OPS_HEALTH_READ)
+  @RequireAnyPermission(PERMISSIONS.OPS_HEALTH_READ, PERMISSIONS.PLATFORM_SUPER_ADMIN)
   @ApiOperation({ summary: 'Infrastructure health and deployment readiness' })
   async healthDetail() {
     const [components, readiness] = await Promise.all([

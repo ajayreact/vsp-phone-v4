@@ -116,15 +116,11 @@ describe('TenantResetService', () => {
         findFirst: jest.fn().mockResolvedValue(tenant),
       },
       phoneNumber,
-      platformSettings: {
-        findFirst: jest.fn().mockResolvedValue({ inventoryTenantId: inventoryId }),
-      },
       $transaction: jest.fn(async (fn: (client: typeof tx) => Promise<unknown>) => fn(tx)),
     };
 
     const audit = { append: jest.fn().mockResolvedValue(undefined) };
-    const config = { get: jest.fn().mockReturnValue(inventoryId) };
-    const service = new TenantResetService(prisma as never, audit as never, config as never);
+    const service = new TenantResetService(prisma as never, audit as never);
     return { service, prisma, audit, tx, phoneNumber };
   }
 
@@ -197,7 +193,7 @@ describe('TenantResetService', () => {
     );
   });
 
-  it('deleteTenant moves DIDs to inventory and sets DELETED', async () => {
+  it('deleteTenant moves DIDs to Global Inventory and sets DELETED', async () => {
     const { service, audit, tx, phoneNumber } = buildService([{ id: 'pn-1' }]);
     const result = await service.deleteTenant(tenant.id, 'actor', {
       confirmPhrase: 'DELETE Demo Co',
@@ -208,7 +204,8 @@ describe('TenantResetService', () => {
       expect.objectContaining({
         where: { id: 'pn-1' },
         data: expect.objectContaining({
-          tenantId: inventoryId,
+          ownerTenantId: null,
+          tenantId: null,
           status: PhoneNumberStatus.ACTIVE,
           available: true,
           lineId: null,
