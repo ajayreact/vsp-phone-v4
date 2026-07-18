@@ -38,7 +38,13 @@ export function isTenantAccordionNav(portal?: PortalType): boolean {
 
 export function getModuleByHref(href: string, portal?: PortalType): ModuleDefinition | undefined {
   const modules = getModulesForPortal(portal);
-  return modules.find((m) => m.href === href);
+  const path = href.split('?')[0] ?? href;
+  const exact = modules.find((m) => m.href === path);
+  if (exact) return exact;
+  // Longest absolute href prefix (never invent child segments from pathname).
+  return modules
+    .filter((m) => path.startsWith(`${m.href}/`))
+    .sort((a, b) => b.href.length - a.href.length)[0];
 }
 
 /** Legacy module ids still referenced by shared content components → canonical V2 module ids. */
