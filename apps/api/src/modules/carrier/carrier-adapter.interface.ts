@@ -9,7 +9,8 @@ export interface TrunkHint {
   carrierId: string;
   carrierCode: string;
   carrierType: string;
-  tenantId: string;
+  /** NULL = platform-scoped carrier (Global Inventory / single Telnyx). */
+  tenantId: string | null;
   /** Kamailio dispatcher set id */
   dispatcherSet: number;
   /** Primary SIP URI host for R-URI rewrite */

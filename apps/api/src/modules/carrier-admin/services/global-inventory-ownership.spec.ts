@@ -1,6 +1,7 @@
 /**
  * Global Inventory model — no fake Platform Inventory tenant.
  * Unassigned DIDs use ownerTenantId IS NULL (and tenantId IS NULL).
+ * Assigned DIDs set both ownerTenantId and tenantId to the customer tenant.
  */
 describe('Global Inventory ownership model', () => {
   type Phone = { ownerTenantId: string | null; tenantId: string | null; lineId: string | null };
@@ -11,6 +12,14 @@ describe('Global Inventory ownership model', () => {
 
   function isAssignedToTenant(p: Phone, tenantId: string): boolean {
     return p.ownerTenantId === tenantId && p.tenantId === tenantId;
+  }
+
+  function assignToTenant(p: Phone, tenantId: string): Phone {
+    return { ...p, ownerTenantId: tenantId, tenantId, lineId: p.lineId };
+  }
+
+  function releaseToGlobalInventory(p: Phone): Phone {
+    return { ...p, ownerTenantId: null, tenantId: null, lineId: null };
   }
 
   it('treats null owner+tenant as Global Inventory', () => {
@@ -25,7 +34,21 @@ describe('Global Inventory ownership model', () => {
     expect(isGlobalInventory({ ownerTenantId: tenantId, tenantId, lineId: null })).toBe(false);
   });
 
-  it('does not use a Platform Inventory tenant id', () => {
+  it('assign moves Global Inventory DID onto a real tenant', () => {
+    const before: Phone = { ownerTenantId: null, tenantId: null, lineId: null };
+    const after = assignToTenant(before, 'tenant-a');
+    expect(isGlobalInventory(after)).toBe(false);
+    expect(isAssignedToTenant(after, 'tenant-a')).toBe(true);
+  });
+
+  it('delete/release returns DID to Global Inventory', () => {
+    const owned: Phone = { ownerTenantId: 'tenant-a', tenantId: 'tenant-a', lineId: 'line-1' };
+    const released = releaseToGlobalInventory(owned);
+    expect(isGlobalInventory(released)).toBe(true);
+    expect(released.lineId).toBeNull();
+  });
+
+  it('does not treat a fake inventory-tenant id as Global Inventory', () => {
     const fakeInventoryTenant = 'platform-inventory-uuid';
     expect(
       isGlobalInventory({

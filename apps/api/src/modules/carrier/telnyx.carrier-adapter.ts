@@ -43,22 +43,22 @@ export class TelnyxCarrierAdapter implements CarrierAdapter {
   async selectOutboundTrunk(req: OutboundTrunkRequest): Promise<TrunkHint | null> {
     if (!this.prisma.connected) return null;
 
+    // Platform Telnyx (tenantId NULL) is shared; also allow tenant-scoped carriers if present.
     const carriers = await this.prisma.carrier.findMany({
       where: {
-        tenantId: req.tenantId,
         deletedAt: null,
         status: CarrierStatus.ACTIVE,
         carrierType: CarrierType.TELNYX,
+        OR: [{ tenantId: null }, { tenantId: req.tenantId }],
         ...(req.preferredCarrierCode ? { code: req.preferredCarrierCode } : {}),
       },
-      orderBy: { createdAt: 'asc' },
+      orderBy: [{ tenantId: 'asc' }, { createdAt: 'asc' }],
     });
 
     for (const c of carriers) {
       const hint = this.toTrunkHint(c);
       if (hint.health === 'RED') continue;
-      // Multi-tenant isolation: never return another tenant's carrier
-      if (hint.tenantId !== req.tenantId) continue;
+      if (!this.isCarrierVisibleToTenant(hint.tenantId, req.tenantId)) continue;
       return hint;
     }
     return null;
@@ -68,12 +68,13 @@ export class TelnyxCarrierAdapter implements CarrierAdapter {
     if (!this.prisma.connected) return 'RED';
     const c = await this.prisma.carrier.findFirst({
       where: {
-        tenantId,
         deletedAt: null,
         carrierType: CarrierType.TELNYX,
         status: CarrierStatus.ACTIVE,
+        OR: [{ tenantId: null }, { tenantId }],
         ...(carrierCode ? { code: carrierCode } : {}),
       },
+      orderBy: [{ tenantId: 'asc' }, { createdAt: 'asc' }],
     });
     if (!c) return 'RED';
     return this.toTrunkHint(c).health;
@@ -86,30 +87,28 @@ export class TelnyxCarrierAdapter implements CarrierAdapter {
     if (!failed.failoverEnabled) return null;
     if (!this.prisma.connected) return null;
 
+    if (failed.backupSipHost) {
+      return { ...failed, sipHost: failed.backupSipHost, health: 'YELLOW' };
+    }
+
     const carriers = await this.prisma.carrier.findMany({
       where: {
-        tenantId: req.tenantId,
         deletedAt: null,
         status: CarrierStatus.ACTIVE,
         carrierType: CarrierType.TELNYX,
+        OR: [{ tenantId: null }, { tenantId: req.tenantId }],
         NOT: { id: failed.carrierId },
       },
-      orderBy: { createdAt: 'asc' },
+      orderBy: [{ tenantId: 'asc' }, { createdAt: 'asc' }],
     });
 
     for (const c of carriers) {
       const hint = this.toTrunkHint(c);
       if (hint.health === 'RED') continue;
-      // Prefer backup host on same carrier if configured
-      if (c.id === failed.carrierId && failed.backupSipHost) {
-        return { ...failed, sipHost: failed.backupSipHost };
-      }
+      if (!this.isCarrierVisibleToTenant(hint.tenantId, req.tenantId)) continue;
       return hint;
     }
 
-    if (failed.backupSipHost) {
-      return { ...failed, sipHost: failed.backupSipHost, health: 'YELLOW' };
-    }
     return null;
   }
 
@@ -189,11 +188,19 @@ export class TelnyxCarrierAdapter implements CarrierAdapter {
     return { provider: this.provider, status, sipHost: host, carriers: list.length };
   }
 
+  /** Platform carriers (tenantId NULL) are visible to every tenant; never cross-tenant. */
+  private isCarrierVisibleToTenant(
+    carrierTenantId: string | null,
+    requestTenantId: string,
+  ): boolean {
+    return carrierTenantId == null || carrierTenantId === requestTenantId;
+  }
+
   private toTrunkHint(c: {
     id: string;
     code: string;
     carrierType: CarrierType;
-    tenantId: string;
+    tenantId: string | null;
     configuration: unknown;
   }): TrunkHint {
     const cfg = (c.configuration && typeof c.configuration === 'object'
