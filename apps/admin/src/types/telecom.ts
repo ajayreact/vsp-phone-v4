@@ -198,6 +198,8 @@ export type SipTrunkRecord = {
   concurrentCalls?: number;
   lastRegistrationAt?: string | null;
   lastOptionsAt?: string | null;
+  /** False when call/latency samples could not be collected. */
+  metricsAvailable?: boolean;
 };
 
 export type LiveCallRecord = {

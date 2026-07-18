@@ -1,4 +1,11 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  HttpException,
+  HttpStatus,
+  Logger,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { PERMISSIONS } from '../../enterprise-security/auth/permissions.constants';
@@ -11,6 +18,8 @@ import { TrunksAdminService } from '../services/trunks-admin.service';
 @Controller('v1/carriers/trunks')
 @UseGuards(JwtAuthGuard, PermissionsGuard, AdminRateLimitGuard)
 export class TrunksAdminController {
+  private readonly logger = new Logger(TrunksAdminController.name);
+
   constructor(private readonly trunks: TrunksAdminService) {}
 
   @Get()
@@ -21,7 +30,30 @@ export class TrunksAdminController {
     PERMISSIONS.OPS_INFRA_READ,
   )
   @ApiOperation({ summary: 'List SIP trunks with live health metrics' })
-  list() {
-    return this.trunks.list().then((data) => ({ data }));
+  async list() {
+    try {
+      const data = await this.trunks.list();
+      return {
+        data,
+        meta: {
+          metricsAvailable: data.length > 0 && data.every((t) => t.metricsAvailable !== false),
+          count: data.length,
+        },
+      };
+    } catch (err) {
+      this.logger.error(
+        `GET /v1/carriers/trunks failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      // Structured JSON only — never let Nest fall through to HTML error pages.
+      throw new HttpException(
+        {
+          statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+          code: 'SIP_TRUNKS_UNAVAILABLE',
+          message: 'Unable to load SIP trunk metrics',
+          timestamp: new Date().toISOString(),
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
   }
 }
