@@ -10,6 +10,30 @@ const SENSITIVE_PATTERNS: RegExp[] = [
   /(-----BEGIN [A-Z ]+-----)([\s\S]*?)(-----END [A-Z ]+-----)/gi,
 ];
 
+function toRedactableText(input: unknown): string {
+  if (input == null) return '';
+  if (typeof input === 'string') return input;
+  if (typeof input === 'number' || typeof input === 'boolean' || typeof input === 'bigint') {
+    return String(input);
+  }
+  if (typeof input === 'symbol') return input.toString();
+  try {
+    // JSON.stringify(undefined) === undefined (not a string) — never pass that to .replace
+    const serialized = JSON.stringify(input);
+    return serialized === undefined ? String(input) : serialized;
+  } catch {
+    return Object.prototype.toString.call(input);
+  }
+}
+
+function applyRedaction(text: string): string {
+  return SENSITIVE_PATTERNS.reduce(
+    (acc, pattern) =>
+      acc.replace(pattern, (_m, prefix: string) => `${prefix}[REDACTED]`),
+    text,
+  );
+}
+
 /** Phase 16 — mask secrets before logs leave the process. */
 @Injectable()
 export class LogRedactionService implements OnModuleInit {
@@ -18,20 +42,11 @@ export class LogRedactionService implements OnModuleInit {
   }
 
   redact(input: unknown): string {
-    const text = typeof input === 'string' ? input : JSON.stringify(input);
-    return SENSITIVE_PATTERNS.reduce(
-      (acc, pattern) =>
-        acc.replace(pattern, (_m, prefix: string) => `${prefix}[REDACTED]`),
-      text,
-    );
+    return applyRedaction(toRedactableText(input));
   }
 }
 
+/** Null-safe — must never throw (SecurityExceptionFilter / Logger.overrideLogger). */
 export function redactLogMessage(input: unknown): string {
-  const text = typeof input === 'string' ? input : JSON.stringify(input);
-  return SENSITIVE_PATTERNS.reduce(
-    (acc, pattern) =>
-      acc.replace(pattern, (_m, prefix: string) => `${prefix}[REDACTED]`),
-    text,
-  );
+  return applyRedaction(toRedactableText(input));
 }

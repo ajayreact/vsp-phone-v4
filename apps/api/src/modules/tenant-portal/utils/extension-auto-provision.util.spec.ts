@@ -4,6 +4,8 @@ import {
   extensionNeedsBusinessSetup,
   nextAvailableExtensionNumber,
   resolveBulkExtensionTarget,
+  tenantAdvisoryLockKeys,
+  toPgInt4,
   tombstoneExtensionNumber,
 } from './extension-auto-provision.util';
 
@@ -21,12 +23,33 @@ describe('nextAvailableExtensionNumber', () => {
     expect(nextAvailableExtensionNumber(['main', '100', 'sales'])).toBe('101');
   });
 
+  it('ignores DID-length numeric strings (never treat phone numbers as extensions)', () => {
+    expect(nextAvailableExtensionNumber(['3367454551', '100'])).toBe('101');
+  });
+
   it('respects startFrom when free', () => {
     expect(nextAvailableExtensionNumber(['100'], 200)).toBe('200');
   });
 
   it('advances from startFrom when taken', () => {
     expect(nextAvailableExtensionNumber(['200', '201'], 200)).toBe('202');
+  });
+});
+
+describe('tenantAdvisoryLockKeys', () => {
+  it('keeps keys inside PostgreSQL int4 so pg_advisory_xact_lock does not raise 22003', () => {
+    // 0xc8b74757 === 3367454551 — the exact overflow value from production logs
+    const tenantId = 'c8b74757-95ad-404c-8c2d-96313744edfc';
+    const raw = Number.parseInt(tenantId.replace(/-/g, '').slice(0, 8), 16);
+    expect(raw).toBe(3367454551);
+    expect(raw).toBeGreaterThan(2147483647);
+
+    const [k1, k2] = tenantAdvisoryLockKeys(tenantId);
+    expect(k1).toBe(toPgInt4(raw));
+    expect(k1).toBeGreaterThanOrEqual(-2147483648);
+    expect(k1).toBeLessThanOrEqual(2147483647);
+    expect(k2).toBeGreaterThanOrEqual(-2147483648);
+    expect(k2).toBeLessThanOrEqual(2147483647);
   });
 });
 

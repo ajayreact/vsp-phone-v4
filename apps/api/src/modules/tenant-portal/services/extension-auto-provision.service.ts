@@ -19,6 +19,7 @@ import {
   DEFAULT_EXTENSION_START,
   defaultExtensionDisplayName,
   nextAvailableExtensionNumber,
+  tenantAdvisoryLockKeys,
 } from '../utils/extension-auto-provision.util';
 import {
   assertCanBindDidToLine,
@@ -62,9 +63,7 @@ export class ExtensionAutoProvisionService {
     tx: Prisma.TransactionClient,
     tenantId: string,
   ): Promise<void> {
-    const hex = tenantId.replace(/-/g, '');
-    const k1 = Number.parseInt(hex.slice(0, 8), 16) || 1;
-    const k2 = Number.parseInt(hex.slice(8, 16), 16) || 1;
+    const [k1, k2] = tenantAdvisoryLockKeys(tenantId);
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(${k1}, ${k2})`;
   }
 

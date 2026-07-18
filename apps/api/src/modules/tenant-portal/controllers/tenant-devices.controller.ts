@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   Header,
+  Logger,
   Param,
   Patch,
   Post,
@@ -38,6 +39,8 @@ import { TenantDevicesService } from '../services/tenant-devices.service';
 @Controller('v1/tenant/devices')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class TenantDevicesController {
+  private readonly logger = new Logger(TenantDevicesController.name);
+
   constructor(private readonly devices: TenantDevicesService) {}
 
   @Get()
@@ -71,9 +74,41 @@ export class TenantDevicesController {
   @Post()
   @RequirePermission(PERMISSIONS.TENANT_DEVICES_WRITE)
   @ApiOperation({ summary: 'Create device (auto-enrolls desk phone when MAC + line provided)' })
-  create(@Body() dto: CreateDeviceDto, @Req() req: Request) {
+  async create(@Body() dto: CreateDeviceDto, @Req() req: Request) {
     const user = getJwtUser(req);
-    return this.devices.create(user.tenantId, user.sub, dto);
+    this.logger.log(
+      JSON.stringify({
+        event: 'tenant.device.create.controller',
+        tenantId: user.tenantId,
+        actorUserId: user.sub,
+        extensionId: (req.body as { extensionId?: string } | undefined)?.extensionId ?? null,
+        devicePayload: {
+          name: dto.name,
+          deviceType: dto.deviceType,
+          lineId: dto.lineId ?? null,
+          manufacturer: dto.manufacturer ?? null,
+          model: dto.model ?? null,
+          macAddress: dto.macAddress ? '[present]' : null,
+          transport: dto.transport ?? null,
+        },
+      }),
+    );
+    try {
+      return await this.devices.create(user.tenantId, user.sub, dto);
+    } catch (err) {
+      this.logger.error(
+        JSON.stringify({
+          event: 'tenant.device.create.controller_error',
+          tenantId: user.tenantId,
+          actorUserId: user.sub,
+          lineId: dto.lineId ?? null,
+          deviceType: dto.deviceType,
+          errName: err instanceof Error ? err.name : 'Unknown',
+          errMsg: err instanceof Error ? err.message : String(err),
+        }),
+      );
+      throw err;
+    }
   }
 
   @Post('bulk-import')

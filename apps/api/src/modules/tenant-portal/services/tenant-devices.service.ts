@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import {
@@ -68,6 +69,8 @@ const deviceInclude = {
 
 @Injectable()
 export class TenantDevicesService {
+  private readonly logger = new Logger(TenantDevicesService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: EnterpriseAuditService,
@@ -105,87 +108,140 @@ export class TenantDevicesService {
   }
 
   async create(tenantId: string, userId: string, dto: CreateDeviceDto) {
-    if (dto.deviceType === DeviceType.DESK_PHONE && dto.lineId && dto.macAddress) {
-      const user: JwtPayload = { sub: userId, tenantId, email: '', portal: 'tenant' };
-      const enrolled = await this.enrollment.enroll(user, {
-        mac: dto.macAddress,
+    this.logger.log(
+      JSON.stringify({
+        event: 'tenant.device.create.service',
+        tenantId,
+        actorUserId: userId,
+        lineId: dto.lineId ?? null,
+        deviceType: dto.deviceType,
         name: dto.name,
-        lineId: dto.lineId,
-        manufacturer: dto.manufacturer,
-        model: dto.model,
-        modelFamily: dto.modelFamily,
-        siteId: dto.siteId,
-        departmentId: dto.departmentId,
-        provisioningTemplateId: dto.provisioningTemplateId,
-        firmwareChannel: dto.firmwareChannel,
-        serialNumber: dto.serialNumber,
-        assetTag: dto.assetTag,
-        location: dto.location,
-        transport: dto.transport,
-        tlsEnabled: dto.tlsEnabled,
-        srtpEnabled: dto.srtpEnabled,
+        manufacturer: dto.manufacturer ?? null,
+        macPresent: Boolean(dto.macAddress),
+        path:
+          dto.deviceType === DeviceType.DESK_PHONE && dto.lineId && dto.macAddress
+            ? 'enroll'
+            : 'inventory',
+      }),
+    );
+
+    try {
+      if (dto.deviceType === DeviceType.DESK_PHONE && dto.lineId && dto.macAddress) {
+        const user: JwtPayload = { sub: userId, tenantId, email: '', portal: 'tenant' };
+        this.logger.log(
+          JSON.stringify({
+            event: 'tenant.device.create.before_enroll',
+            tenantId,
+            lineId: dto.lineId,
+            manufacturer: dto.manufacturer ?? null,
+          }),
+        );
+        const enrolled = await this.enrollment.enroll(user, {
+          mac: dto.macAddress,
+          name: dto.name,
+          lineId: dto.lineId,
+          manufacturer: dto.manufacturer,
+          model: dto.model,
+          modelFamily: dto.modelFamily,
+          siteId: dto.siteId,
+          departmentId: dto.departmentId,
+          provisioningTemplateId: dto.provisioningTemplateId,
+          firmwareChannel: dto.firmwareChannel,
+          serialNumber: dto.serialNumber,
+          assetTag: dto.assetTag,
+          location: dto.location,
+          transport: dto.transport,
+          tlsEnabled: dto.tlsEnabled,
+          srtpEnabled: dto.srtpEnabled,
+        });
+        const device = await this.getById(tenantId, enrolled.deviceId);
+        await auditPbxMutation(this.audit, {
+          tenantId,
+          actorUserId: userId,
+          action: 'pbx.device.create.enroll',
+          entityType: 'Device',
+          entityId: enrolled.deviceId,
+          metadata: { mac: enrolled.mac, lineId: dto.lineId },
+        });
+        return device;
+      }
+
+      const id = randomUUID();
+      const publicId = `dev_${id.replace(/-/g, '').slice(0, 16)}`;
+      const mac = dto.macAddress ? normalizeMac(dto.macAddress) : null;
+
+      if (mac) {
+        const dup = await this.prisma.device.findFirst({
+          where: { macAddress: mac, deletedAt: null },
+        });
+        if (dup) throw new BadRequestException('MAC address already in use');
+      }
+
+      this.logger.log(
+        JSON.stringify({
+          event: 'tenant.device.create.before_db',
+          tenantId,
+          actorUserId: userId,
+          deviceId: id,
+          lineId: dto.lineId ?? null,
+          deviceType: dto.deviceType,
+          macAddress: mac,
+        }),
+      );
+
+      const device = await this.prisma.device.create({
+        data: {
+          id,
+          publicId,
+          tenantId,
+          name: dto.name,
+          deviceType: dto.deviceType,
+          manufacturer: dto.manufacturer ?? this.inferManufacturer(dto.model, dto.modelFamily),
+          model: dto.model,
+          macAddress: mac,
+          lineId: dto.lineId,
+          siteId: dto.siteId,
+          departmentId: dto.departmentId,
+          provisioningTemplateId: dto.provisioningTemplateId,
+          serialNumber: dto.serialNumber,
+          assetTag: dto.assetTag,
+          location: dto.location,
+          firmwareChannel: dto.firmwareChannel,
+          transport: dto.transport ?? 'UDP',
+          tlsEnabled: dto.tlsEnabled ?? false,
+          srtpEnabled: dto.srtpEnabled ?? false,
+          status: DeviceStatus.PROVISIONING,
+          provisioningStatus: ProvisioningStatus.PENDING,
+          createdBy: userId,
+        },
+        include: deviceInclude,
       });
-      const device = await this.getById(tenantId, enrolled.deviceId);
+
       await auditPbxMutation(this.audit, {
         tenantId,
         actorUserId: userId,
-        action: 'pbx.device.create.enroll',
+        action: 'pbx.device.create',
         entityType: 'Device',
-        entityId: enrolled.deviceId,
-        metadata: { mac: enrolled.mac, lineId: dto.lineId },
+        entityId: device.id,
+        metadata: { name: dto.name, deviceType: dto.deviceType },
       });
-      return device;
+
+      return this.enrichDevice(tenantId, device);
+    } catch (err) {
+      this.logger.error(
+        JSON.stringify({
+          event: 'tenant.device.create.service_error',
+          tenantId,
+          actorUserId: userId,
+          lineId: dto.lineId ?? null,
+          deviceType: dto.deviceType,
+          errName: err instanceof Error ? err.name : 'Unknown',
+          errMsg: err instanceof Error ? err.message : String(err),
+          stack: err instanceof Error ? err.stack?.split('\n').slice(0, 8) : undefined,
+        }),
+      );
+      throw err;
     }
-
-    const id = randomUUID();
-    const publicId = `dev_${id.replace(/-/g, '').slice(0, 16)}`;
-    const mac = dto.macAddress ? normalizeMac(dto.macAddress) : null;
-
-    if (mac) {
-      const dup = await this.prisma.device.findFirst({
-        where: { macAddress: mac, deletedAt: null },
-      });
-      if (dup) throw new BadRequestException('MAC address already in use');
-    }
-
-    const device = await this.prisma.device.create({
-      data: {
-        id,
-        publicId,
-        tenantId,
-        name: dto.name,
-        deviceType: dto.deviceType,
-        manufacturer: dto.manufacturer ?? this.inferManufacturer(dto.model, dto.modelFamily),
-        model: dto.model,
-        macAddress: mac,
-        lineId: dto.lineId,
-        siteId: dto.siteId,
-        departmentId: dto.departmentId,
-        provisioningTemplateId: dto.provisioningTemplateId,
-        serialNumber: dto.serialNumber,
-        assetTag: dto.assetTag,
-        location: dto.location,
-        firmwareChannel: dto.firmwareChannel,
-        transport: dto.transport ?? 'UDP',
-        tlsEnabled: dto.tlsEnabled ?? false,
-        srtpEnabled: dto.srtpEnabled ?? false,
-        status: DeviceStatus.PROVISIONING,
-        provisioningStatus: ProvisioningStatus.PENDING,
-        createdBy: userId,
-      },
-      include: deviceInclude,
-    });
-
-    await auditPbxMutation(this.audit, {
-      tenantId,
-      actorUserId: userId,
-      action: 'pbx.device.create',
-      entityType: 'Device',
-      entityId: device.id,
-      metadata: { name: dto.name, deviceType: dto.deviceType },
-    });
-
-    return this.enrichDevice(tenantId, device);
   }
 
   async update(tenantId: string, userId: string, id: string, dto: UpdateDeviceDto) {

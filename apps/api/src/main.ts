@@ -22,9 +22,9 @@ function configureStructuredLogging() {
         level: level === 'log' ? 'info' : level,
         service: 'api',
         timestamp: new Date().toISOString(),
-        message: redactLogMessage(message),
+        message: redactLogMessage(message ?? ''),
         meta: optionalParams.length
-          ? optionalParams.map((p) => redactLogMessage(p))
+          ? optionalParams.map((p) => redactLogMessage(p ?? ''))
           : undefined,
       };
       // eslint-disable-next-line no-console

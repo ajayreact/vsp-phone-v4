@@ -10,19 +10,34 @@ export class ApiError extends Error {
   }
 }
 
+function humanizeErrorBody(text: string, status: number): string {
+  const trimmed = text.trim();
+  if (!trimmed) return `HTTP ${status}`;
+
+  // Nest/Express sometimes returns HTML when an exception filter itself throws.
+  if (trimmed.startsWith('<!DOCTYPE') || trimmed.startsWith('<html') || /<pre>\s*Internal Server Error/i.test(trimmed)) {
+    return status >= 500
+      ? 'Internal server error. Please retry or check API logs.'
+      : `Request failed (HTTP ${status}).`;
+  }
+
+  try {
+    const json = JSON.parse(trimmed) as { message?: string | string[]; error?: string };
+    if (Array.isArray(json.message)) return json.message.join(', ');
+    if (typeof json.message === 'string') return json.message;
+    if (json.error) return json.error;
+  } catch {
+    /* not JSON */
+  }
+
+  // Cap long non-JSON bodies so toasts stay readable.
+  return trimmed.length > 280 ? `${trimmed.slice(0, 280)}…` : trimmed;
+}
+
 async function parseJson<T>(res: Response): Promise<T> {
   if (!res.ok) {
     const text = await res.text();
-    let message = text || `HTTP ${res.status}`;
-    try {
-      const json = JSON.parse(text) as { message?: string | string[]; error?: string };
-      if (Array.isArray(json.message)) message = json.message.join(', ');
-      else if (typeof json.message === 'string') message = json.message;
-      else if (json.error) message = json.error;
-    } catch {
-      /* use raw text */
-    }
-    throw new ApiError(message, res.status);
+    throw new ApiError(humanizeErrorBody(text, res.status), res.status);
   }
   return res.json() as Promise<T>;
 }

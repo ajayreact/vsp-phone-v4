@@ -39,7 +39,7 @@ function Stat({ label, value, mono }: { label: string; value: string; mono?: boo
   );
 }
 
-/** Sticky summary panel — stays visible across every Configure tab (the Extension Workspace's single source of truth). */
+/** Summary panel at the top of the Configure workspace (scrolls with the modal body). */
 export function ExtensionOverviewHeader({
   row,
   actions,
@@ -55,7 +55,7 @@ export function ExtensionOverviewHeader({
   const created = row.createdAt ? new Date(row.createdAt).toLocaleDateString() : '—';
 
   return (
-    <div className="sticky top-0 z-10 mb-4 rounded-xl border border-border bg-card/95 p-4 shadow-sm backdrop-blur-sm">
+    <div className="mb-4 rounded-xl border border-border bg-card p-4 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex flex-wrap items-center gap-3">
           <LifecycleBadge row={row} />
