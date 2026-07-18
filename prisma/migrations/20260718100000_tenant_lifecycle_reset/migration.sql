@@ -1,4 +1,7 @@
 -- Tenant Lifecycle: DELETED status, in-tenant UNASSIGNED DIDs, available flag
+-- Must not run inside a single transaction: PG cannot use a newly added enum
+-- value in the same transaction that added it.
+-- prisma:disable-transactions
 
 DO $$ BEGIN
   ALTER TYPE "tenant_status" ADD VALUE 'DELETED';
