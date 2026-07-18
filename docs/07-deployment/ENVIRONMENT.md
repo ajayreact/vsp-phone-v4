@@ -59,7 +59,7 @@ Validated by `apps/api/src/app/env.validation.ts` → `assertProductionSecurity(
 | Variable | Consumed by | Notes |
 |----------|-------------|-------|
 | `TELNYX_API_KEY` | `TelnyxApiClient` | Telnyx REST sync/purchase; optional in schema but required for live inventory |
-| `VSP_PLATFORM_INVENTORY_TENANT_ID` | `TelnyxNumbersService` | Platform tenant UUID for unassigned numbers |
+| `VSP_PLATFORM_INVENTORY_TENANT_ID` | — | **Deprecated** — unused (Global Inventory) |
 | `NEXT_PUBLIC_API_URL` | Admin browser bundle | **Build-time** ARG in `Dockerfile.admin` |
 | `API_INTERNAL_URL` | Admin BFF routes | Server-side proxy to API (default `http://api:3000/api` in Compose) |
 | `CORS_ORIGINS` | `main.ts` | Browser admin origin allowlist |
@@ -77,7 +77,7 @@ Validated by `apps/api/src/app/env.validation.ts` → `assertProductionSecurity(
 | `TELNYX_SIP_HOST` | ✓ | Carrier SIP host in config JSON |
 | `TELNYX_DISPATCHER_SET` | ✓ | Kamailio dispatcher set |
 | `TELNYX_WEBHOOK_SECRET` | ✓ | Inbound webhook HMAC |
-| `VSP_PLATFORM_INVENTORY_TENANT_ID` | ✓ | Platform inventory tenant |
+| `VSP_PLATFORM_INVENTORY_TENANT_ID` |  | Deprecated / unused |
 
 ### Not used by this codebase (removed from templates)
 

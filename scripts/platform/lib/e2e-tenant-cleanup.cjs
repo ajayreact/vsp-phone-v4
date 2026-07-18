@@ -136,19 +136,6 @@ async function cleanupTempTenant(opts) {
     return finalize(report, reportPath);
   }
 
-  let inventoryTenantId = null;
-  try {
-    const settings = unwrap(await api('GET', '/v1/platform/settings', { token: platformToken }));
-    inventoryTenantId = settings?.inventoryTenantId || process.env.VSP_PLATFORM_INVENTORY_TENANT_ID || null;
-  } catch (err) {
-    pushError('resolve_inventory_tenant', err);
-  }
-
-  if (inventoryTenantId && tenant.id === inventoryTenantId) {
-    pushRetained('tenant', tenant.id, 'Safety block: inventory tenant');
-    return finalize(report, reportPath);
-  }
-
   // Collect DIDs
   let didIds = [...new Set(knownDidIds.filter(Boolean))];
   try {
@@ -272,7 +259,7 @@ async function cleanupTempTenant(opts) {
     pushError('soft_delete_lines_sql', err);
   }
 
-  // Return DIDs to inventory before tenant delete
+  // Return DIDs to Global Inventory (owner_tenant_id / tenant_id NULL) before tenant delete
   if (didIds.length === 0) {
     // Also discover via SQL in case API list missed them
     try {
@@ -289,21 +276,6 @@ async function cleanupTempTenant(opts) {
 
   if (didIds.length === 0) {
     pushRemoved('dids', 'none assigned');
-  } else if (!inventoryTenantId) {
-    // Clear line binding even without inventory tenant id
-    for (const id of didIds) {
-      try {
-        runSql(
-          `UPDATE number_assignments SET effective_to = NOW(), updated_at = NOW() WHERE phone_number_id = ${sqlLiteral(id)} AND tenant_id = ${sqlLiteral(tenant.id)} AND effective_to IS NULL AND deleted_at IS NULL`,
-        );
-        runSql(
-          `UPDATE phone_numbers SET line_id = NULL, site_id = NULL, updated_at = NOW() WHERE id = ${sqlLiteral(id)} AND tenant_id = ${sqlLiteral(tenant.id)} AND deleted_at IS NULL`,
-        );
-        pushRetained('did', id, 'Cleared line binding; inventoryTenantId missing so tenant_id not moved');
-      } catch (err) {
-        pushError(`clear_did_${id}`, err);
-      }
-    }
   } else {
     for (const id of didIds) {
       try {
@@ -314,19 +286,19 @@ async function cleanupTempTenant(opts) {
           `UPDATE inbound_routes SET deleted_at = NOW(), updated_at = NOW(), enabled = false WHERE phone_number_id = ${sqlLiteral(id)} AND tenant_id = ${sqlLiteral(tenant.id)} AND deleted_at IS NULL`,
         );
         runSql(
-          `UPDATE phone_numbers SET tenant_id = ${sqlLiteral(inventoryTenantId)}, line_id = NULL, site_id = NULL, updated_at = NOW() WHERE id = ${sqlLiteral(id)} AND tenant_id = ${sqlLiteral(tenant.id)} AND deleted_at IS NULL`,
+          `UPDATE phone_numbers SET owner_tenant_id = NULL, tenant_id = NULL, line_id = NULL, site_id = NULL, available = true, updated_at = NOW() WHERE id = ${sqlLiteral(id)} AND tenant_id = ${sqlLiteral(tenant.id)} AND deleted_at IS NULL`,
         );
         const out = runSql(
-          `SELECT COUNT(*) FROM phone_numbers WHERE id = ${sqlLiteral(id)} AND tenant_id = ${sqlLiteral(inventoryTenantId)} AND deleted_at IS NULL`,
+          `SELECT COUNT(*) FROM phone_numbers WHERE id = ${sqlLiteral(id)} AND owner_tenant_id IS NULL AND tenant_id IS NULL AND deleted_at IS NULL`,
         );
         if (String(out).trim() === '1') {
-          pushRemoved('did', `${id} → inventory ${inventoryTenantId}`);
+          pushRemoved('did', `${id} → Global Inventory`);
         } else {
-          pushRetained('did', id, `Inventory move unverified (psql out=${out || 'empty'})`);
+          pushRetained('did', id, `Global Inventory move unverified (psql out=${out || 'empty'})`);
         }
       } catch (err) {
         pushError(`return_did_${id}`, err);
-        pushRetained('did', id, 'SQL return-to-inventory failed');
+        pushRetained('did', id, 'SQL return-to-global-inventory failed');
       }
     }
   }

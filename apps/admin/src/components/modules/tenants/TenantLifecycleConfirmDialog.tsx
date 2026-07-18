@@ -69,7 +69,7 @@ const COPY: Record<
   delete: {
     title: 'Delete Tenant',
     warning:
-      'Soft-deletes the tenant and releases all DIDs back to Platform Inventory. Audit logs and billing history are kept. Never hard-deletes.',
+      'Soft-deletes the tenant and returns all DIDs to Global Inventory. Audit logs and billing history are kept. Never hard-deletes.',
     requireAck: true,
   },
 };
@@ -141,7 +141,7 @@ export function TenantLifecycleConfirmDialog({
               <p className="font-semibold text-foreground">Phone Numbers</p>
               <p className="mt-1 text-muted-foreground">
                 Assigned DIDs remain owned by this tenant. They become <span className="font-mono">UNASSIGNED</span>.
-                They are <strong>not</strong> returned to Platform Inventory.
+                They are <strong>not</strong> returned to Global Inventory.
               </p>
             </div>
           </div>
@@ -166,7 +166,7 @@ export function TenantLifecycleConfirmDialog({
                 </p>
                 <p>
                   <span className="font-semibold text-foreground">Effects:</span> Status DELETED, users/API keys
-                  disabled, DIDs released to Platform Inventory
+                  disabled, DIDs returned to Global Inventory
                 </p>
               </>
             )}

@@ -45,7 +45,7 @@ Any PR outside the Allowed list **must be rejected** until governance is lifted 
 Execute **in order** on the staging (or production cutover) host:
 
 ```bash
-npm run platform:ensure-inventory
+npx prisma migrate deploy
 npx prisma migrate deploy
 npm run platform:rc1-infra
 RC1_PROFILE=production npm run platform:rc1-env
@@ -75,7 +75,7 @@ Approve **Customer Pilot** only when **all** of the following are true:
 - [ ] Infrastructure validation passes (`npm run platform:rc1-infra`)
 - [ ] Environment validation passes (`RC1_PROFILE=production npm run platform:rc1-env`)
 - [ ] Database migrations succeed (`npx prisma migrate deploy`)
-- [ ] Inventory tenant is configured (`platform:ensure-inventory` + `VSP_PLATFORM_INVENTORY_TENANT_ID`)
+- [ ] Global Inventory model active (`owner_tenant_id`; no active inventory tenant)
 - [ ] Smoke tests pass (`npm run platform:pilot-smoke`)
 - [ ] Live call laboratory passes (`CALL_LAB_RESULT=PASS` + signed [RC1-CALL-LAB-REPORT.md](./RC1-CALL-LAB-REPORT.md))
 - [ ] Device provisioning succeeds (including MAC delete + re-enroll)
@@ -122,7 +122,7 @@ Classification target:
 
 ## Resolution
 - [ ] Fix merged
-- [ ] Full sequence re-run from `platform:ensure-inventory`
+- [ ] Full sequence re-run from `prisma migrate deploy`
 - [ ] All steps green
 ```
 

@@ -40,7 +40,7 @@
 | **Customer Pilot** | All must be true | Infra · Env · Migrations · Inventory · Smoke · Live call lab · Device provisioning · No Critical/High defects · Security regressions |
 | **General Availability** | All must be true | Customer Pilot complete · Load targets met · Monitoring/alerting operational · Backup/recovery verified · **14 consecutive days** with no Critical/High defects · Final release sign-off |
 
-**Do not promote** unless every required gate is satisfied. Partial greens do not count. If any promotion command fails: stop, file a defect report, fix only the blocker, restart from `platform:ensure-inventory`.
+**Do not promote** unless every required gate is satisfied. Partial greens do not count. If any promotion command fails: stop, file a defect report, fix only the blocker, restart from `prisma migrate deploy`.
 
 ---
 
@@ -51,7 +51,7 @@
 - [ ] PostgreSQL authentication works (`DATABASE_URL`)
 - [ ] Redis reachable (`REDIS_URL`)
 - [ ] `npx prisma migrate deploy` succeeded
-- [ ] Platform Inventory tenant exists (`npm run platform:ensure-inventory`)
+- [ ] Global Inventory model active (`phone_numbers.owner_tenant_id`; no active `platform-inventory` tenant)
 - [ ] `npm run platform:rc1-infra` → **PASS**
   - No duplicate DIDs
   - No duplicate extensions
@@ -72,7 +72,7 @@ Must be set (non-exhaustive; script is authoritative):
 | `REDIS_URL` | Yes |
 | `JWT_SECRET` | Yes (prod) |
 | `TELNYX_API_KEY` | Yes |
-| `VSP_PLATFORM_INVENTORY_TENANT_ID` | Yes |
+| `VSP_PLATFORM_INVENTORY_TENANT_ID` | No (deprecated — unused) |
 | `CORS_ORIGINS` | Yes |
 | `SMTP_HOST` / `SMTP_FROM_EMAIL` | Yes |
 | `KAMAILIO_WSS_PORT` / `KAMAILIO_REQUIRE_SERVICE_AUTH` | Yes |
@@ -85,7 +85,6 @@ Must be set (non-exhaustive; script is authoritative):
 ### 3. Staging smoke (all steps PASS)
 
 ```bash
-npm run platform:ensure-inventory
 npx prisma migrate deploy
 npm run platform:rc1-infra
 RC1_PROFILE=production npm run platform:rc1-env

@@ -24,8 +24,8 @@
 
 ## Production deployment checklist (minimum)
 
-1. [ ] Fix env FAIL items (`TELNYX_API_KEY`, `VSP_PLATFORM_INVENTORY_TENANT_ID`, `CORS_ORIGINS`; disable `MIGRATION_DEV_SUPER_ADMIN` in prod)
-2. [ ] `npm run platform:ensure-inventory` + set inventory env
+1. [ ] Fix env FAIL items (`TELNYX_API_KEY`, `CORS_ORIGINS`; disable `MIGRATION_DEV_SUPER_ADMIN` in prod)
+2. [ ] `npx prisma migrate deploy` (Global Inventory — no inventory tenant)
 3. [ ] `npx prisma migrate deploy` + `npm run platform:rc1-infra`
 4. [ ] Redis + Postgres healthy (`/api/ready`)
 5. [ ] Pre-deploy `pg_dump` + verify backup restore once

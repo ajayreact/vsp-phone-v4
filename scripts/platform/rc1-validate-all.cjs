@@ -262,7 +262,7 @@ function writeMasterReport(phases, classification) {
     classification.includes('Internal')
       ? [
           'Follow docs/16-deployment/RC1-EXIT-CRITERIA.md and OPERATIONS-RUNBOOK.md on staging.',
-          '1. Fix Postgres/Redis; ensure-inventory; migrate deploy; platform:rc1-infra.',
+          '1. Fix Postgres/Redis; migrate deploy; platform:rc1-infra.',
           '2. RC1_PROFILE=production platform:rc1-env (must PASS).',
           '3. platform:pilot-smoke with PLATFORM_EMAIL / PASSWORD / API_BASE.',
           '4. Complete call lab → CALL_LAB_RESULT=PASS.',

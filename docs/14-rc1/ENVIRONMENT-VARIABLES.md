@@ -29,7 +29,7 @@ Reference: `.env.production.template`, `.env.example`, `docs/07-deployment/ENVIR
 |----------|---------|
 | `TELNYX_API_KEY` | Number inventory sync, purchase |
 | `TELNYX_WEBHOOK_SECRET` | Webhook signature verification |
-| `VSP_PLATFORM_INVENTORY_TENANT_ID` | Platform DID inventory tenant |
+| `VSP_PLATFORM_INVENTORY_TENANT_ID` | **Deprecated** — unused (Global Inventory = `ownerTenantId` NULL) |
 | `ALLOW_MULTIPLE_DIDS_PER_EXTENSION` | Default `false`. When false, assign dropdown and API enforce One DID ↔ One Extension |
 
 ## Admin portals

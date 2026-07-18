@@ -181,7 +181,7 @@ export async function detachDidFromPriorExtension(
 
 /**
  * Keep DID ownership on the tenant; clear extension/line binding and mark pool-available.
- * Used by Reset PBX and Factory Reset (never moves tenantId).
+ * Used by Reset Tenant (never moves ownerTenantId / tenantId — not Global Inventory).
  */
 export async function unassignDidInTenant(
   tx: Prisma.TransactionClient,

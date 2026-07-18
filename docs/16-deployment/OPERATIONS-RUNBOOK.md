@@ -27,7 +27,6 @@
 **Authority:** [RC1-GOVERNANCE.md](./RC1-GOVERNANCE.md). Run **in order** on staging. Do not skip steps.
 
 ```bash
-npm run platform:ensure-inventory
 npx prisma migrate deploy
 npm run platform:rc1-infra
 RC1_PROFILE=production npm run platform:rc1-env
@@ -45,7 +44,7 @@ CALL_LAB_RESULT=PASS npm run platform:rc1-validate
 1. Stop promotion.  
 2. Generate a defect report ([template](./RC1-GOVERNANCE.md#5-defect-report-template-promotion-failure)).  
 3. Fix **only** the blocking issue (Allowed categories only).  
-4. **Restart from `platform:ensure-inventory`.**  
+4. **Restart from `prisma migrate deploy`.**  
 
 Exit code **0** with classification **RC Approved for Customer Pilot** is required before first live customer.
 
@@ -58,7 +57,7 @@ Exit code **0** with classification **RC Approved for Customer Pilot** is requir
 | Portal login failures | Check JWT_SECRET, Redis, `/api/ready`, auth rate limits |
 | No REGISTER | Kamailio logs, `TELECOM_SERVICE_AUTH_TOKEN`, usrloc, SIP domain |
 | One-way audio | RTPengine advertise/NAT, firewall RTP range |
-| DID assign fails | Inventory tenant id, Telnyx key, `platform:rc1-infra` |
+| DID assign fails | Global Inventory DIDs, Telnyx key, `platform:rc1-infra` |
 | MAC already enrolled | Confirm device soft-delete cleared MAC; Redis `vsp:prov:mac:*` |
 | Cross-tenant leak suspicion | Freeze traffic; pull audit logs; verify portal JWT + tenantId |
 
@@ -85,7 +84,7 @@ node scripts/platform/preprod-cleanup.cjs --dry-run --sql-only
 node scripts/platform/preprod-cleanup.cjs --confirm --sql-only
 ```
 
-Never delete Platform / VSP INTERNAL / Platform Inventory tenants.
+Never delete Platform / VSP INTERNAL system tenants. (Platform Inventory tenant is removed — Global Inventory uses `ownerTenantId` NULL.)
 
 ---
 

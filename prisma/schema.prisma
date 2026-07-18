@@ -2249,6 +2249,7 @@ model PlatformSettings {
   platformName      String   @map("platform_name")
   supportEmail      String   @map("support_email")
   defaultTimezone   String   @map("default_timezone")
+  /** @deprecated Always null after Global Inventory refactor. */
   inventoryTenantId String?  @map("inventory_tenant_id") @db.Uuid
   stripeEnabled     Boolean  @default(false) @map("stripe_enabled")
   developerMode     Boolean  @default(false) @map("developer_mode")

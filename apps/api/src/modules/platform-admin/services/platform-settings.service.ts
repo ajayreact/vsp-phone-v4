@@ -7,6 +7,7 @@ export type PlatformSettingsRecord = {
   platformName: string;
   supportEmail: string;
   defaultTimezone: string;
+  /** @deprecated Always null — Global Inventory uses PhoneNumber.ownerTenantId NULL. */
   inventoryTenantId: string | null;
   stripeEnabled: boolean;
   developerMode: boolean;
@@ -23,6 +24,7 @@ export type UpdatePlatformSettingsDto = {
   platformName?: string;
   supportEmail?: string;
   defaultTimezone?: string;
+  /** @deprecated Ignored — inventory tenant removed. */
   inventoryTenantId?: string | null;
   developerMode?: boolean;
   smtpHost?: string | null;
@@ -52,7 +54,8 @@ export class PlatformSettingsService {
         ...(dto.platformName !== undefined ? { platformName: dto.platformName.trim() } : {}),
         ...(dto.supportEmail !== undefined ? { supportEmail: dto.supportEmail.trim() } : {}),
         ...(dto.defaultTimezone !== undefined ? { defaultTimezone: dto.defaultTimezone.trim() } : {}),
-        ...(dto.inventoryTenantId !== undefined ? { inventoryTenantId: dto.inventoryTenantId } : {}),
+        // Force-clear legacy inventory tenant pointer (Global Inventory = ownerTenantId NULL).
+        inventoryTenantId: null,
         ...(dto.developerMode !== undefined ? { developerMode: dto.developerMode } : {}),
         ...(dto.smtpHost !== undefined ? { smtpHost: dto.smtpHost?.trim() || null } : {}),
         ...(dto.smtpPort !== undefined ? { smtpPort: dto.smtpPort } : {}),
@@ -102,7 +105,7 @@ export class PlatformSettingsService {
       platformName: row.platformName,
       supportEmail: row.supportEmail,
       defaultTimezone: row.defaultTimezone,
-      inventoryTenantId: row.inventoryTenantId,
+      inventoryTenantId: null,
       stripeEnabled: row.stripeEnabled,
       developerMode: row.developerMode,
       smtpHost: row.smtpHost,

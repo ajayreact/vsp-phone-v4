@@ -3,7 +3,7 @@
 
 /**
  * Phase 1 — Infrastructure validation for RC1.
- * - Platform Inventory tenant exists + configured
+ * - Global Inventory (no platform-inventory tenant; owner_tenant_id column present)
  * - Prisma migrations applied
  * - One DID ↔ One Extension checks (+ orphan routes/devices)
  *

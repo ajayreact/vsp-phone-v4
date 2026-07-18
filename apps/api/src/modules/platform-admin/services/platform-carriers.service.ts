@@ -40,9 +40,11 @@ export class PlatformCarriersService {
         take: 500,
       }),
       this.health.checkTelnyx(),
-      this.prisma.sipEndpoint.count({
-        where: { deletedAt: null, carrier: { carrierType: CarrierType.TELNYX, deletedAt: null } },
-      }).catch(() => 0),
+      this.prisma.sIPEndpoint
+        .count({
+          where: { deletedAt: null, carrier: { carrierType: CarrierType.TELNYX, deletedAt: null } },
+        })
+        .catch(() => 0),
     ]);
 
     // One row per carrier type for platform integrations (Telnyx is platform-scoped).

@@ -130,7 +130,7 @@ export function TenantSettingsContent({ section }: { section: 'pbx' | 'security'
                     <p className="mt-1 text-muted-foreground">
                       Use Platform Admin → Tenants → Actions (or Developer Tools). Reset PBX keeps users and DID
                       ownership. Reset Tenant (Re-Onboarding) prepares onboarding again without releasing DIDs. Delete
-                      soft-deletes the tenant and returns DIDs to Platform Inventory.
+                      soft-deletes the tenant and returns DIDs to Global Inventory.
                     </p>
                     <p className="mt-2 text-xs text-muted-foreground">
                       Factory Reset / Delete are platform-only for Customer Pilot. Contact platform support for assisted

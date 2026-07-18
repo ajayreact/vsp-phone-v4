@@ -48,11 +48,11 @@ Wipes PBX operational data only (CDR, recordings, devices, SIP endpoints, queues
 
 #### 2. Reset Tenant (Re-Onboarding)
 
-Keeps tenant id/slug, system roles/permissions, DID ownership. Wipes users, custom roles, API keys, org/sites, PBX. DIDs stay on tenant (never inventory). Status → `PENDING`. UI opens **Tenant Setup Wizard** (7 steps).
+Keeps tenant id/slug, system roles/permissions, DID ownership (`ownerTenantId` / `tenantId`). Wipes users, custom roles, API keys, org/sites, PBX. DIDs stay on tenant (clears extension binding only — never Global Inventory). Status → `PENDING`. UI opens **Tenant Setup Wizard** (7 steps).
 
 #### 3. Delete Tenant
 
-Soft-delete only (`DELETED` + `deletedAt`). Disable users/API keys. Release DIDs to Platform Inventory. Never hard-delete the tenant row.
+Soft-delete only (`DELETED` + `deletedAt`). Disable users/API keys. Return DIDs to **Global Inventory** (`ownerTenantId` / `tenantId` NULL). Never hard-delete the tenant row.
 
 ### Onboarding / Setup Wizard
 
@@ -95,4 +95,8 @@ Tenant dashboard shows checklist progress (company, admin, extensions, devices, 
 
 ### Protected tenants
 
-Slugs `platform`, `inventory`, `platform-inventory`, `vsp-internal` cannot be reset or deleted.
+Slugs `platform`, `inventory`, `platform-inventory`, `vsp-internal` cannot be reset or deleted (legacy inventory slugs are soft-deleted / excluded from Tenants UI).
+
+### Global Inventory
+
+Unassigned platform DIDs use `PhoneNumber.ownerTenantId IS NULL` and `tenantId IS NULL`. There is no Platform Inventory tenant.
