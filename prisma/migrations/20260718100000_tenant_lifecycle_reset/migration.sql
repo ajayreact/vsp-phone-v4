@@ -1,7 +1,6 @@
--- Tenant Lifecycle: DELETED status, in-tenant UNASSIGNED DIDs, available flag
--- Must not run inside a single transaction: PG cannot use a newly added enum
--- value in the same transaction that added it.
--- prisma:disable-transactions
+-- Migration A — enum values only.
+-- Must commit before any SQL uses 'DELETED' / 'UNASSIGNED' (PostgreSQL 55P04).
+-- Idempotent: duplicate_object is ignored.
 
 DO $$ BEGIN
   ALTER TYPE "tenant_status" ADD VALUE 'DELETED';
@@ -14,13 +13,3 @@ DO $$ BEGIN
 EXCEPTION
   WHEN duplicate_object THEN NULL;
 END $$;
-
-ALTER TABLE "phone_numbers" ADD COLUMN IF NOT EXISTS "available" BOOLEAN NOT NULL DEFAULT true;
-
-UPDATE "tenants"
-SET "status" = 'DELETED'
-WHERE "deleted_at" IS NOT NULL AND "status"::text <> 'DELETED';
-
-UPDATE "phone_numbers"
-SET "available" = false
-WHERE "line_id" IS NOT NULL AND "deleted_at" IS NULL;
