@@ -10,7 +10,10 @@ Operator-owned reverse proxy. The application stack listens on localhost; nginx 
 | `admin.vspphone.com` | `http://127.0.0.1:3001` | Platform Admin (`platform` portal) |
 | `app.vspphone.com` | `http://127.0.0.1:3001` | Operations Center (`ops` portal) |
 | `tenant.vspphone.com` | `http://127.0.0.1:3001` | Tenant Portal (`tenant` portal) |
+| `prov.vspphone.com` | `https://127.0.0.1:3444` | NestJS prov-edge (`/health`, `/gs/{mac}/cfg.xml`) |
 | `vspphone.com` / `www` | 301 → `app.vspphone.com` | — |
+
+**Provisioning status “fetch failed”:** Platform Admin probes `GET {PROV_PUBLIC_BASE_URL}/health` (default `https://prov.vspphone.com/health`). That requires (1) DNS A for `prov.vspphone.com`, (2) this nginx vhost + LE cert, (3) API publishing `3444`. Path is `/health` — **not** `/api/health`.
 
 **Single-container production:** One admin service on `:3001` serves all three hostnames. Portal selection is by **Host header** (`admin.*` → platform, `app.*` → ops, `tenant.*` → tenant). Do **not** set `NEXT_PUBLIC_PORTAL` in production `.env` unless running separate builds per portal.
 

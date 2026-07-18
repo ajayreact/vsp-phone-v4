@@ -97,6 +97,8 @@ services:
     ports:
       - '${API_PORT:-3000}:3000'
       - '${API_TLS_PORT:-3443}:3443'
+      # Provisioning edge (ProvEdgeController /health, /gs/{mac}/cfg.xml) — ADR-042
+      - '${PROV_HTTPS_PORT:-3444}:3444'
     volumes:
       - ./infrastructure/tls/${TLS_ENV:-development}/live:/etc/vsp/tls:ro
     depends_on:

@@ -71,10 +71,12 @@ if [[ -f "${WILDCARD_CERT}" && -f "${WILDCARD_KEY}" ]]; then
   sed -i "s|/etc/letsencrypt/live/admin.vspphone.com/privkey.pem|${WILDCARD_KEY}|g" "${AVAILABLE}"
   sed -i "s|/etc/letsencrypt/live/tenant.vspphone.com/fullchain.pem|${WILDCARD_CERT}|g" "${AVAILABLE}"
   sed -i "s|/etc/letsencrypt/live/tenant.vspphone.com/privkey.pem|${WILDCARD_KEY}|g" "${AVAILABLE}"
+  sed -i "s|/etc/letsencrypt/live/prov.vspphone.com/fullchain.pem|${WILDCARD_CERT}|g" "${AVAILABLE}"
+  sed -i "s|/etc/letsencrypt/live/prov.vspphone.com/privkey.pem|${WILDCARD_KEY}|g" "${AVAILABLE}"
 fi
 
 # Fallback: use first available certbot cert if per-host paths missing
-for pair in "api.vspphone.com" "app.vspphone.com" "admin.vspphone.com" "tenant.vspphone.com" "vspphone.com"; do
+for pair in "api.vspphone.com" "app.vspphone.com" "admin.vspphone.com" "tenant.vspphone.com" "prov.vspphone.com" "vspphone.com"; do
   if [[ ! -f "/etc/letsencrypt/live/${pair}/fullchain.pem" ]]; then
     echo "WARN: missing cert for ${pair} — run certbot or adjust ssl_certificate paths"
   fi
@@ -90,6 +92,7 @@ echo ""
 echo "=== 7. Upstream connectivity (from host) ==="
 curl -sf -o /dev/null -w "API direct:  %{http_code}\n" http://127.0.0.1:3000/api/health || echo "API direct: FAIL"
 curl -s -o /dev/null -w "Admin direct: %{http_code}\n" http://127.0.0.1:3001/api/health || echo "Admin direct: FAIL"
+curl -sk -o /dev/null -w "Prov edge :3444/health: %{http_code}\n" https://127.0.0.1:3444/health || echo "Prov edge :3444/health: FAIL"
 
 echo ""
 echo "=== 8. External verification ==="
@@ -100,6 +103,7 @@ if ! curl -sk -o /dev/null -w "%{http_code}" https://api.vspphone.com/api/ready 
 fi
 curl -sk -o /dev/null -w "app.vspphone.com:            %{http_code}\n" https://app.vspphone.com/ || true
 curl -sk -o /dev/null -w "admin.vspphone.com:          %{http_code}\n" https://admin.vspphone.com/ || true
+curl -sk -o /dev/null -w "prov.vspphone.com /health:   %{http_code}\n" https://prov.vspphone.com/health || true
 
 echo ""
 echo "Done. If 502 persists, check: journalctl -u nginx -n 30"
