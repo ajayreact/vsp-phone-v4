@@ -15,7 +15,9 @@ export const PERMISSIONS = {
   PLATFORM_TENANTS_READ: 'platform:tenants:read',
   PLATFORM_TENANTS_WRITE: 'platform:tenants:write',
   PLATFORM_TENANTS_SUSPEND: 'platform:tenants:suspend',
-  PLATFORM_TENANTS_DELETE: 'platform:tenants:delete',
+  PLATFORM_TENANTS_DELETE: 'platform.tenants.delete',
+  PLATFORM_TENANTS_RESET: 'platform.tenants.reset',
+  PLATFORM_DEVTOOLS: 'platform.devtools',
   PLATFORM_BILLING_READ: 'platform:billing:read',
   PLATFORM_BILLING_WRITE: 'platform:billing:write',
   PLATFORM_CARRIERS_READ: 'platform:carriers:read',
@@ -57,9 +59,9 @@ export const PERMISSIONS = {
   // Tenant plane
   TENANT_DASHBOARD_READ: 'tenant:dashboard:read',
   TENANT_USERS_READ: 'tenant:users:read',
-  TENANT_USERS_WRITE: 'tenant:users:write',
+  TENANT_USERS_MANAGE: 'tenant.users.manage',
   TENANT_EXTENSIONS_READ: 'tenant:extensions:read',
-  TENANT_EXTENSIONS_WRITE: 'tenant:extensions:write',
+  TENANT_EXTENSIONS_MANAGE: 'tenant.extensions.manage',
   TENANT_DEVICES_READ: 'tenant:devices:read',
   TENANT_DEVICES_WRITE: 'tenant:devices:write',
   TENANT_DIDS_READ: 'tenant:dids:read',
@@ -101,11 +103,16 @@ export function hasPermission(
   const requiredList = Array.isArray(required) ? required : [required];
   const isSuperAdmin = userPermissions.includes(PERMISSIONS.PLATFORM_SUPER_ADMIN);
 
-  // Super admin only auto-grants platform/ops permissions — never tenant:* by default.
+  // Super admin only auto-grants platform/ops permissions — never tenant plane by default.
   // Impersonation sessions receive explicit tenant permissions from /me.
   if (isSuperAdmin) {
     const allPlatformOrOps = requiredList.every(
-      (p) => p === PERMISSIONS.PLATFORM_SUPER_ADMIN || p.startsWith('platform:') || p.startsWith('ops:'),
+      (p) =>
+        p === PERMISSIONS.PLATFORM_SUPER_ADMIN ||
+        p.startsWith('platform:') ||
+        p.startsWith('platform.') ||
+        p.startsWith('ops:') ||
+        p.startsWith('ops.'),
     );
     if (allPlatformOrOps) return true;
   }

@@ -37,12 +37,14 @@ export class PlatformUsersController {
     PERMISSIONS.PLATFORM_TENANTS_READ,
     PERMISSIONS.PLATFORM_SUPER_ADMIN,
   )
-  @ApiOperation({ summary: 'List users across tenants' })
+  @ApiOperation({ summary: 'List users across tenants (optional tenant/role/status filters)' })
   async list(
     @Query('tenantId') tenantId: string | undefined,
     @Query('search') search: string | undefined,
+    @Query('role') role: string | undefined,
+    @Query('status') status: string | undefined,
   ) {
-    const data = await this.users.list({ tenantId, search });
+    const data = await this.users.list({ tenantId, search, role, status });
     return { data };
   }
 

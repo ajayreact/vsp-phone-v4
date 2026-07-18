@@ -95,7 +95,7 @@ export class TenantOrganizationController {
   }
 
   @Post('departments')
-  @RequirePermission(PERMISSIONS.TENANT_USERS_WRITE)
+  @RequirePermission(PERMISSIONS.TENANT_USERS_MANAGE)
   @ApiOperation({ summary: 'Create tenant department' })
   async createDepartment(@Body() dto: CreateTenantDepartmentDto, @Req() req: Request) {
     const user = getJwtUser(req);
@@ -104,7 +104,7 @@ export class TenantOrganizationController {
   }
 
   @Patch('departments/:id')
-  @RequirePermission(PERMISSIONS.TENANT_USERS_WRITE)
+  @RequirePermission(PERMISSIONS.TENANT_USERS_MANAGE)
   @ApiOperation({ summary: 'Update tenant department' })
   async updateDepartment(
     @Param('id') id: string,
@@ -117,7 +117,7 @@ export class TenantOrganizationController {
   }
 
   @Delete('departments/:id')
-  @RequirePermission(PERMISSIONS.TENANT_USERS_WRITE)
+  @RequirePermission(PERMISSIONS.TENANT_USERS_MANAGE)
   @ApiOperation({ summary: 'Delete tenant department' })
   async deleteDepartment(@Param('id') id: string, @Req() req: Request) {
     const user = getJwtUser(req);

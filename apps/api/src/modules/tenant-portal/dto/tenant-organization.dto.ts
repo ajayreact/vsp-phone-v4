@@ -41,6 +41,26 @@ export class UpdateTenantCompanyDto {
   @IsOptional()
   @IsString()
   companySize?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  brandPrimary?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  brandSecondary?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  defaultCallerId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  emergencyNumber?: string;
 }
 
 export class CreateTenantSiteDto {

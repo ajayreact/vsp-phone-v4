@@ -15,6 +15,8 @@ import type { NavGroup } from '../../types/navigation';
 import { cn } from '../../lib/utils/cn';
 import { usePermissions } from '../../lib/auth/AuthProvider';
 import { useOpsHealth } from '../../lib/hooks/queries/use-ops';
+import { usePlatformSettings } from '../../lib/hooks/queries/use-platform';
+import { isDeveloperModeEnvEnabled } from '../../lib/feature-flags';
 import { LiveIndicator } from '../ui/LiveIndicator';
 
 export function Sidebar({
@@ -28,7 +30,9 @@ export function Sidebar({
   const searchParams = useSearchParams();
   const permissions = usePermissions();
   const portal = usePortal();
-  const items = filterNavByPermissions(permissions, portal);
+  const settings = usePlatformSettings(portal === 'platform');
+  const developerMode = Boolean(settings.data?.developerMode) || isDeveloperModeEnvEnabled();
+  const items = filterNavByPermissions(permissions, portal, { developerMode });
   const health = useOpsHealth();
   const sidebarStatus =
     portal === 'ops' && health.data?.readiness

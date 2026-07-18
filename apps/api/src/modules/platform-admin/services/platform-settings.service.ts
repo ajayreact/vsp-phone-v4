@@ -9,6 +9,7 @@ export type PlatformSettingsRecord = {
   defaultTimezone: string;
   inventoryTenantId: string | null;
   stripeEnabled: boolean;
+  developerMode: boolean;
   smtpHost: string | null;
   smtpPort: number | null;
   smtpUsername: string | null;
@@ -23,6 +24,7 @@ export type UpdatePlatformSettingsDto = {
   supportEmail?: string;
   defaultTimezone?: string;
   inventoryTenantId?: string | null;
+  developerMode?: boolean;
   smtpHost?: string | null;
   smtpPort?: number | null;
   smtpUsername?: string | null;
@@ -51,6 +53,7 @@ export class PlatformSettingsService {
         ...(dto.supportEmail !== undefined ? { supportEmail: dto.supportEmail.trim() } : {}),
         ...(dto.defaultTimezone !== undefined ? { defaultTimezone: dto.defaultTimezone.trim() } : {}),
         ...(dto.inventoryTenantId !== undefined ? { inventoryTenantId: dto.inventoryTenantId } : {}),
+        ...(dto.developerMode !== undefined ? { developerMode: dto.developerMode } : {}),
         ...(dto.smtpHost !== undefined ? { smtpHost: dto.smtpHost?.trim() || null } : {}),
         ...(dto.smtpPort !== undefined ? { smtpPort: dto.smtpPort } : {}),
         ...(dto.smtpUsername !== undefined ? { smtpUsername: dto.smtpUsername?.trim() || null } : {}),
@@ -85,6 +88,7 @@ export class PlatformSettingsService {
     defaultTimezone: string;
     inventoryTenantId: string | null;
     stripeEnabled: boolean;
+    developerMode: boolean;
     smtpHost: string | null;
     smtpPort: number | null;
     smtpUsername: string | null;
@@ -100,6 +104,7 @@ export class PlatformSettingsService {
       defaultTimezone: row.defaultTimezone,
       inventoryTenantId: row.inventoryTenantId,
       stripeEnabled: row.stripeEnabled,
+      developerMode: row.developerMode,
       smtpHost: row.smtpHost,
       smtpPort: row.smtpPort,
       smtpUsername: row.smtpUsername,

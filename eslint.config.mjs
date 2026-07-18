@@ -1,5 +1,8 @@
 import nx from '@nx/eslint-plugin';
 import eslintConfigPrettier from 'eslint-config-prettier';
+import nextPlugin from '@next/eslint-plugin-next';
+import reactHooks from 'eslint-plugin-react-hooks';
+import react from 'eslint-plugin-react';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
@@ -30,6 +33,25 @@ export default tseslint.config(
           ],
         },
       ],
+    },
+  },
+  {
+    files: ['apps/admin/**/*.{ts,tsx,js,jsx}'],
+    plugins: {
+      '@next/next': nextPlugin,
+      'react-hooks': reactHooks,
+      react,
+    },
+    settings: {
+      react: {
+        version: 'detect',
+      },
+    },
+    rules: {
+      'react-hooks/rules-of-hooks': 'error',
+      'react-hooks/exhaustive-deps': 'warn',
+      '@next/next/no-img-element': 'warn',
+      'react/react-in-jsx-scope': 'off',
     },
   },
 );

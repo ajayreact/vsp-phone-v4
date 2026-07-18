@@ -29,6 +29,7 @@ export function SettingsContent({ section }: { section?: 'pbx' | 'security' }) {
     platformName: '',
     supportEmail: '',
     defaultTimezone: '',
+    developerMode: false,
     smtpHost: '',
     smtpPort: '',
     smtpUsername: '',
@@ -43,6 +44,7 @@ export function SettingsContent({ section }: { section?: 'pbx' | 'security' }) {
         platformName: settingsQuery.data.platformName,
         supportEmail: settingsQuery.data.supportEmail,
         defaultTimezone: settingsQuery.data.defaultTimezone,
+        developerMode: Boolean(settingsQuery.data.developerMode),
         smtpHost: settingsQuery.data.smtpHost ?? '',
         smtpPort: settingsQuery.data.smtpPort?.toString() ?? '587',
         smtpUsername: settingsQuery.data.smtpUsername ?? '',
@@ -58,6 +60,7 @@ export function SettingsContent({ section }: { section?: 'pbx' | 'security' }) {
       platformName: form.platformName,
       supportEmail: form.supportEmail,
       defaultTimezone: form.defaultTimezone,
+      developerMode: form.developerMode,
       smtpHost: form.smtpHost || null,
       smtpPort: form.smtpPort ? Number(form.smtpPort) : null,
       smtpUsername: form.smtpUsername || null,
@@ -148,6 +151,14 @@ export function SettingsContent({ section }: { section?: 'pbx' | 'security' }) {
                           <SettingField label="Platform name" value={form.platformName} onChange={(v) => setForm({ ...form, platformName: v })} />
                           <SettingField label="Support email" value={form.supportEmail} onChange={(v) => setForm({ ...form, supportEmail: v })} />
                           <SettingField label="Default timezone" value={form.defaultTimezone} onChange={(v) => setForm({ ...form, defaultTimezone: v })} />
+                          <label className="flex items-center gap-2 text-sm md:col-span-2">
+                            <input
+                              type="checkbox"
+                              checked={form.developerMode}
+                              onChange={(e) => setForm({ ...form, developerMode: e.target.checked })}
+                            />
+                            Developer Mode (enables Platform → Developer Tools seed utilities)
+                          </label>
                         </div>
                       </QueryState>
                     </CardBody>

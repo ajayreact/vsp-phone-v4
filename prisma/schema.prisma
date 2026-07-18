@@ -18,6 +18,7 @@ enum TenantStatus {
   INACTIVE
   SUSPENDED
   PENDING
+  DELETED
 
   @@map("tenant_status")
 }
@@ -135,6 +136,7 @@ enum PhoneNumberStatus {
   ACTIVE
   INACTIVE
   PORTING
+  UNASSIGNED
 
   @@map("phone_number_status")
 }
@@ -671,6 +673,10 @@ model TenantSettings {
   industry        String?
   companySize     String?   @map("company_size")
   logoUrl         String?   @map("logo_url")
+  brandPrimary    String?   @map("brand_primary")
+  brandSecondary  String?   @map("brand_secondary")
+  defaultCallerId String?   @map("default_caller_id")
+  emergencyNumber String?   @map("emergency_number")
   createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt       DateTime? @map("deleted_at") @db.Timestamptz(6)
@@ -1389,6 +1395,10 @@ model PhoneNumber {
   carrierId String?           @map("carrier_id") @db.Uuid
   number    String
   status    PhoneNumberStatus @default(ACTIVE)
+  /**
+   * Tenant-local pool flag — true when DID is owned by the tenant but not bound to an extension.
+   */
+  available Boolean           @default(true)
   version   Int               @default(1)
   createdAt DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -2228,6 +2238,7 @@ model PlatformSettings {
   defaultTimezone   String   @map("default_timezone")
   inventoryTenantId String?  @map("inventory_tenant_id") @db.Uuid
   stripeEnabled     Boolean  @default(false) @map("stripe_enabled")
+  developerMode     Boolean  @default(false) @map("developer_mode")
   smtpHost          String?  @map("smtp_host")
   smtpPort          Int?     @map("smtp_port")
   smtpUsername      String?  @map("smtp_username")

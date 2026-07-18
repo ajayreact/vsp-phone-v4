@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException } from '@nestjs/common';
-import { LineStatus, type Prisma } from '@prisma/client';
+import { LineStatus, PhoneNumberStatus, type Prisma } from '@prisma/client';
 
 /**
  * Production rule: One DID ↔ One Extension (via Line).
@@ -113,6 +113,8 @@ export async function detachDidFromPriorExtension(
     actorUserId?: string;
     /** When moving to a new tenant, scrub inbound routes on the old tenant. */
     nextTenantId?: string;
+    /** Keep ownership; mark DID UNASSIGNED + available for in-tenant pool. */
+    markUnassignedInTenant?: boolean;
   },
 ): Promise<{ priorTenantId: string | null; priorLineId: string | null }> {
   const phone = await tx.phoneNumber.findFirst({
@@ -165,10 +167,60 @@ export async function detachDidFromPriorExtension(
 
   await tx.phoneNumber.update({
     where: { id: phone.id },
-    data: { lineId: null, updatedBy: params.actorUserId },
+    data: {
+      lineId: null,
+      updatedBy: params.actorUserId,
+      ...(params.markUnassignedInTenant
+        ? { status: PhoneNumberStatus.UNASSIGNED, available: true, siteId: null }
+        : {}),
+    },
   });
 
   return { priorTenantId, priorLineId };
+}
+
+/**
+ * Keep DID ownership on the tenant; clear extension/line binding and mark pool-available.
+ * Used by Reset PBX and Factory Reset (never moves tenantId).
+ */
+export async function unassignDidInTenant(
+  tx: Prisma.TransactionClient,
+  params: { tenantId: string; phoneNumberId: string; actorUserId?: string },
+): Promise<void> {
+  await detachDidFromPriorExtension(tx, {
+    phoneNumberId: params.phoneNumberId,
+    actorUserId: params.actorUserId,
+    markUnassignedInTenant: true,
+  });
+  await tx.phoneNumber.updateMany({
+    where: { id: params.phoneNumberId, tenantId: params.tenantId, deletedAt: null },
+    data: {
+      status: PhoneNumberStatus.UNASSIGNED,
+      available: true,
+      siteId: null,
+      lineId: null,
+      updatedBy: params.actorUserId,
+    },
+  });
+}
+
+/** Unassign every DID owned by the tenant (ownership unchanged). */
+export async function unassignAllDidsInTenant(
+  tx: Prisma.TransactionClient,
+  params: { tenantId: string; actorUserId?: string },
+): Promise<number> {
+  const phones = await tx.phoneNumber.findMany({
+    where: { tenantId: params.tenantId, deletedAt: null },
+    select: { id: true },
+  });
+  for (const phone of phones) {
+    await unassignDidInTenant(tx, {
+      tenantId: params.tenantId,
+      phoneNumberId: phone.id,
+      actorUserId: params.actorUserId,
+    });
+  }
+  return phones.length;
 }
 
 /** Mark line Inactive after DID removed; keep extension + history. */

@@ -47,6 +47,8 @@ export type NavItem = {
   primary?: boolean;
   /** Hide from sidebar (e.g. wizard reached via CTA only) */
   hiddenFromNav?: boolean;
+  /** Platform Developer Tools — require Developer Mode setting */
+  requiresDeveloperMode?: boolean;
 };
 
 export type ModuleDefinition = NavItem & {

@@ -28,6 +28,10 @@ import {
   RequireAnyPermission,
 } from '../../enterprise-security/guards/permissions.guard';
 import { AdminRateLimitGuard } from '../../enterprise-security/guards/scoped-rate-limit.guards';
+import {
+  ResumeOnboardTenantDto,
+  TenantLifecycleConfirmDto,
+} from '../dto/tenant-lifecycle.dto';
 import { PlatformAssetStorageService } from '../services/platform-asset-storage.service';
 import {
   PlatformTenantsService,
@@ -35,6 +39,7 @@ import {
   type OnboardTenantDto,
   type UpdateTenantDto,
 } from '../services/platform-tenants.service';
+import { TenantResetService } from '../services/tenant-reset.service';
 
 @ApiTags('platform-tenants')
 @ApiBearerAuth()
@@ -45,6 +50,7 @@ export class PlatformTenantsController {
     private readonly tenants: PlatformTenantsService,
     private readonly assets: PlatformAssetStorageService,
     private readonly auth: AuthService,
+    private readonly lifecycle: TenantResetService,
   ) {}
 
   @Get()
@@ -91,6 +97,17 @@ export class PlatformTenantsController {
       throw new BadRequestException('Logo file is required');
     }
     const data = await this.assets.uploadTenantLogo(file);
+    return { data };
+  }
+
+  @Get(':id/dids')
+  @RequireAnyPermission(
+    PERMISSIONS.PLATFORM_TENANTS_READ,
+    PERMISSIONS.PLATFORM_SUPER_ADMIN,
+  )
+  @ApiOperation({ summary: 'List DIDs owned by tenant (for resume onboarding)' })
+  async listDids(@Param('id') id: string) {
+    const data = await this.tenants.listDids(id);
     return { data };
   }
 
@@ -163,12 +180,100 @@ export class PlatformTenantsController {
     return { data };
   }
 
+  @Post(':id/reset-pbx')
+  @RequireAnyPermission(
+    PERMISSIONS.PLATFORM_TENANTS_RESET,
+    PERMISSIONS.PLATFORM_TENANTS_WRITE,
+    PERMISSIONS.PLATFORM_SUPER_ADMIN,
+  )
+  @ApiOperation({ summary: 'Reset PBX ops data; keep users, org, DIDs owned by tenant' })
+  async resetPbx(
+    @Param('id') id: string,
+    @Body() dto: TenantLifecycleConfirmDto,
+    @Req() req: Request,
+  ) {
+    const user = getJwtUser(req);
+    const data = await this.lifecycle.resetPbx(id, user.sub, dto);
+    return { data };
+  }
+
+  @Post(':id/reset-tenant')
+  @RequireAnyPermission(
+    PERMISSIONS.PLATFORM_TENANTS_RESET,
+    PERMISSIONS.PLATFORM_SUPER_ADMIN,
+  )
+  @ApiOperation({
+    summary: 'Reset Tenant (Re-Onboarding): wipe identity/PBX, keep DIDs, status → PENDING',
+  })
+  async resetTenant(
+    @Param('id') id: string,
+    @Body() dto: TenantLifecycleConfirmDto,
+    @Req() req: Request,
+  ) {
+    const user = getJwtUser(req);
+    const data = await this.lifecycle.resetTenant(id, user.sub, dto);
+    return { data };
+  }
+
+  @Post(':id/factory-reset')
+  @RequireAnyPermission(
+    PERMISSIONS.PLATFORM_TENANTS_RESET,
+    PERMISSIONS.PLATFORM_SUPER_ADMIN,
+  )
+  @ApiOperation({
+    summary: 'Deprecated alias for Reset Tenant (Re-Onboarding)',
+    deprecated: true,
+  })
+  async factoryReset(
+    @Param('id') id: string,
+    @Body() dto: TenantLifecycleConfirmDto,
+    @Req() req: Request,
+  ) {
+    const user = getJwtUser(req);
+    const data = await this.lifecycle.resetTenant(id, user.sub, dto);
+    return { data };
+  }
+
+  @Post(':id/delete')
+  @RequireAnyPermission(
+    PERMISSIONS.PLATFORM_TENANTS_DELETE,
+    PERMISSIONS.PLATFORM_SUPER_ADMIN,
+  )
+  @ApiOperation({
+    summary: 'Soft-delete tenant, disable users/API keys, release DIDs to platform inventory',
+  })
+  async deleteConfirmed(
+    @Param('id') id: string,
+    @Body() dto: TenantLifecycleConfirmDto,
+    @Req() req: Request,
+  ) {
+    const user = getJwtUser(req);
+    const data = await this.lifecycle.deleteTenant(id, user.sub, dto);
+    return { data };
+  }
+
+  @Post(':id/resume-onboard')
+  @RequireAnyPermission(
+    PERMISSIONS.PLATFORM_TENANTS_WRITE,
+    PERMISSIONS.PLATFORM_SUPER_ADMIN,
+  )
+  @ApiOperation({ summary: 'Complete onboarding for a PENDING tenant after factory reset' })
+  async resumeOnboard(
+    @Param('id') id: string,
+    @Body() dto: ResumeOnboardTenantDto,
+    @Req() req: Request,
+  ) {
+    const user = getJwtUser(req);
+    const data = await this.tenants.resumeOnboard(id, dto, user.sub);
+    return { data };
+  }
+
   @Delete(':id')
   @RequireAnyPermission(
     PERMISSIONS.PLATFORM_TENANTS_DELETE,
     PERMISSIONS.PLATFORM_SUPER_ADMIN,
   )
-  @ApiOperation({ summary: 'Soft-delete tenant' })
+  @ApiOperation({ summary: 'Legacy soft-delete (prefer POST :id/delete with confirmation)' })
   async remove(@Param('id') id: string, @Req() req: Request) {
     const user = getJwtUser(req);
     const data = await this.tenants.softDelete(id, user.sub);

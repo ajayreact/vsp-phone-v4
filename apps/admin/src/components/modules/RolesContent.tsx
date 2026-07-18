@@ -46,6 +46,13 @@ export function RolesContent() {
     <ModuleAccessGate moduleId="roles">
       {({ module }) => (
         <>
+          <div className="mb-4 rounded-xl border border-border bg-muted/20 p-4 text-sm">
+            <p className="font-medium">Roles represent who the user is.</p>
+            <p className="mt-1 text-muted-foreground">
+              Platform Super Admin · Platform Admin · Tenant Admin · Manager · Supervisor · Receptionist ·
+              Agent · Guest
+            </p>
+          </div>
           <ModuleListShell
             module={module}
             query={{ ...query, data: rows }}

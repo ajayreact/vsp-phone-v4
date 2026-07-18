@@ -20,7 +20,9 @@ import {
   PlatformTenantsController,
 } from './controllers/platform-tenants.controller';
 import { PlatformUsersController } from './controllers/platform-users.controller';
+import { PlatformDevToolsController } from './controllers/platform-dev-tools.controller';
 import { PlatformApiKeysService } from './services/platform-api-keys.service';
+import { TenantDevToolsService } from './services/tenant-dev-tools.service';
 import { PlatformAssetStorageService } from './services/platform-asset-storage.service';
 import { PlatformAuditService } from './services/platform-audit.service';
 import { PlatformBillingService } from './services/platform-billing.service';
@@ -33,6 +35,7 @@ import { PlatformSearchService } from './services/platform-search.service';
 import { PlatformSettingsService } from './services/platform-settings.service';
 import { PlatformTenantsService } from './services/platform-tenants.service';
 import { PlatformUsersService } from './services/platform-users.service';
+import { TenantResetService } from './services/tenant-reset.service';
 
 @Module({
   imports: [
@@ -57,10 +60,13 @@ import { PlatformUsersService } from './services/platform-users.service';
     PlatformApiKeysController,
     PlatformSearchController,
     PlatformOrganizationController,
+    PlatformDevToolsController,
   ],
   providers: [
     PlatformDashboardService,
     PlatformTenantsService,
+    TenantResetService,
+    TenantDevToolsService,
     PlatformAssetStorageService,
     PlatformBillingService,
     PlatformRolesService,
@@ -76,6 +82,7 @@ import { PlatformUsersService } from './services/platform-users.service';
   exports: [
     PlatformDashboardService,
     PlatformTenantsService,
+    TenantResetService,
     PlatformBillingService,
     PlatformRolesService,
     PlatformCarriersService,

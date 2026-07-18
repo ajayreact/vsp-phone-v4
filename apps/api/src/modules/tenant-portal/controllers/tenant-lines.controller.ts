@@ -48,7 +48,7 @@ export class TenantLinesController {
   }
 
   @Post()
-  @RequirePermission(PERMISSIONS.TENANT_EXTENSIONS_WRITE)
+  @RequirePermission(PERMISSIONS.TENANT_EXTENSIONS_MANAGE)
   @ApiOperation({ summary: 'Create line with default telephony resources' })
   create(@Body() dto: CreateLineDto, @Req() req: Request) {
     const user = getJwtUser(req);
@@ -56,7 +56,7 @@ export class TenantLinesController {
   }
 
   @Patch(':id')
-  @RequirePermission(PERMISSIONS.TENANT_EXTENSIONS_WRITE)
+  @RequirePermission(PERMISSIONS.TENANT_EXTENSIONS_MANAGE)
   @ApiOperation({ summary: 'Update line settings' })
   update(@Param('id') id: string, @Body() dto: UpdateLineDto, @Req() req: Request) {
     const user = getJwtUser(req);
@@ -64,7 +64,7 @@ export class TenantLinesController {
   }
 
   @Delete(':id')
-  @RequireAnyPermission(PERMISSIONS.TENANT_EXTENSIONS_WRITE, PERMISSIONS.TENANT_ADMIN)
+  @RequireAnyPermission(PERMISSIONS.TENANT_EXTENSIONS_MANAGE, PERMISSIONS.TENANT_ADMIN)
   @ApiOperation({ summary: 'Soft-delete line' })
   remove(@Param('id') id: string, @Req() req: Request) {
     const user = getJwtUser(req);
@@ -81,7 +81,7 @@ export class TenantLinesController {
   }
 
   @Post(':id/sip-credentials/reveal')
-  @RequirePermission(PERMISSIONS.TENANT_EXTENSIONS_WRITE)
+  @RequirePermission(PERMISSIONS.TENANT_EXTENSIONS_MANAGE)
   @ApiOperation({ summary: 'Reveal current SIP password once' })
   revealSipPassword(@Param('id') id: string, @Req() req: Request) {
     const user = getJwtUser(req);
@@ -89,7 +89,7 @@ export class TenantLinesController {
   }
 
   @Post(':id/sip-credentials/reset')
-  @RequirePermission(PERMISSIONS.TENANT_EXTENSIONS_WRITE)
+  @RequirePermission(PERMISSIONS.TENANT_EXTENSIONS_MANAGE)
   @ApiOperation({ summary: 'Rotate SIP password (invalidates current device registration)' })
   resetSipPassword(@Param('id') id: string, @Req() req: Request) {
     const user = getJwtUser(req);

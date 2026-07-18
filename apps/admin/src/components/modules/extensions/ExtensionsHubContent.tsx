@@ -93,7 +93,7 @@ function deviceLabel(row: ExtensionHubRow): string {
 
 export function ExtensionsHubContent() {
   const permissions = usePermissions();
-  const canWrite = hasPermission(permissions, PERMISSIONS.TENANT_EXTENSIONS_WRITE);
+  const canWrite = hasPermission(permissions, PERMISSIONS.TENANT_EXTENSIONS_MANAGE);
   const searchParams = useSearchParams();
   const router = useRouter();
 

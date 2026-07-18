@@ -29,6 +29,14 @@ export type TenantRecord = {
   status: TenantStatus;
   createdAt: string;
   updatedAt: string;
+  usersCount?: number;
+  extensionsCount?: number;
+  devicesCount?: number;
+  didsCount?: number;
+  assignedDidsCount?: number;
+  storageLimitGb?: number | null;
+  lastLoginAt?: string | null;
+  setupProgressPercent?: number;
 };
 
 export type CreateTenantDto = {
@@ -134,14 +142,104 @@ export class PlatformTenantsService {
       where,
       orderBy: { name: 'asc' },
       take: 500,
+      include: {
+        settings: { select: { businessEmail: true, logoUrl: true, website: true } },
+        subscriptions: {
+          where: { status: { in: [SubscriptionStatus.ACTIVE, SubscriptionStatus.TRIAL] } },
+          select: { storageLimitGb: true, maxExtensions: true, maxNumbers: true },
+          take: 1,
+          orderBy: { createdAt: 'desc' },
+        },
+        users: {
+          where: { deletedAt: null, lastLoginAt: { not: null } },
+          select: { lastLoginAt: true },
+          orderBy: { lastLoginAt: 'desc' },
+          take: 1,
+        },
+        _count: {
+          select: {
+            users: { where: { deletedAt: null } },
+            extensions: { where: { deletedAt: null } },
+            devices: { where: { deletedAt: null } },
+            phoneNumbers: { where: { deletedAt: null } },
+            sites: { where: { deletedAt: null } },
+          },
+        },
+      },
     });
 
-    return rows.map((t) => this.toRecord(t));
+    const assignedCounts = await this.prisma.phoneNumber.groupBy({
+      by: ['tenantId'],
+      where: {
+        deletedAt: null,
+        lineId: { not: null },
+        tenantId: { in: rows.map((r) => r.id) },
+      },
+      _count: { _all: true },
+    });
+    const assignedByTenant = new Map(assignedCounts.map((r) => [r.tenantId, r._count._all]));
+
+    return rows.map((t) => {
+      const assignedDids = assignedByTenant.get(t.id) ?? 0;
+      const sub = t.subscriptions[0];
+      const checklistDone = [
+        Boolean(t.settings?.businessEmail || t.settings?.logoUrl || t.settings?.website),
+        t._count.sites > 0,
+        t._count.users > 0,
+        t._count.extensions > 0,
+        assignedDids > 0,
+      ].filter(Boolean).length;
+      return this.toRecord(t, {
+        usersCount: t._count.users,
+        extensionsCount: t._count.extensions,
+        devicesCount: t._count.devices,
+        didsCount: t._count.phoneNumbers,
+        assignedDidsCount: assignedDids,
+        storageLimitGb: sub?.storageLimitGb ?? null,
+        lastLoginAt: t.users[0]?.lastLoginAt?.toISOString() ?? null,
+        setupProgressPercent: Math.round((checklistDone / 5) * 100),
+      });
+    });
   }
 
   async get(id: string): Promise<TenantRecord> {
     const row = await this.findActive(id);
     return this.toRecord(row);
+  }
+
+  /** DIDs owned by the tenant (for Reset Tenant resume / inventory UX). */
+  async listDids(tenantId: string): Promise<
+    Array<{
+      id: string;
+      publicId: string;
+      number: string;
+      status: string;
+      available: boolean;
+      lineId: string | null;
+    }>
+  > {
+    await this.findActive(tenantId);
+    if (!this.prisma.connected) return [];
+    const rows = await this.prisma.phoneNumber.findMany({
+      where: { tenantId, deletedAt: null },
+      select: {
+        id: true,
+        publicId: true,
+        number: true,
+        status: true,
+        available: true,
+        lineId: true,
+      },
+      orderBy: { number: 'asc' },
+    });
+    return rows.map((r) => ({
+      id: r.id,
+      publicId: r.publicId,
+      number: r.number,
+      status: r.status,
+      available: r.available,
+      lineId: r.lineId,
+    }));
   }
 
   async create(dto: CreateTenantDto): Promise<TenantRecord> {
@@ -492,10 +590,245 @@ export class PlatformTenantsService {
       data: {
         deletedAt: new Date(),
         deletedBy: deletedBy ?? null,
-        status: TenantStatus.INACTIVE,
+        status: TenantStatus.DELETED,
       },
     });
     return this.toRecord(row);
+  }
+
+  /**
+   * Complete Reset Tenant (Re-Onboarding) for an existing PENDING tenant.
+   */
+  async resumeOnboard(
+    tenantId: string,
+    dto: {
+      displayName?: string;
+      businessEmail?: string;
+      businessPhone?: string;
+      website?: string;
+      timezone?: string;
+      defaultLanguage?: string;
+      logoUrl?: string;
+      siteName?: string;
+      businessHours?: string;
+      country?: string;
+      address?: string;
+      city?: string;
+      state?: string;
+      emergencyNumber?: string;
+      defaultCallerId?: string;
+      holidayCalendar?: string;
+      requirePasswordChange?: boolean;
+      extensionCount?: number;
+      extensionStart?: string;
+      selectedDidIds?: string[];
+      adminEmail: string;
+      adminPassword: string;
+      adminFirstName: string;
+      adminLastName: string;
+    },
+    actorUserId?: string,
+  ): Promise<OnboardTenantResult> {
+    const tenant = await this.findActive(tenantId);
+    if (tenant.status !== TenantStatus.PENDING) {
+      throw new BadRequestException('Resume onboarding is only available for PENDING tenants');
+    }
+
+    const email = dto.adminEmail?.trim().toLowerCase();
+    if (!EMAIL_RE.test(email)) {
+      throw new BadRequestException('Admin email format is invalid');
+    }
+    if (!dto.adminPassword || dto.adminPassword.length < 8) {
+      throw new BadRequestException('Admin password must be at least 8 characters');
+    }
+
+    const emailConflict = await this.prisma.user.findFirst({
+      where: { email, deletedAt: null },
+    });
+    if (emailConflict) {
+      throw new ConflictException(`The email "${email}" is already registered`);
+    }
+
+    const adminUserId = randomUUID();
+    const siteId = randomUUID();
+    const timezone = dto.timezone?.trim() || 'America/New_York';
+    const passwordHash = hashPassword(dto.adminPassword);
+    const displayName =
+      `${dto.adminFirstName.trim()} ${dto.adminLastName.trim()}`.trim() || email;
+    const extCount = Math.min(Math.max(Number(dto.extensionCount) || 0, 0), 50);
+    const startNum = Number.parseInt(dto.extensionStart?.trim() || '100', 10) || 100;
+
+    await this.prisma.$transaction(
+      async (tx) => {
+        await tx.tenant.update({
+          where: { id: tenantId },
+          data: {
+            ...(dto.displayName?.trim() ? { displayName: dto.displayName.trim() } : {}),
+            status: TenantStatus.ACTIVE,
+          },
+        });
+
+        await tx.tenantSettings.upsert({
+          where: { tenantId },
+          create: {
+            id: randomUUID(),
+            tenantId,
+            timezone,
+            defaultLanguage: dto.defaultLanguage?.trim() || 'en',
+            businessEmail: dto.businessEmail?.trim() || null,
+            businessPhone: dto.businessPhone?.trim() || null,
+            website: dto.website?.trim() || null,
+            logoUrl: dto.logoUrl?.trim() || null,
+            emergencyNumber: dto.emergencyNumber?.trim() || null,
+            defaultCallerId: dto.defaultCallerId?.trim() || null,
+            createdBy: actorUserId,
+          },
+          update: {
+            timezone,
+            defaultLanguage: dto.defaultLanguage?.trim() || 'en',
+            businessEmail: dto.businessEmail?.trim() || null,
+            businessPhone: dto.businessPhone?.trim() || null,
+            website: dto.website?.trim() || null,
+            logoUrl: dto.logoUrl?.trim() || null,
+            emergencyNumber: dto.emergencyNumber?.trim() || null,
+            defaultCallerId: dto.defaultCallerId?.trim() || null,
+            updatedBy: actorUserId,
+          },
+        });
+
+        await tx.site.create({
+          data: {
+            id: siteId,
+            publicId: newPublicId('site'),
+            tenantId,
+            name: dto.siteName?.trim() || 'Main Office',
+            code: `main-${siteId.slice(0, 8)}`,
+            address: dto.address?.trim() || null,
+            city: dto.city?.trim() || null,
+            state: dto.state?.trim() || null,
+            country: dto.country?.trim() || null,
+            businessHours: dto.businessHours?.trim() || null,
+            description: dto.holidayCalendar?.trim() || null,
+            status: SiteStatus.ACTIVE,
+            createdBy: actorUserId,
+            updatedBy: actorUserId,
+          },
+        });
+
+        // System roles survive Reset Tenant — do not re-seed (would conflict on unique keys).
+        const adminRole = await tx.role.findFirst({
+          where: { tenantId, name: 'Tenant Admin', systemRole: true, deletedAt: null },
+        });
+        if (!adminRole) {
+          await seedTenantRbac(tx, tenantId, actorUserId);
+        }
+
+        const role =
+          adminRole ??
+          (await tx.role.findFirst({
+            where: { tenantId, name: 'Tenant Admin', systemRole: true, deletedAt: null },
+          }));
+
+        await tx.user.create({
+          data: {
+            id: adminUserId,
+            publicId: newPublicId('u'),
+            tenantId,
+            email,
+            passwordHash,
+            status: UserStatus.ACTIVE,
+            createdBy: actorUserId,
+            updatedBy: actorUserId,
+          },
+        });
+
+        await tx.userProfile.create({
+          data: {
+            id: randomUUID(),
+            tenantId,
+            userId: adminUserId,
+            firstName: dto.adminFirstName.trim(),
+            lastName: dto.adminLastName.trim(),
+            displayName,
+            createdBy: actorUserId,
+            updatedBy: actorUserId,
+          },
+        });
+
+        if (role) {
+          await tx.userRole.create({
+            data: {
+              id: randomUUID(),
+              tenantId,
+              userId: adminUserId,
+              roleId: role.id,
+              createdBy: actorUserId,
+              updatedBy: actorUserId,
+            },
+          });
+        }
+
+        for (let i = 0; i < extCount; i += 1) {
+          const ext = String(startNum + i);
+          const lineId = randomUUID();
+          await tx.line.create({
+            data: {
+              id: lineId,
+              publicId: newPublicId('line'),
+              tenantId,
+              name: `Ext ${ext}`,
+              createdBy: actorUserId,
+              updatedBy: actorUserId,
+            },
+          });
+          await tx.extension.create({
+            data: {
+              id: randomUUID(),
+              tenantId,
+              lineId,
+              extension: ext,
+              description: `Setup ${ext}`,
+              createdBy: actorUserId,
+              updatedBy: actorUserId,
+            },
+          });
+        }
+
+        if (dto.selectedDidIds?.length) {
+          await tx.phoneNumber.updateMany({
+            where: {
+              id: { in: dto.selectedDidIds },
+              tenantId,
+              deletedAt: null,
+            },
+            data: { available: true, updatedBy: actorUserId },
+          });
+        }
+      },
+      { timeout: 120_000 },
+    );
+
+    await this.audit.append({
+      tenantId,
+      actorUserId: actorUserId ?? 'platform',
+      actorType: 'admin',
+      action: 'tenant.onboard_resumed',
+      resourceType: 'tenant',
+      resourceId: tenantId,
+      detail: { adminUserId, siteId, extensionCount: extCount },
+    });
+
+    const sub = await this.prisma.subscription.findFirst({
+      where: { tenantId },
+      select: { id: true },
+    });
+
+    return {
+      tenant: await this.get(tenantId),
+      adminUserId,
+      siteId,
+      subscriptionId: sub?.id ?? '',
+    };
   }
 
   private async findActive(id: string) {
@@ -509,16 +842,28 @@ export class PlatformTenantsService {
     return row;
   }
 
-  private toRecord(t: {
-    id: string;
-    publicId: string;
-    name: string;
-    displayName: string;
-    slug: string;
-    status: TenantStatus;
-    createdAt: Date;
-    updatedAt: Date;
-  }): TenantRecord {
+  private toRecord(
+    t: {
+      id: string;
+      publicId: string;
+      name: string;
+      displayName: string;
+      slug: string;
+      status: TenantStatus;
+      createdAt: Date;
+      updatedAt: Date;
+    },
+    counts?: {
+      usersCount?: number;
+      extensionsCount?: number;
+      devicesCount?: number;
+      didsCount?: number;
+      assignedDidsCount?: number;
+      storageLimitGb?: number | null;
+      lastLoginAt?: string | null;
+      setupProgressPercent?: number;
+    },
+  ): TenantRecord {
     return {
       id: t.id,
       publicId: t.publicId,
@@ -528,6 +873,7 @@ export class PlatformTenantsService {
       status: t.status,
       createdAt: t.createdAt.toISOString(),
       updatedAt: t.updatedAt.toISOString(),
+      ...counts,
     };
   }
 }

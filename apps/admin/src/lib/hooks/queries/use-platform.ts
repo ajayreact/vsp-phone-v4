@@ -36,6 +36,14 @@ export function usePlatformTenant(id: string) {
   });
 }
 
+export function usePlatformTenantDids(id: string | null | undefined) {
+  return useQuery({
+    queryKey: ['platform', 'tenants', id, 'dids'],
+    queryFn: () => platformRepository.listTenantDids(id!),
+    enabled: Boolean(id),
+  });
+}
+
 export function useCreateTenant() {
   const qc = useQueryClient();
   return useMutation({
@@ -95,6 +103,63 @@ export function useActivateTenant() {
   });
 }
 
+export function useResetTenantPbx() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, confirmPhrase }: { id: string; confirmPhrase: string }) =>
+      platformRepository.resetPbx(id, { confirmPhrase }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['platform', 'tenants'] });
+    },
+  });
+}
+
+export function useResetTenant() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      confirmPhrase,
+      acknowledged,
+    }: {
+      id: string;
+      confirmPhrase: string;
+      acknowledged: boolean;
+    }) => platformRepository.resetTenant(id, { confirmPhrase, acknowledged }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['platform', 'tenants'] });
+    },
+  });
+}
+
+/** @deprecated Use useResetTenant */
+export function useFactoryResetTenant() {
+  return useResetTenant();
+}
+
+export function useDeleteTenantConfirmed() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, confirmPhrase }: { id: string; confirmPhrase: string }) =>
+      platformRepository.deleteTenantConfirmed(id, { confirmPhrase }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['platform', 'tenants'] });
+    },
+  });
+}
+
+export function useResumeOnboardTenant() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: Record<string, unknown> }) =>
+      platformRepository.resumeOnboard(id, payload),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['platform', 'tenants'] });
+      void qc.invalidateQueries({ queryKey: ['platform', 'users'] });
+    },
+  });
+}
+
 export function usePlatformBilling() {
   return useQuery({
     queryKey: queryKeys.platform.billing(),
@@ -148,9 +213,14 @@ export function usePlatformAudit(params?: { tenantId?: string; limit?: number; a
   });
 }
 
-export function usePlatformUsers(params?: { tenantId?: string; search?: string }) {
+export function usePlatformUsers(params?: {
+  tenantId?: string;
+  search?: string;
+  role?: string;
+  status?: string;
+}) {
   return useQuery({
-    queryKey: queryKeys.platform.users(params?.search),
+    queryKey: ['platform', 'users', params?.tenantId ?? 'all', params?.search, params?.role, params?.status],
     queryFn: () => platformRepository.listUsers(params),
   });
 }
@@ -165,10 +235,11 @@ export function useCreatePlatformUser() {
   });
 }
 
-export function usePlatformSettings() {
+export function usePlatformSettings(enabled = true) {
   return useQuery({
     queryKey: queryKeys.platform.settings(),
     queryFn: () => platformRepository.getSettings(),
+    enabled,
   });
 }
 

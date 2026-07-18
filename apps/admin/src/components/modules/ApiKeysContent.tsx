@@ -29,10 +29,28 @@ type ApiKeyRow = PlatformApiKeyRecord & { id: string };
 
 const columns: Column<ApiKeyRow>[] = [
   { key: 'name', header: 'Name', sortable: true, cell: (r) => <span className="font-medium">{r.name}</span> },
-  { key: 'prefix', header: 'Key Prefix', cell: (r) => <span className="font-mono text-xs">{r.keyPrefix}…</span> },
-  { key: 'scopes', header: 'Scopes', cell: (r) => r.scopes.join(', ') },
-  { key: 'status', header: 'Status', cell: (r) => <Badge variant="outline">{r.status}</Badge> },
+  {
+    key: 'tenant',
+    header: 'Tenant',
+    cell: (r) => <span className="text-muted-foreground">{r.tenantId ? r.tenantId.slice(0, 8) + '…' : 'Platform'}</span>,
+  },
+  { key: 'scopes', header: 'Scopes', cell: (r) => r.scopes.join(', ') || '—' },
   { key: 'created', header: 'Created', cell: (r) => new Date(r.createdAt).toLocaleDateString() },
+  {
+    key: 'lastUsed',
+    header: 'Last Used',
+    cell: (r) => (r.lastUsedAt ? new Date(r.lastUsedAt).toLocaleDateString() : '—'),
+  },
+  {
+    key: 'expires',
+    header: 'Expires',
+    cell: (r) => (r.expiresAt ? new Date(r.expiresAt).toLocaleDateString() : '—'),
+  },
+  {
+    key: 'enabled',
+    header: 'Enabled',
+    cell: (r) => <Badge variant="outline">{r.status === 'ACTIVE' ? 'Yes' : 'No'}</Badge>,
+  },
 ];
 
 export function ApiKeysContent() {
@@ -83,7 +101,7 @@ export function ApiKeysContent() {
                       onClick={() => void revokeKey.mutateAsync(r.id)}
                       disabled={revokeKey.isPending}
                     >
-                      Revoke
+                      Delete
                     </Button>
                   ) : null,
               },

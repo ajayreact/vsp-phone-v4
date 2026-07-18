@@ -68,8 +68,15 @@ export function getModuleById(id: string, portal?: PortalType): ModuleDefinition
   return undefined;
 }
 
-export function filterNavByPermissions(permissions: string[], portal?: PortalType): ModuleDefinition[] {
-  return getModulesForPortal(portal).filter(
-    (item) => !item.hiddenFromNav && hasPermission(permissions, item.permission),
-  );
+export function filterNavByPermissions(
+  permissions: string[],
+  portal?: PortalType,
+  opts?: { developerMode?: boolean },
+): ModuleDefinition[] {
+  return getModulesForPortal(portal).filter((item) => {
+    if (item.hiddenFromNav) return false;
+    if (!hasPermission(permissions, item.permission)) return false;
+    if (item.requiresDeveloperMode && !opts?.developerMode) return false;
+    return true;
+  });
 }

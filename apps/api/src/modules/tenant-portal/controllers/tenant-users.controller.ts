@@ -43,7 +43,7 @@ export class TenantUsersController {
   }
 
   @Post()
-  @RequirePermission(PERMISSIONS.TENANT_USERS_WRITE)
+  @RequirePermission(PERMISSIONS.TENANT_USERS_MANAGE)
   @ApiOperation({ summary: 'Create tenant user' })
   async create(@Body() dto: CreateTenantUserDto, @Req() req: Request) {
     const user = getJwtUser(req);
@@ -52,7 +52,7 @@ export class TenantUsersController {
   }
 
   @Put(':id')
-  @RequirePermission(PERMISSIONS.TENANT_USERS_WRITE)
+  @RequirePermission(PERMISSIONS.TENANT_USERS_MANAGE)
   @ApiOperation({ summary: 'Update tenant user' })
   async update(
     @Param('id') id: string,
@@ -65,7 +65,7 @@ export class TenantUsersController {
   }
 
   @Delete(':id')
-  @RequirePermission(PERMISSIONS.TENANT_USERS_WRITE)
+  @RequirePermission(PERMISSIONS.TENANT_USERS_MANAGE)
   @ApiOperation({ summary: 'Soft-delete tenant user' })
   async remove(@Param('id') id: string, @Req() req: Request) {
     const user = getJwtUser(req);
@@ -74,7 +74,7 @@ export class TenantUsersController {
   }
 
   @Patch(':id/status')
-  @RequirePermission(PERMISSIONS.TENANT_USERS_WRITE)
+  @RequirePermission(PERMISSIONS.TENANT_USERS_MANAGE)
   @ApiOperation({ summary: 'Enable or disable tenant user' })
   async setStatus(
     @Param('id') id: string,
@@ -87,7 +87,7 @@ export class TenantUsersController {
   }
 
   @Patch(':id/reset-password')
-  @RequirePermission(PERMISSIONS.TENANT_USERS_WRITE)
+  @RequirePermission(PERMISSIONS.TENANT_USERS_MANAGE)
   @ApiOperation({ summary: 'Reset tenant user password' })
   async resetPassword(
     @Param('id') id: string,
@@ -99,7 +99,7 @@ export class TenantUsersController {
   }
 
   @Patch(':id/assign-extension')
-  @RequirePermission(PERMISSIONS.TENANT_USERS_WRITE)
+  @RequirePermission(PERMISSIONS.TENANT_USERS_MANAGE)
   @ApiOperation({ summary: 'Assign user to an extension' })
   async assignExtension(
     @Param('id') id: string,
@@ -117,7 +117,7 @@ export class TenantUsersController {
   }
 
   @Patch(':id/unassign-extension')
-  @RequirePermission(PERMISSIONS.TENANT_USERS_WRITE)
+  @RequirePermission(PERMISSIONS.TENANT_USERS_MANAGE)
   @ApiOperation({ summary: 'Remove user from extension(s)' })
   async unassignExtension(
     @Param('id') id: string,

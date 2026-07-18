@@ -213,7 +213,7 @@ type AuthSession = {
 
 Documented for module pages; backend modules to implement:
 
-`users:read`, `users:write`, `extensions:read`, `extensions:write`, `dids:read`, `queues:read`, `ivr:read`, `audit:read`, etc.
+Canonical RC1 keys include `tenant.users.manage`, `tenant.extensions.manage`, `platform.devtools`, `platform.tenants.reset`, `platform.tenants.delete`, plus plane keys such as `tenant:dids:read`, `tenant:queues:read`, `tenant:ivr:read`, `platform:audit:read`, etc.
 
 ---
 

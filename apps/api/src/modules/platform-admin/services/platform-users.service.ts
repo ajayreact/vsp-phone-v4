@@ -34,7 +34,12 @@ export class PlatformUsersService {
     private readonly usersAdmin: UsersAdminService,
   ) {}
 
-  list(params: { tenantId?: string; search?: string }): Promise<UserAdminRecord[]> {
+  list(params: {
+    tenantId?: string;
+    search?: string;
+    role?: string;
+    status?: string;
+  }): Promise<UserAdminRecord[]> {
     return this.usersAdmin.list(params);
   }
 

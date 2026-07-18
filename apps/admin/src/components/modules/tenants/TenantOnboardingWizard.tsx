@@ -20,6 +20,9 @@ import {
 import {
   useOnboardTenant,
   usePlatformPlans,
+  usePlatformTenant,
+  usePlatformTenantDids,
+  useResumeOnboardTenant,
   useUploadTenantLogo,
 } from '../../../lib/hooks/queries/use-platform';
 import type { OnboardTenantPayload } from '../../../lib/repositories/platform.repository';
@@ -136,14 +139,18 @@ const defaultForm = (): OnboardingFormState => ({
   recordingRetentionDays: '30',
 });
 
-const STEPS = ['Organization', 'Site', 'Admin User', 'Plan & Features', 'Review'] as const;
+const FULL_STEPS = ['Organization', 'Site', 'Admin User', 'Plan & Features', 'Review'] as const;
+const RESUME_STEPS = ['Company', 'Site & Hours', 'Admin', 'DIDs & Finish'] as const;
 
 export function TenantOnboardingWizard({
   open,
   onClose,
+  resumeTenantId = null,
 }: {
   open: boolean;
   onClose: () => void;
+  /** When set, completes Factory Reset onboarding for an existing PENDING tenant. */
+  resumeTenantId?: string | null;
 }) {
   const [step, setStep] = useState(0);
   const [form, setForm] = useState<OnboardingFormState>(defaultForm);
@@ -152,25 +159,54 @@ export function TenantOnboardingWizard({
   const [success, setSuccess] = useState<{ tenantName: string; publicId: string; slug: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const onboard = useOnboardTenant();
+  const resumeOnboard = useResumeOnboardTenant();
   const uploadLogo = useUploadTenantLogo();
   const plansQuery = usePlatformPlans();
+  const isResume = Boolean(resumeTenantId);
+  const steps = isResume ? RESUME_STEPS : FULL_STEPS;
+  const lastStep = steps.length - 1;
+  const resumeTenant = usePlatformTenant(resumeTenantId ?? '');
+  const resumeDids = usePlatformTenantDids(isResume && open ? resumeTenantId : null);
 
   useEffect(() => {
     if (!open) return;
+    setStep(0);
+    setErrors({});
+    setError(null);
+    setSuccess(null);
+    if (isResume) {
+      setForm(defaultForm());
+      return;
+    }
     try {
       const raw = localStorage.getItem(DRAFT_KEY);
       if (raw) setForm({ ...defaultForm(), ...JSON.parse(raw) });
+      else setForm(defaultForm());
     } catch {
-      /* ignore */
+      setForm(defaultForm());
     }
-  }, [open]);
+  }, [open, isResume]);
 
   useEffect(() => {
+    if (!open || !isResume || !resumeTenant.data) return;
+    const t = resumeTenant.data;
+    setForm((prev) => ({
+      ...prev,
+      name: t.name,
+      displayName: t.displayName || t.name,
+      slug: t.slug,
+      slugManual: true,
+      status: 'PENDING',
+    }));
+  }, [open, isResume, resumeTenant.data]);
+
+  useEffect(() => {
+    if (isResume) return;
     const plans = plansQuery.data;
     if (!plans?.length || form.planId) return;
     const starter = plans.find((p) => p.name === 'Starter') ?? plans[0];
     applyPlanDefaults(starter.id, starter.name, starter.seatLimit, starter.didLimit);
-  }, [plansQuery.data, form.planId]);
+  }, [plansQuery.data, form.planId, isResume]);
 
   const patch = useCallback((partial: Partial<OnboardingFormState>) => {
     setForm((prev) => {
@@ -216,8 +252,10 @@ export function TenantOnboardingWizard({
     const e: Record<string, string> = {};
     if (s === 0) {
       if (!form.name.trim()) e.name = 'Organization name is required';
-      if (RESERVED_SLUGS.has(form.slug)) e.slug = 'This slug is reserved';
-      if (!form.slug.trim()) e.slug = 'Slug is required';
+      if (!isResume) {
+        if (RESERVED_SLUGS.has(form.slug)) e.slug = 'This slug is reserved';
+        if (!form.slug.trim()) e.slug = 'Slug is required';
+      }
     }
     if (s === 1) {
       if (!form.siteName.trim()) e.siteName = 'Site name is required';
@@ -229,7 +267,7 @@ export function TenantOnboardingWizard({
       if (!form.adminPassword || form.adminPassword.length < 8) e.adminPassword = 'Minimum 8 characters';
       if (form.adminPassword !== form.adminPasswordConfirm) e.adminPasswordConfirm = 'Passwords do not match';
     }
-    if (s === 3) {
+    if (!isResume && s === 3) {
       if (!form.planId) e.planId = 'Select a billing plan';
     }
     return e;
@@ -239,7 +277,7 @@ export function TenantOnboardingWizard({
     const e = validateStep(step);
     setErrors(e);
     if (Object.keys(e).length) return;
-    setStep((s) => Math.min(s + 1, STEPS.length - 1));
+    setStep((s) => Math.min(s + 1, lastStep));
   };
 
   const onLogoSelected = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -268,7 +306,8 @@ export function TenantOnboardingWizard({
   };
 
   const submit = async () => {
-    for (let s = 0; s <= 3; s += 1) {
+    const maxValidate = isResume ? 2 : 3;
+    for (let s = 0; s <= maxValidate; s += 1) {
       const e = validateStep(s);
       if (Object.keys(e).length) {
         setErrors(e);
@@ -328,6 +367,34 @@ export function TenantOnboardingWizard({
     };
 
     try {
+      if (isResume && resumeTenantId) {
+        const result = await resumeOnboard.mutateAsync({
+          id: resumeTenantId,
+          payload: {
+            displayName: payload.displayName,
+            businessEmail: payload.businessEmail,
+            businessPhone: payload.businessPhone,
+            website: payload.website,
+            timezone: payload.timezone,
+            defaultLanguage: payload.defaultLanguage,
+            logoUrl: payload.logoUrl,
+            siteName: payload.siteName,
+            businessHours: payload.businessHours,
+            adminEmail: payload.adminEmail,
+            adminPassword: payload.adminPassword,
+            adminFirstName: payload.adminFirstName,
+            adminLastName: payload.adminLastName,
+          },
+        });
+        localStorage.removeItem(DRAFT_KEY);
+        setSuccess({
+          tenantName: result.tenant.displayName || result.tenant.name,
+          publicId: result.tenant.publicId,
+          slug: result.tenant.slug,
+        });
+        return;
+      }
+
       const result = await onboard.mutateAsync(payload);
       localStorage.removeItem(DRAFT_KEY);
       setSuccess({
@@ -372,8 +439,12 @@ export function TenantOnboardingWizard({
     <SlideOver
       open={open}
       onClose={close}
-      title="Enterprise Tenant Onboarding"
-      description="Provision organization, site, admin user, subscription, and platform features."
+      title={isResume ? 'Resume Tenant Onboarding' : 'Enterprise Tenant Onboarding'}
+      description={
+        isResume
+          ? 'Complete company profile and Tenant Admin after Factory Reset. Existing DIDs stay on this tenant.'
+          : 'Provision organization, site, admin user, subscription, and platform features.'
+      }
       width="xl"
       footer={
         success ? (
@@ -384,13 +455,28 @@ export function TenantOnboardingWizard({
               <Button variant="outline" onClick={() => (step > 0 ? setStep(step - 1) : close())}>
                 {step > 0 ? 'Back' : 'Cancel'}
               </Button>
-              <Button variant="ghost" onClick={saveDraft}>Save Draft</Button>
+              {!isResume ? (
+                <Button variant="ghost" onClick={saveDraft}>
+                  Save Draft
+                </Button>
+              ) : null}
             </div>
-            {step < STEPS.length - 1 ? (
+            {step < lastStep ? (
               <Button onClick={goNext}>Continue</Button>
             ) : (
-              <Button onClick={() => void submit()} disabled={onboard.isPending || uploadLogo.isPending}>
-                {onboard.isPending ? <><Loader2 className="h-4 w-4 animate-spin" /> Creating…</> : 'Create Tenant'}
+              <Button
+                onClick={() => void submit()}
+                disabled={onboard.isPending || resumeOnboard.isPending || uploadLogo.isPending}
+              >
+                {onboard.isPending || resumeOnboard.isPending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" /> Saving…
+                  </>
+                ) : isResume ? (
+                  'Finish Onboarding'
+                ) : (
+                  'Create Tenant'
+                )}
               </Button>
             )}
           </div>
@@ -400,34 +486,44 @@ export function TenantOnboardingWizard({
       {success ? (
         <div className="flex flex-col items-center gap-4 py-12 text-center">
           <CheckCircle2 className="h-16 w-16 text-emerald-500" />
-          <h3 className="text-xl font-semibold">Tenant Created</h3>
+          <h3 className="text-xl font-semibold">{isResume ? 'Onboarding Complete' : 'Tenant Created'}</h3>
           <p className="text-muted-foreground">
             {success.tenantName} ({success.publicId}) is ready at{' '}
             <span className="font-medium">{success.slug}.vspphone.com</span>.
           </p>
           <p className="text-sm text-muted-foreground">
-            Subscription, billing account, RBAC, site, and admin user were provisioned.
+            {isResume
+              ? 'Tenant Admin and site were recreated. Assign existing DIDs to extensions from the tenant portal.'
+              : 'Subscription, billing account, RBAC, site, and admin user were provisioned.'}
           </p>
         </div>
       ) : (
         <div className="space-y-6">
-          <WizardProgress step={step} />
+          <WizardProgress step={step} steps={steps} />
           {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
           {step === 0 ? (
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Organization name" required error={errors.name}>
-                <Input value={form.name} onChange={(e) => patch({ name: e.target.value })} />
+                <Input
+                  value={form.name}
+                  onChange={(e) => patch({ name: e.target.value })}
+                  readOnly={isResume}
+                  className={isResume ? 'bg-muted/40' : undefined}
+                />
               </Field>
               <Field label="Display name">
                 <Input value={form.displayName} onChange={(e) => patch({ displayName: e.target.value })} />
               </Field>
-              <Field label="Slug" required error={errors.slug}>
+              <Field label="Slug" required={!isResume} error={errors.slug}>
                 <Input
                   value={form.slug}
                   onChange={(e) => patch({ slug: e.target.value, slugManual: true })}
+                  readOnly={isResume}
+                  className={isResume ? 'bg-muted/40' : undefined}
                 />
               </Field>
+              {!isResume ? (
               <Field label="Status">
                 <SearchableSelect
                   value={form.status}
@@ -438,6 +534,11 @@ export function TenantOnboardingWizard({
                   ]}
                 />
               </Field>
+              ) : (
+                <Field label="Status">
+                  <Input value="PENDING (resume after Factory Reset)" readOnly className="bg-muted/40" />
+                </Field>
+              )}
               <Field label="Logo" className="sm:col-span-2">
                 <div className="flex flex-wrap items-center gap-4">
                   {form.logoPreview ? (
@@ -624,7 +725,7 @@ export function TenantOnboardingWizard({
             </div>
           ) : null}
 
-          {step === 3 ? (
+          {!isResume && step === 3 ? (
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Plan" required error={errors.planId} className="sm:col-span-2">
                 <SearchableSelect
@@ -680,7 +781,48 @@ export function TenantOnboardingWizard({
             </div>
           ) : null}
 
-          {step === 4 ? (
+          {isResume && step === 3 ? (
+            <div className="space-y-4">
+              <div className="space-y-4 rounded-xl border border-border bg-muted/20 p-4 text-sm">
+                <p className="font-semibold">Review &amp; finish</p>
+                <dl className="grid gap-2 sm:grid-cols-2">
+                  <SummaryItem label="Organization" value={form.displayName || form.name} />
+                  <SummaryItem label="Slug" value={`${form.slug}.vspphone.com`} />
+                  <SummaryItem label="Country / TZ" value={`${form.country} · ${form.timezone}`} />
+                  <SummaryItem label="Site" value={form.siteName} />
+                  <SummaryItem label="Admin" value={`${form.adminFirstName} ${form.adminLastName} (${form.adminEmail})`} />
+                  <SummaryItem label="Logo" value={form.logoUrl ? 'Uploaded' : 'None'} />
+                </dl>
+              </div>
+              <div className="space-y-3 rounded-xl border border-border p-4 text-sm">
+                <p className="font-semibold">Existing DIDs on this tenant</p>
+                <p className="text-muted-foreground">
+                  Factory Reset keeps DID ownership. Numbers below stay on this tenant (typically UNASSIGNED). Assign
+                  them to extensions after finish from the tenant portal → Phone Numbers.
+                </p>
+                {resumeDids.isLoading ? (
+                  <p className="text-muted-foreground">Loading DIDs…</p>
+                ) : (resumeDids.data?.length ?? 0) === 0 ? (
+                  <p className="text-muted-foreground">No DIDs currently owned by this tenant.</p>
+                ) : (
+                  <ul className="divide-y divide-border rounded-lg border border-border">
+                    {resumeDids.data!.map((d) => (
+                      <li key={d.id} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
+                        <span className="font-mono">{d.number}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {d.status}
+                          {d.available ? ' · available' : ''}
+                          {d.lineId ? ' · bound' : ' · unassigned'}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          ) : null}
+
+          {!isResume && step === 4 ? (
             <div className="space-y-4 rounded-xl border border-border bg-muted/20 p-4 text-sm">
               <p className="font-semibold">Review &amp; Create</p>
               <dl className="grid gap-2 sm:grid-cols-2">
@@ -701,10 +843,10 @@ export function TenantOnboardingWizard({
   );
 }
 
-function WizardProgress({ step }: { step: number }) {
+function WizardProgress({ step, steps }: { step: number; steps: readonly string[] }) {
   return (
     <div className="flex flex-wrap gap-2">
-      {STEPS.map((label, i) => (
+      {steps.map((label, i) => (
         <div
           key={label}
           className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${

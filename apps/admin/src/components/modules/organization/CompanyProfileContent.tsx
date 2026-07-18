@@ -27,6 +27,10 @@ type CompanyRecord = {
   website?: string | null;
   industry?: string | null;
   companySize?: string | null;
+  brandPrimary?: string | null;
+  brandSecondary?: string | null;
+  defaultCallerId?: string | null;
+  emergencyNumber?: string | null;
 };
 
 export function CompanyProfileContent() {
@@ -42,6 +46,10 @@ export function CompanyProfileContent() {
     website: '',
     industry: '',
     companySize: '',
+    brandPrimary: '',
+    brandSecondary: '',
+    defaultCallerId: '',
+    emergencyNumber: '',
   });
   const [saved, setSaved] = useState(false);
 
@@ -58,6 +66,10 @@ export function CompanyProfileContent() {
         website: company.website ?? '',
         industry: company.industry ?? '',
         companySize: company.companySize ?? '',
+        brandPrimary: company.brandPrimary ?? '',
+        brandSecondary: company.brandSecondary ?? '',
+        defaultCallerId: company.defaultCallerId ?? '',
+        emergencyNumber: company.emergencyNumber ?? '',
       });
     }
   }, [company]);
@@ -149,6 +161,22 @@ export function CompanyProfileContent() {
                 <label className="block space-y-1.5">
                   <span className="font-medium">Company size</span>
                   <Input value={form.companySize} onChange={(e) => setForm({ ...form, companySize: e.target.value })} />
+                </label>
+                <label className="block space-y-1.5">
+                  <span className="font-medium">Brand primary</span>
+                  <Input value={form.brandPrimary} onChange={(e) => setForm({ ...form, brandPrimary: e.target.value })} placeholder="#0F172A" />
+                </label>
+                <label className="block space-y-1.5">
+                  <span className="font-medium">Brand secondary</span>
+                  <Input value={form.brandSecondary} onChange={(e) => setForm({ ...form, brandSecondary: e.target.value })} placeholder="#2563EB" />
+                </label>
+                <label className="block space-y-1.5">
+                  <span className="font-medium">Default Caller ID</span>
+                  <Input value={form.defaultCallerId} onChange={(e) => setForm({ ...form, defaultCallerId: e.target.value })} />
+                </label>
+                <label className="block space-y-1.5">
+                  <span className="font-medium">Emergency Number</span>
+                  <Input value={form.emergencyNumber} onChange={(e) => setForm({ ...form, emergencyNumber: e.target.value })} />
                 </label>
                 <p className="text-muted-foreground">
                   Signed in as {session?.email ?? '—'} · Tenant {session?.tenant?.name ?? session?.tenantId ?? '—'}

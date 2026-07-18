@@ -35,9 +35,9 @@ export class PermissionsService {
       if (devUserId && userId === devUserId) {
         return (
           DEV_FALLBACK_PERMISSIONS.includes(permissionKey) ||
-          permissionKey.startsWith('platform:') ||
-          permissionKey.startsWith('ops:') ||
-          permissionKey.startsWith('tenant:')
+          isPlatformPlaneKey(permissionKey) ||
+          isOpsPlaneKey(permissionKey) ||
+          isTenantPlaneKey(permissionKey)
         );
       }
       return false;
@@ -48,7 +48,7 @@ export class PermissionsService {
     // Impersonation session: grant tenant-plane permissions for the target tenant context.
     if (ctx.impersonatorUserId && ctx.portal === 'tenant') {
       if (
-        permissionKey.startsWith('tenant:') ||
+        isTenantPlaneKey(permissionKey) ||
         permissionKey === 'provisioning:admin' ||
         permissionKey.startsWith('recordings:') ||
         permissionKey.startsWith('presence:')
@@ -57,12 +57,12 @@ export class PermissionsService {
       }
     }
 
-    // Super admin bypass is limited to platform/ops planes — never auto-grant tenant:*.
+    // Super admin bypass is limited to platform/ops planes — never auto-grant tenant plane.
     if (isSuperAdmin) {
       if (
         permissionKey === 'platform:super_admin' ||
-        permissionKey.startsWith('platform:') ||
-        permissionKey.startsWith('ops:')
+        isPlatformPlaneKey(permissionKey) ||
+        isOpsPlaneKey(permissionKey)
       ) {
         return true;
       }
@@ -117,20 +117,32 @@ export class PermissionsService {
   }
 
   hasTenantPlanePermission(permissionKeys: string[]): boolean {
-    return permissionKeys.some((p) => p.startsWith('tenant:') || p === 'tenant:admin');
+    return permissionKeys.some((p) => isTenantPlaneKey(p));
   }
 
   hasPlatformPlanePermission(permissionKeys: string[]): boolean {
     return (
       permissionKeys.includes('platform:super_admin') ||
-      permissionKeys.some((p) => p.startsWith('platform:'))
+      permissionKeys.some((p) => isPlatformPlaneKey(p))
     );
   }
 
   hasOpsPlanePermission(permissionKeys: string[]): boolean {
     return (
       permissionKeys.includes('platform:super_admin') ||
-      permissionKeys.some((p) => p.startsWith('ops:'))
+      permissionKeys.some((p) => isOpsPlaneKey(p))
     );
   }
+}
+
+function isPlatformPlaneKey(key: string): boolean {
+  return key.startsWith('platform:') || key.startsWith('platform.');
+}
+
+function isOpsPlaneKey(key: string): boolean {
+  return key.startsWith('ops:') || key.startsWith('ops.');
+}
+
+function isTenantPlaneKey(key: string): boolean {
+  return key === 'tenant:admin' || key.startsWith('tenant:') || key.startsWith('tenant.');
 }

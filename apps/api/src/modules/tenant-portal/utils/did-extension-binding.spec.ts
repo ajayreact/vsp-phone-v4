@@ -1,11 +1,13 @@
 import { BadRequestException, ConflictException } from '@nestjs/common';
 import { LineStatus } from '@prisma/client';
+import { PhoneNumberStatus } from '@prisma/client';
 import {
   assertCanBindDidToLine,
   detachDidFromPriorExtension,
   extensionAssignDestinationWhere,
   isMultipleDidsPerExtensionAllowed,
   markLineInactiveAfterDidRemoval,
+  unassignDidInTenant,
 } from './did-extension-binding';
 
 describe('did-extension-binding (One DID ↔ One Extension)', () => {
@@ -213,5 +215,48 @@ describe('did-extension-binding (One DID ↔ One Extension)', () => {
         version: { increment: 1 },
       },
     });
+  });
+
+  it('unassignDidInTenant sets UNASSIGNED + available without changing tenant', async () => {
+    const tx = {
+      phoneNumber: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'pn1',
+          tenantId: 'tenant-a',
+          lineId: null,
+        }),
+        update: jest.fn().mockResolvedValue({}),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+      numberAssignment: { updateMany: jest.fn().mockResolvedValue({ count: 0 }) },
+      inboundRoute: { updateMany: jest.fn().mockResolvedValue({ count: 0 }) },
+      callerID: { updateMany: jest.fn() },
+      line: { update: jest.fn() },
+    };
+
+    await unassignDidInTenant(tx as never, {
+      tenantId: 'tenant-a',
+      phoneNumberId: 'pn1',
+      actorUserId: 'admin',
+    });
+
+    expect(tx.phoneNumber.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          status: PhoneNumberStatus.UNASSIGNED,
+          available: true,
+          lineId: null,
+        }),
+      }),
+    );
+    expect(tx.phoneNumber.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ tenantId: 'tenant-a' }),
+        data: expect.objectContaining({
+          status: PhoneNumberStatus.UNASSIGNED,
+          available: true,
+        }),
+      }),
+    );
   });
 });

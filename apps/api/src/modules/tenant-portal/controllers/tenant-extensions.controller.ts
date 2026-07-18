@@ -82,7 +82,7 @@ export class TenantExtensionsController {
   }
 
   @Post()
-  @RequirePermission(PERMISSIONS.TENANT_EXTENSIONS_WRITE)
+  @RequirePermission(PERMISSIONS.TENANT_EXTENSIONS_MANAGE)
   @ApiOperation({ summary: 'Create extension (user optional — auto-provisions standalone line)' })
   create(@Body() dto: CreateExtensionDto, @Req() req: Request) {
     const user = getJwtUser(req);
@@ -90,7 +90,7 @@ export class TenantExtensionsController {
   }
 
   @Post('bulk-import')
-  @RequirePermission(PERMISSIONS.TENANT_EXTENSIONS_WRITE)
+  @RequirePermission(PERMISSIONS.TENANT_EXTENSIONS_MANAGE)
   @ApiOperation({ summary: 'Bulk import extensions from structured rows' })
   bulkImport(@Body() dto: BulkImportExtensionsDto, @Req() req: Request) {
     const user = getJwtUser(req);
@@ -98,7 +98,7 @@ export class TenantExtensionsController {
   }
 
   @Post(':id/restart-registration')
-  @RequirePermission(PERMISSIONS.TENANT_EXTENSIONS_WRITE)
+  @RequirePermission(PERMISSIONS.TENANT_EXTENSIONS_MANAGE)
   @ApiOperation({ summary: 'Restart SIP registration (regenerate mobile QR or reset desk phone)' })
   restartRegistration(@Param('id') id: string, @Req() req: Request) {
     const user = getJwtUser(req);
@@ -106,7 +106,7 @@ export class TenantExtensionsController {
   }
 
   @Post(':id/unassign-did')
-  @RequirePermission(PERMISSIONS.TENANT_EXTENSIONS_WRITE)
+  @RequirePermission(PERMISSIONS.TENANT_EXTENSIONS_MANAGE)
   @ApiOperation({ summary: 'Remove assigned DID from extension' })
   unassignDid(@Param('id') id: string, @Req() req: Request) {
     const user = getJwtUser(req);
@@ -114,7 +114,7 @@ export class TenantExtensionsController {
   }
 
   @Post(':id/disable')
-  @RequirePermission(PERMISSIONS.TENANT_EXTENSIONS_WRITE)
+  @RequirePermission(PERMISSIONS.TENANT_EXTENSIONS_MANAGE)
   @ApiOperation({ summary: 'Disable extension (deactivate line; stops routing/registration)' })
   disable(@Param('id') id: string, @Req() req: Request) {
     const user = getJwtUser(req);
@@ -122,7 +122,7 @@ export class TenantExtensionsController {
   }
 
   @Post(':id/enable')
-  @RequirePermission(PERMISSIONS.TENANT_EXTENSIONS_WRITE)
+  @RequirePermission(PERMISSIONS.TENANT_EXTENSIONS_MANAGE)
   @ApiOperation({ summary: 'Re-enable a previously disabled extension' })
   enable(@Param('id') id: string, @Req() req: Request) {
     const user = getJwtUser(req);
@@ -130,7 +130,7 @@ export class TenantExtensionsController {
   }
 
   @Post(':id/archive')
-  @RequirePermission(PERMISSIONS.TENANT_EXTENSIONS_WRITE)
+  @RequirePermission(PERMISSIONS.TENANT_EXTENSIONS_MANAGE)
   @ApiOperation({ summary: 'Archive extension (hide from active workflows; restorable)' })
   archive(@Param('id') id: string, @Req() req: Request) {
     const user = getJwtUser(req);
@@ -138,7 +138,7 @@ export class TenantExtensionsController {
   }
 
   @Post(':id/unarchive')
-  @RequirePermission(PERMISSIONS.TENANT_EXTENSIONS_WRITE)
+  @RequirePermission(PERMISSIONS.TENANT_EXTENSIONS_MANAGE)
   @ApiOperation({ summary: 'Restore an archived extension' })
   unarchive(@Param('id') id: string, @Req() req: Request) {
     const user = getJwtUser(req);
@@ -155,7 +155,7 @@ export class TenantExtensionsController {
   }
 
   @Post(':id/mobile-qr')
-  @RequirePermission(PERMISSIONS.TENANT_EXTENSIONS_WRITE)
+  @RequirePermission(PERMISSIONS.TENANT_EXTENSIONS_MANAGE)
   @ApiOperation({ summary: 'Generate mobile app QR with WebRTC enroll token and deep link' })
   mobileQr(@Param('id') id: string, @Req() req: Request) {
     const user = getJwtUser(req);
@@ -163,7 +163,7 @@ export class TenantExtensionsController {
   }
 
   @Patch(':id/display-name')
-  @RequirePermission(PERMISSIONS.TENANT_EXTENSIONS_WRITE)
+  @RequirePermission(PERMISSIONS.TENANT_EXTENSIONS_MANAGE)
   @ApiOperation({ summary: 'Rename extension display name (Line.name)' })
   renameDisplayName(
     @Param('id') id: string,
@@ -175,7 +175,7 @@ export class TenantExtensionsController {
   }
 
   @Patch(':id')
-  @RequirePermission(PERMISSIONS.TENANT_EXTENSIONS_WRITE)
+  @RequirePermission(PERMISSIONS.TENANT_EXTENSIONS_MANAGE)
   @ApiOperation({ summary: 'Update extension and line telephony settings' })
   update(@Param('id') id: string, @Body() dto: UpdateExtensionDto, @Req() req: Request) {
     const user = getJwtUser(req);
@@ -183,7 +183,7 @@ export class TenantExtensionsController {
   }
 
   @Delete(':id')
-  @RequireAnyPermission(PERMISSIONS.TENANT_EXTENSIONS_WRITE, PERMISSIONS.TENANT_ADMIN)
+  @RequireAnyPermission(PERMISSIONS.TENANT_EXTENSIONS_MANAGE, PERMISSIONS.TENANT_ADMIN)
   @ApiOperation({ summary: 'Soft-delete extension' })
   remove(@Param('id') id: string, @Req() req: Request) {
     const user = getJwtUser(req);

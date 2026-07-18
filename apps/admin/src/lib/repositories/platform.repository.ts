@@ -91,6 +91,7 @@ export type UpdatePlatformSettingsPayload = {
   supportEmail?: string;
   defaultTimezone?: string;
   inventoryTenantId?: string | null;
+  developerMode?: boolean;
   smtpHost?: string | null;
   smtpPort?: number | null;
   smtpUsername?: string | null;
@@ -140,6 +141,30 @@ export const platformRepository = {
     return httpGet<ApiDataResponse<PlatformTenantRecord>>(`/v1/platform/tenants/${id}`).then(unwrapData);
   },
 
+  listTenantDids(id: string): Promise<
+    Array<{
+      id: string;
+      publicId: string;
+      number: string;
+      status: string;
+      available: boolean;
+      lineId: string | null;
+    }>
+  > {
+    return httpGet<
+      ApiDataResponse<
+        Array<{
+          id: string;
+          publicId: string;
+          number: string;
+          status: string;
+          available: boolean;
+          lineId: string | null;
+        }>
+      >
+    >(`/v1/platform/tenants/${id}/dids`).then(normalizeList);
+  },
+
   createTenant(payload: CreateTenantPayload): Promise<PlatformTenantRecord> {
     return httpPost<ApiDataResponse<PlatformTenantRecord>>('/v1/platform/tenants', payload).then(unwrapData);
   },
@@ -170,6 +195,49 @@ export const platformRepository = {
 
   deleteTenant(id: string): Promise<PlatformTenantRecord> {
     return httpDelete<ApiDataResponse<PlatformTenantRecord>>(`/v1/platform/tenants/${id}`).then(unwrapData);
+  },
+
+  resetPbx(id: string, payload: { confirmPhrase: string }): Promise<{ tenant: PlatformTenantRecord; didsUnassigned: number }> {
+    return httpPost<ApiDataResponse<{ tenant: PlatformTenantRecord; didsUnassigned: number }>>(
+      `/v1/platform/tenants/${id}/reset-pbx`,
+      payload,
+    ).then(unwrapData);
+  },
+
+  resetTenant(
+    id: string,
+    payload: { confirmPhrase: string; acknowledged: boolean },
+  ): Promise<{ tenant: PlatformTenantRecord; nextStep: 'onboarding'; didsKept: number }> {
+    return httpPost<
+      ApiDataResponse<{ tenant: PlatformTenantRecord; nextStep: 'onboarding'; didsKept: number }>
+    >(`/v1/platform/tenants/${id}/reset-tenant`, payload).then(unwrapData);
+  },
+
+  /** @deprecated Use resetTenant */
+  factoryReset(
+    id: string,
+    payload: { confirmPhrase: string; acknowledged: boolean },
+  ): Promise<{ tenant: PlatformTenantRecord; nextStep: 'onboarding'; didsKept: number }> {
+    return this.resetTenant(id, payload);
+  },
+
+  deleteTenantConfirmed(
+    id: string,
+    payload: { confirmPhrase: string },
+  ): Promise<{ tenant: PlatformTenantRecord; didsReleasedToInventory: number }> {
+    return httpPost<
+      ApiDataResponse<{ tenant: PlatformTenantRecord; didsReleasedToInventory: number }>
+    >(`/v1/platform/tenants/${id}/delete`, payload).then(unwrapData);
+  },
+
+  resumeOnboard(
+    id: string,
+    payload: Record<string, unknown>,
+  ): Promise<OnboardTenantResult> {
+    return httpPost<ApiDataResponse<OnboardTenantResult>>(
+      `/v1/platform/tenants/${id}/resume-onboard`,
+      payload,
+    ).then(unwrapData);
   },
 
   getBillingSummary(): Promise<PlatformBillingSummary> {
@@ -211,10 +279,17 @@ export const platformRepository = {
     return httpGet<ApiDataResponse<AuditLogRecord[]>>(`/v1/platform/audit${qs ? `?${qs}` : ''}`).then(normalizeList);
   },
 
-  listUsers(params?: { tenantId?: string; search?: string }): Promise<UserRecord[]> {
+  listUsers(params?: {
+    tenantId?: string;
+    search?: string;
+    role?: string;
+    status?: string;
+  }): Promise<UserRecord[]> {
     const q = new URLSearchParams();
     if (params?.tenantId) q.set('tenantId', params.tenantId);
     if (params?.search) q.set('search', params.search);
+    if (params?.role) q.set('role', params.role);
+    if (params?.status) q.set('status', params.status);
     const qs = q.toString();
     return httpGet<ApiDataResponse<UserRecord[]>>(`/v1/platform/users${qs ? `?${qs}` : ''}`).then(normalizeList);
   },

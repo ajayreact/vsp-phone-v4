@@ -63,6 +63,9 @@ const emptyPlatformUser = {
 export function UsersContent() {
   const portal = usePortal();
   const [search, setSearch] = useState('');
+  const [tenantFilter, setTenantFilter] = useState('');
+  const [roleFilter, setRoleFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
   const [open, setOpen] = useState(false);
   const [editRow, setEditRow] = useState<UserRow | null>(null);
   const [assignRow, setAssignRow] = useState<UserRow | null>(null);
@@ -73,7 +76,12 @@ export function UsersContent() {
   const [editForm, setEditForm] = useState({ email: '', firstName: '', lastName: '', roleName: 'User' });
   const [error, setError] = useState<string | null>(null);
 
-  const platformQuery = usePlatformUsers({ search });
+  const platformQuery = usePlatformUsers({
+    search: search || undefined,
+    tenantId: tenantFilter || undefined,
+    role: roleFilter || undefined,
+    status: statusFilter || undefined,
+  });
   const tenantQuery = useTenantUsers(search);
   const tenantsQuery = usePlatformTenants();
   const extensionsQuery = useTenantExtensions();
@@ -257,6 +265,56 @@ export function UsersContent() {
     <ModuleAccessGate moduleId="users">
       {({ module }) => (
         <>
+          {portal === 'platform' ? (
+            <div className="mb-4 flex flex-wrap gap-3 rounded-xl border border-border bg-muted/20 p-3">
+              <label className="text-sm">
+                <span className="mb-1 block text-xs text-muted-foreground">Tenant</span>
+                <select
+                  className="h-9 min-w-[10rem] rounded-lg border border-border bg-background px-2 text-sm"
+                  value={tenantFilter}
+                  onChange={(e) => setTenantFilter(e.target.value)}
+                >
+                  <option value="">All Tenants</option>
+                  {(tenantsQuery.data ?? []).map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.displayName || t.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="text-sm">
+                <span className="mb-1 block text-xs text-muted-foreground">Role</span>
+                <select
+                  className="h-9 min-w-[9rem] rounded-lg border border-border bg-background px-2 text-sm"
+                  value={roleFilter}
+                  onChange={(e) => setRoleFilter(e.target.value)}
+                >
+                  <option value="">All Roles</option>
+                  <option value="Tenant Admin">Tenant Admin</option>
+                  <option value="Manager">Manager</option>
+                  <option value="Supervisor">Supervisor</option>
+                  <option value="Receptionist">Receptionist</option>
+                  <option value="Agent">Agent</option>
+                  <option value="User">User</option>
+                  <option value="Guest">Guest</option>
+                </select>
+              </label>
+              <label className="text-sm">
+                <span className="mb-1 block text-xs text-muted-foreground">Status</span>
+                <select
+                  className="h-9 min-w-[8rem] rounded-lg border border-border bg-background px-2 text-sm"
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                >
+                  <option value="">All Statuses</option>
+                  <option value="ACTIVE">Active</option>
+                  <option value="INACTIVE">Inactive</option>
+                  <option value="PENDING">Pending</option>
+                  <option value="LOCKED">Locked</option>
+                </select>
+              </label>
+            </div>
+          ) : null}
           <ModuleListShell
             module={module}
             query={{ ...query, data: rows }}
@@ -267,7 +325,7 @@ export function UsersContent() {
             emptyDescription={
               portal === 'tenant'
                 ? 'Create users so employees can be assigned to extensions.'
-                : 'User accounts will appear here once provisioned.'
+                : 'User accounts across all tenants. Use filters above or search.'
             }
             primaryAction={<CreateButton label="Add User" onClick={() => setOpen(true)} />}
             filterRows={(data, q) => defaultSearchFilter(data, q)}

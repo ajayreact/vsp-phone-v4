@@ -184,9 +184,9 @@ export class AuthService {
       const tenantish = [
         'tenant:admin',
         'tenant:users:read',
-        'tenant:users:write',
+        'tenant.users.manage',
         'tenant:extensions:read',
-        'tenant:extensions:write',
+        'tenant.extensions.manage',
         'tenant:devices:read',
         'tenant:devices:write',
         'tenant:dids:read',

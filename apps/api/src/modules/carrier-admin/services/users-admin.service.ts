@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { UserStatus } from '@prisma/client';
 import { PrismaService } from '../../telecom/prisma/prisma.service';
 
@@ -33,13 +33,18 @@ function mapUserStatus(status: UserStatus): string {
 export class UsersAdminService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async list(params: { tenantId?: string; search?: string }): Promise<UserAdminRecord[]> {
+  async list(params: {
+    tenantId?: string;
+    search?: string;
+    role?: string;
+    status?: string;
+  }): Promise<UserAdminRecord[]> {
     if (!this.prisma.connected) return [];
-    if (!params.tenantId) {
-      throw new BadRequestException('tenantId is required for user listing');
-    }
 
-    const where: Record<string, unknown> = { deletedAt: null, tenantId: params.tenantId };
+    const where: Record<string, unknown> = { deletedAt: null };
+    if (params.tenantId?.trim()) {
+      where.tenantId = params.tenantId.trim();
+    }
     if (params.search?.trim()) {
       const q = params.search.trim();
       where.OR = [
@@ -47,6 +52,20 @@ export class UsersAdminService {
         { username: { contains: q, mode: 'insensitive' } },
         { profile: { displayName: { contains: q, mode: 'insensitive' } } },
       ];
+    }
+    if (params.status?.trim()) {
+      const s = params.status.trim().toUpperCase();
+      if (s === 'ACTIVE' || s === 'INACTIVE' || s === 'PENDING' || s === 'LOCKED') {
+        where.status = s as UserStatus;
+      }
+    }
+    if (params.role?.trim()) {
+      where.userRoles = {
+        some: {
+          deletedAt: null,
+          role: { name: { equals: params.role.trim(), mode: 'insensitive' } },
+        },
+      };
     }
 
     const rows = await this.prisma.user.findMany({

@@ -41,6 +41,10 @@ export class TenantOrganizationService {
       industry: tenant.settings?.industry ?? null,
       companySize: tenant.settings?.companySize ?? null,
       logoUrl: tenant.settings?.logoUrl ?? null,
+      brandPrimary: tenant.settings?.brandPrimary ?? null,
+      brandSecondary: tenant.settings?.brandSecondary ?? null,
+      defaultCallerId: tenant.settings?.defaultCallerId ?? null,
+      emergencyNumber: tenant.settings?.emergencyNumber ?? null,
     };
   }
 
@@ -62,6 +66,10 @@ export class TenantOrganizationService {
       website: dto.website?.trim(),
       industry: dto.industry?.trim(),
       companySize: dto.companySize?.trim(),
+      brandPrimary: dto.brandPrimary?.trim(),
+      brandSecondary: dto.brandSecondary?.trim(),
+      defaultCallerId: dto.defaultCallerId?.trim(),
+      emergencyNumber: dto.emergencyNumber?.trim(),
     };
 
     const hasSettings = Object.values(settingsFields).some((v) => v !== undefined);
@@ -85,6 +93,18 @@ export class TenantOrganizationService {
             ...(settingsFields.industry !== undefined ? { industry: settingsFields.industry || null } : {}),
             ...(settingsFields.companySize !== undefined
               ? { companySize: settingsFields.companySize || null }
+              : {}),
+            ...(settingsFields.brandPrimary !== undefined
+              ? { brandPrimary: settingsFields.brandPrimary || null }
+              : {}),
+            ...(settingsFields.brandSecondary !== undefined
+              ? { brandSecondary: settingsFields.brandSecondary || null }
+              : {}),
+            ...(settingsFields.defaultCallerId !== undefined
+              ? { defaultCallerId: settingsFields.defaultCallerId || null }
+              : {}),
+            ...(settingsFields.emergencyNumber !== undefined
+              ? { emergencyNumber: settingsFields.emergencyNumber || null }
               : {}),
             updatedBy: actorUserId,
           },

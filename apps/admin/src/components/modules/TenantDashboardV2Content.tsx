@@ -90,6 +90,49 @@ export function TenantDashboardV2Content() {
                 </Link>
               </div>
 
+              {(() => {
+                const onboarding = (query.data as { onboarding?: { checklist: Array<{ id: string; label: string; done: boolean }>; percent: number } })
+                  ?.onboarding;
+                const checklist = onboarding?.checklist ?? [];
+                const percent = onboarding?.percent ?? 0;
+                const byId = Object.fromEntries(checklist.map((c) => [c.id, c.done]));
+                const extTotal = hubStats.data?.totalExtensions ?? 0;
+                const devices =
+                  (hubStats.data?.deskPhones ?? 0) + (hubStats.data?.mobileApps ?? 0);
+                const assigned = hubStats.data?.assignedDids ?? 0;
+                return (
+                  <div className="mt-6 rounded-2xl border border-border bg-card p-5">
+                    <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                      <h3 className="font-semibold">Tenant Setup Progress</h3>
+                      <span className="text-sm tabular-nums text-muted-foreground">{percent}%</span>
+                    </div>
+                    <div className="mb-4 h-2 overflow-hidden rounded-full bg-muted">
+                      <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${percent}%` }} />
+                    </div>
+                    <ul className="grid gap-2 text-sm sm:grid-cols-2">
+                      <li>Company {byId.company ? '✓' : '·'}</li>
+                      <li>Location {byId.hours || byId.company ? '✓' : '·'}</li>
+                      <li>Admin {byId.user ? '✓' : '·'}</li>
+                      <li>
+                        Extensions {extTotal} / {Math.max(extTotal, 10)}
+                      </li>
+                      <li>Devices {devices}</li>
+                      <li>
+                        Assigned Numbers {assigned} / {Math.max(assigned, 5)}
+                      </li>
+                      <li>Business Hours {byId.hours ? '✓' : '·'}</li>
+                    </ul>
+                    <div className="mt-4">
+                      <Link href="/settings/company">
+                        <Button size="sm" variant="outline">
+                          Continue Setup
+                        </Button>
+                      </Link>
+                    </div>
+                  </div>
+                );
+              })()}
+
               <div className="mt-6 rounded-2xl border border-border bg-card p-5">
                 <h3 className="mb-3 font-semibold">Recent activity</h3>
                 <p className="text-sm text-muted-foreground">

@@ -48,6 +48,14 @@ export type PlatformTenantRecord = {
   status: string;
   createdAt: string;
   updatedAt: string;
+  usersCount?: number;
+  extensionsCount?: number;
+  devicesCount?: number;
+  didsCount?: number;
+  assignedDidsCount?: number;
+  storageLimitGb?: number | null;
+  lastLoginAt?: string | null;
+  setupProgressPercent?: number;
 };
 
 export type PlatformBillingSummary = {
@@ -155,6 +163,7 @@ export type PlatformSettingsRecord = {
   defaultTimezone: string;
   inventoryTenantId: string | null;
   stripeEnabled: boolean;
+  developerMode: boolean;
   smtpHost: string | null;
   smtpPort: number | null;
   smtpUsername: string | null;

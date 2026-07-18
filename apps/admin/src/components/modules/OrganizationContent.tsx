@@ -65,8 +65,8 @@ export function OrganizationContent() {
         <PageContainer>
           <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.18 }}>
             <PageHeader
-              title={module.label}
-              description={module.description}
+              title="Company Profile"
+              description="Company name, branding, contact details, timezone, and regional defaults."
               actions={
                 <Button
                   variant="outline"

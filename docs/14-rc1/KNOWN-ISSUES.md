@@ -45,7 +45,7 @@
 
 | ID | Severity | Issue | Workaround |
 |----|----------|-------|------------|
-| RC1-012 | Medium | `nx run admin:lint` fails — missing ESLint plugins for `@next/next/no-img-element`, `react-hooks/exhaustive-deps` | Build passes; fix ESLint config post-RC1 |
+| RC1-012 | Resolved | `admin:lint` previously failed — missing ESLint plugins for `@next/next/no-img-element`, `react-hooks/exhaustive-deps` | Fixed in root `eslint.config.mjs` + plugin deps |
 | RC1-013 | Low | Next.js middleware deprecation warning | Informational; migrate to proxy convention later |
 
 ## Tenant portal
