@@ -78,12 +78,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw new Error('Portal mismatch after login');
       }
       setAccessToken(result.accessToken);
-      try {
-        const refresh = await issueRefreshToken(result.accessToken);
-        setRefreshToken(refresh.refreshToken);
-      } catch {
-        // Refresh token optional for MVP
-      }
+      // Do not block the login UI on refresh-token issuance (Redis/JWT path can stall).
+      void issueRefreshToken(result.accessToken)
+        .then((refresh) => setRefreshToken(refresh.refreshToken))
+        .catch(() => {
+          /* optional for MVP */
+        });
       await loadSession(result.accessToken);
     },
     [loadSession, portal],

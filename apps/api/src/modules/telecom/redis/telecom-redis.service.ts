@@ -90,7 +90,7 @@ export class TelecomRedisService implements OnModuleDestroy {
   }
 
   async get(key: string): Promise<string | null> {
-    if (!this.client) return null;
+    if (!this.client || !this.available) return null;
     try {
       return await this.client.get(key);
     } catch {
@@ -99,7 +99,7 @@ export class TelecomRedisService implements OnModuleDestroy {
   }
 
   async setex(key: string, ttlSec: number, value: string): Promise<boolean> {
-    if (!this.client) return false;
+    if (!this.client || !this.available) return false;
     try {
       await this.client.setex(key, Math.max(1, ttlSec), value);
       return true;
@@ -109,7 +109,7 @@ export class TelecomRedisService implements OnModuleDestroy {
   }
 
   async del(...keys: string[]): Promise<number> {
-    if (!this.client || keys.length === 0) return 0;
+    if (!this.client || !this.available || keys.length === 0) return 0;
     try {
       return await this.client.del(...keys);
     } catch {
@@ -146,7 +146,7 @@ export class TelecomRedisService implements OnModuleDestroy {
   }
 
   async expire(key: string, ttlSec: number): Promise<boolean> {
-    if (!this.client) return false;
+    if (!this.client || !this.available) return false;
     try {
       await this.client.expire(key, Math.max(1, ttlSec));
       return true;
@@ -282,7 +282,7 @@ export class TelecomRedisService implements OnModuleDestroy {
   }
 
   async incr(key: string): Promise<number> {
-    if (!this.client) return 0;
+    if (!this.client || !this.available) return 0;
     try {
       return await this.client.incr(key);
     } catch {

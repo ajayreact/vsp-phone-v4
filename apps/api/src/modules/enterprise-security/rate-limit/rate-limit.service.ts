@@ -22,6 +22,10 @@ export class RateLimitService {
     const limit = this.limitFor(scope);
     const windowSec = this.windowFor(scope);
     if (limit <= 0) return { allowed: true, remaining: limit };
+    // Fail open — never block login behind a wedged Redis (health does not use Redis).
+    if (!this.redis.isAvailable()) {
+      return { allowed: true, remaining: limit };
+    }
 
     const key = this.redis.rateLimitKey(scope, identifier);
     const count = await this.redis.incr(key);

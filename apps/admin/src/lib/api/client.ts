@@ -42,20 +42,38 @@ async function parseJson<T>(res: Response): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+const DEFAULT_FETCH_TIMEOUT_MS = 15_000;
+
 export async function apiFetch<T>(
   path: string,
-  options: RequestInit & { token?: string | null } = {},
+  options: RequestInit & { token?: string | null; timeoutMs?: number } = {},
 ): Promise<T> {
-  const { token, headers, ...rest } = options;
+  const { token, headers, timeoutMs = DEFAULT_FETCH_TIMEOUT_MS, signal, ...rest } = options;
   const isFormData = typeof FormData !== 'undefined' && rest.body instanceof FormData;
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...rest,
-    headers: {
-      ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...headers,
-    },
-  });
+  // Prefer caller signal; otherwise bound every request so login cannot spin forever.
+  const effectiveSignal =
+    signal ??
+    (typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function'
+      ? AbortSignal.timeout(timeoutMs)
+      : undefined);
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}${path}`, {
+      ...rest,
+      signal: effectiveSignal,
+      headers: {
+        ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...headers,
+      },
+    });
+  } catch (err) {
+    const name = err instanceof Error ? err.name : '';
+    if (name === 'TimeoutError' || name === 'AbortError') {
+      throw new ApiError(`Request timed out after ${timeoutMs}ms`, 504);
+    }
+    throw err;
+  }
   return parseJson<T>(res);
 }
 

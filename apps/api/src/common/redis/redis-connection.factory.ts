@@ -33,6 +33,8 @@ export function createRedisClient(config: ConfigService): RedisClient {
     enableReadyCheck: true,
     lazyConnect: true,
     connectTimeout: Number(config.get('REDIS_CONNECT_TIMEOUT_MS') ?? '2000'),
+    // Prevent auth/login from hanging forever when Redis accepts TCP but never replies.
+    commandTimeout: Number(config.get('REDIS_COMMAND_TIMEOUT_MS') ?? '2000'),
     retryStrategy: (times: number) => {
       if (times > retryMax) return null;
       return Math.min(times * 200, 3000);
