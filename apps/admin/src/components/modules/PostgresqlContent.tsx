@@ -7,8 +7,8 @@ import { ModuleAccessGate } from './shared/ModuleShell';
 import { QueryState } from '../feedback/QueryState';
 import { PageContainer, PageHeader } from '../layout/PageHeader';
 import { Button } from '../ui/Button';
-import { Card, CardBody } from '../ui/Card';
 import { Skeleton } from '../ui/Skeleton';
+import { PostgresOpsDashboard } from './noc/PostgresOpsDashboard';
 
 export function PostgresqlContent() {
   const query = usePostgresStats();
@@ -35,15 +35,7 @@ export function PostgresqlContent() {
               onRetry={() => void query.refetch()}
               skeleton={<Skeleton className="h-64 w-full rounded-2xl" />}
             >
-              {query.data ? (
-                <Card className="glass-card">
-                  <CardBody>
-                    <pre className="overflow-x-auto rounded-xl bg-muted/40 p-4 text-xs leading-relaxed">
-                      {JSON.stringify(query.data, null, 2)}
-                    </pre>
-                  </CardBody>
-                </Card>
-              ) : null}
+              {query.data ? <PostgresOpsDashboard data={query.data as Record<string, unknown>} /> : null}
             </QueryState>
           </motion.div>
         </PageContainer>

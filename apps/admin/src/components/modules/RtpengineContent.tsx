@@ -2,16 +2,16 @@
 
 import { motion } from 'framer-motion';
 import { RefreshCw } from 'lucide-react';
-import { useRtpengineNodes } from '../../lib/hooks/queries/use-ops';
+import { useNocRtpengine } from '../../lib/hooks/queries/use-telecom-noc';
 import { ModuleAccessGate } from './shared/ModuleShell';
 import { QueryState } from '../feedback/QueryState';
 import { PageContainer, PageHeader } from '../layout/PageHeader';
 import { Button } from '../ui/Button';
-import { Card, CardBody } from '../ui/Card';
 import { Skeleton } from '../ui/Skeleton';
+import { RtpengineOpsDashboard } from './noc/RtpengineOpsDashboard';
 
 export function RtpengineContent() {
-  const query = useRtpengineNodes();
+  const dashboard = useNocRtpengine();
 
   return (
     <ModuleAccessGate moduleId="rtpengine">
@@ -22,27 +22,26 @@ export function RtpengineContent() {
               title={module.label}
               description={module.description}
               actions={
-                <Button variant="outline" size="sm" onClick={() => void query.refetch()} disabled={query.isFetching}>
-                  <RefreshCw className={`h-4 w-4 ${query.isFetching ? 'animate-spin' : ''}`} />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void dashboard.refetch()}
+                  disabled={dashboard.isFetching}
+                >
+                  <RefreshCw className={`h-4 w-4 ${dashboard.isFetching ? 'animate-spin' : ''}`} />
                   Refresh
                 </Button>
               }
             />
             <QueryState
-              isLoading={query.isLoading}
-              isError={query.isError}
-              error={query.error}
-              onRetry={() => void query.refetch()}
+              isLoading={dashboard.isLoading}
+              isError={dashboard.isError}
+              error={dashboard.error}
+              onRetry={() => void dashboard.refetch()}
               skeleton={<Skeleton className="h-64 w-full rounded-2xl" />}
             >
-              {query.data ? (
-                <Card className="glass-card">
-                  <CardBody>
-                    <pre className="overflow-x-auto rounded-xl bg-muted/40 p-4 text-xs leading-relaxed">
-                      {JSON.stringify(query.data, null, 2)}
-                    </pre>
-                  </CardBody>
-                </Card>
+              {dashboard.data ? (
+                <RtpengineOpsDashboard data={dashboard.data as Record<string, unknown>} />
               ) : null}
             </QueryState>
           </motion.div>

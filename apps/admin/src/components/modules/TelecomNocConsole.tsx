@@ -1,9 +1,10 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { Activity, AlertTriangle, Network, Phone, Radio, RefreshCw, Search, Server, Shield } from 'lucide-react';
+import { AlertTriangle, RefreshCw, Search, Shield } from 'lucide-react';
 import { useState } from 'react';
 import { useAuth } from '../../lib/auth/AuthProvider';
+import { useOpsHealth } from '../../lib/hooks/queries/use-ops';
 import {
   useCallDiagnostics,
   useNocAlertActions,
@@ -21,9 +22,9 @@ import {
   useRunSynthetic,
 } from '../../lib/hooks/queries/use-telecom-noc';
 import type { NocAlert, NocSipDialog, NocSipRegistration } from '../../types/telecom-noc';
+import type { InfraHealthCheck } from '../../types/telecom';
 import { DataTable, type Column } from '../data/DataTable';
 import { EmptyState } from '../data/EmptyState';
-import { MetricCard } from '../data/MetricCard';
 import { QueryState } from '../feedback/QueryState';
 import { ModuleAccessGate } from './shared/ModuleShell';
 import { PageContainer, PageHeader } from '../layout/PageHeader';
@@ -32,6 +33,11 @@ import { LiveIndicator } from '../ui/LiveIndicator';
 import { StatusBadge } from '../ui/Badge';
 import { Skeleton } from '../ui/Skeleton';
 import { cn } from '../../lib/utils/cn';
+import { CarriersOpsDashboard } from './noc/CarriersOpsDashboard';
+import { KamailioOpsDashboard } from './noc/KamailioOpsDashboard';
+import { PlatformHealthDashboard } from './noc/PlatformHealthDashboard';
+import { RawJsonPanel } from './noc/RawJsonPanel';
+import { RtpengineOpsDashboard } from './noc/RtpengineOpsDashboard';
 
 type Tab =
   | 'dashboard'
@@ -131,35 +137,38 @@ function DashboardPanel({
   data: ReturnType<typeof useNocDashboard>;
   wallboard: boolean;
 }) {
+  const health = useOpsHealth();
+  const alerts = useNocAlerts('OPEN');
+  const components = (health.data?.components ?? data.data?.infrastructure) as
+    | Record<string, InfraHealthCheck | undefined>
+    | undefined;
+
   return (
-    <QueryState isLoading={data.isLoading} isError={data.isError} error={data.error} skeleton={<Skeleton className="h-64" />}>
-      {data.data ? (
-        <div className={cn(wallboard && 'rounded-2xl bg-zinc-950 p-6 text-zinc-50')}>
-          <div className="mb-2 flex items-center gap-2">
+    <QueryState
+      isLoading={data.isLoading && health.isLoading}
+      isError={data.isError && health.isError}
+      error={data.error ?? health.error}
+      skeleton={<Skeleton className="h-64" />}
+    >
+      <div className={cn(wallboard && 'rounded-2xl bg-zinc-950 p-6 text-zinc-50')}>
+        {data.data ? (
+          <div className="mb-4 flex items-center gap-2">
             <StatusBadge status={statusBadge(data.data.platformStatus)} />
             <span className="text-sm text-muted-foreground">Platform {data.data.platformStatus}</span>
           </div>
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <MetricCard label="Concurrent Calls" value={data.data.concurrentCalls} icon={Phone} />
-            <MetricCard label="SIP Phones" value={data.data.registeredSipPhones} icon={Network} />
-            <MetricCard label="WebRTC Clients" value={data.data.registeredWebrtcClients} icon={Radio} />
-            <MetricCard label="CPU Load (1m)" value={data.data.host.loadAvg1m} icon={Activity} />
-            <MetricCard label="Memory Used" value={`${data.data.host.memoryUsedPct}%`} icon={Server} />
-            <MetricCard label="Kamailio" value={data.data.kamailioStatus?.status ?? '—'} icon={Network} />
-            <MetricCard label="RTPengine" value={data.data.rtpengineStatus?.status ?? '—'} icon={Radio} />
-            <MetricCard label="Dispatcher" value={`${data.data.dispatcherStatus.nodesUp}/${data.data.dispatcherStatus.nodesTotal}`} icon={Server} />
-          </div>
-          <div className="mt-4 grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
-            {Object.entries(data.data.infrastructure ?? {}).map(([name, comp]) => (
-              <div key={name} className="rounded-xl border border-border bg-card p-3 text-sm">
-                <p className="font-medium capitalize">{name}</p>
-                <StatusBadge status={statusBadge(comp.status)} />
-                {comp.latencyMs != null ? <p className="mt-1 text-xs text-muted-foreground">{comp.latencyMs}ms</p> : null}
-              </div>
-            ))}
-          </div>
-        </div>
-      ) : null}
+        ) : null}
+        <PlatformHealthDashboard
+          components={components}
+          concurrentCalls={data.data?.concurrentCalls ?? null}
+          registrations={
+            data.data
+              ? data.data.registeredSipPhones + data.data.registeredWebrtcClients
+              : null
+          }
+          alertCount={alerts.data?.length ?? null}
+          raw={{ noc: data.data, health: health.data }}
+        />
+      </div>
     </QueryState>
   );
 }
@@ -255,7 +264,7 @@ function TracePanel({ tenantId }: { tenantId?: string }) {
           />
         }
       >
-        <pre className="max-h-[480px] overflow-auto rounded-xl border bg-muted/30 p-4 text-xs">{JSON.stringify(query.data, null, 2)}</pre>
+        <RawJsonPanel data={query.data} title="Show Raw Trace JSON" />
       </QueryState>
     </div>
   );
@@ -282,9 +291,16 @@ function MediaPanel({ tenantId }: { tenantId?: string }) {
 
 function KamailioPanel() {
   const query = useNocKamailio();
+  const registrations = useNocSipRegistrations();
+  const registrationCount = registrations.data?.length ?? null;
   return (
     <QueryState isLoading={query.isLoading} isError={query.isError} error={query.error} skeleton={<Skeleton className="h-64" />}>
-      <pre className="max-h-[520px] overflow-auto rounded-xl border bg-muted/30 p-4 text-xs">{JSON.stringify(query.data, null, 2)}</pre>
+      {query.data ? (
+        <KamailioOpsDashboard
+          data={query.data as Record<string, unknown>}
+          registrationCount={registrationCount}
+        />
+      ) : null}
     </QueryState>
   );
 }
@@ -293,7 +309,7 @@ function RtpenginePanel({ tenantId }: { tenantId?: string }) {
   const query = useNocRtpengine(tenantId);
   return (
     <QueryState isLoading={query.isLoading} isError={query.isError} error={query.error} skeleton={<Skeleton className="h-64" />}>
-      <pre className="max-h-[520px] overflow-auto rounded-xl border bg-muted/30 p-4 text-xs">{JSON.stringify(query.data, null, 2)}</pre>
+      {query.data ? <RtpengineOpsDashboard data={query.data as Record<string, unknown>} /> : null}
     </QueryState>
   );
 }
@@ -302,7 +318,7 @@ function CarriersPanel() {
   const query = useNocCarriers();
   return (
     <QueryState isLoading={query.isLoading} isError={query.isError} error={query.error} skeleton={<Skeleton className="h-64" />}>
-      <pre className="max-h-[520px] overflow-auto rounded-xl border bg-muted/30 p-4 text-xs">{JSON.stringify(query.data, null, 2)}</pre>
+      {query.data ? <CarriersOpsDashboard data={query.data as Record<string, unknown>} /> : null}
     </QueryState>
   );
 }
@@ -367,9 +383,7 @@ function SyntheticPanel() {
       <Button onClick={() => void run.mutateAsync()} disabled={run.isPending}>
         <Shield className="h-4 w-4" /> Run Synthetic Health Checks
       </Button>
-      {run.data ? (
-        <pre className="max-h-[480px] overflow-auto rounded-xl border bg-muted/30 p-4 text-xs">{JSON.stringify(run.data, null, 2)}</pre>
-      ) : null}
+      {run.data ? <RawJsonPanel data={run.data} title="Show Raw Synthetic Results" /> : null}
     </div>
   );
 }
@@ -386,9 +400,7 @@ function DiagnosticsPanel({ tenantId }: { tenantId?: string }) {
         onChange={(e) => setPlatformUuid(e.target.value)}
       />
       <QueryState isLoading={query.isLoading} isError={query.isError} error={query.error}>
-        {query.data ? (
-          <pre className="max-h-[520px] overflow-auto rounded-xl border bg-muted/30 p-4 text-xs">{JSON.stringify(query.data, null, 2)}</pre>
-        ) : null}
+        {query.data ? <RawJsonPanel data={query.data} title="Show Raw Diagnostics JSON" /> : null}
       </QueryState>
     </div>
   );

@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { RefreshCw } from 'lucide-react';
 import { usePortal } from '../../lib/portal/PortalProvider';
 import { usePlatformCarriers } from '../../lib/hooks/queries/use-platform';
-import { useOpsCarriersHealth } from '../../lib/hooks/queries/use-ops';
+import { useNocCarriers } from '../../lib/hooks/queries/use-telecom-noc';
 import type { PlatformCarrierRecord } from '../../types/portal';
 import { StatusBadge } from '../ui/Badge';
 import type { Column } from '../data/DataTable';
@@ -12,8 +12,8 @@ import { ModuleAccessGate, ModuleListShell, withRowIds } from './shared/ModuleSh
 import { QueryState } from '../feedback/QueryState';
 import { PageContainer, PageHeader } from '../layout/PageHeader';
 import { Button } from '../ui/Button';
-import { Card, CardBody } from '../ui/Card';
 import { Skeleton } from '../ui/Skeleton';
+import { CarriersOpsDashboard } from './noc/CarriersOpsDashboard';
 
 type CarrierRow = PlatformCarrierRecord & { id: string };
 
@@ -65,7 +65,7 @@ const columns: Column<CarrierRow>[] = [
 export function CarriersContent() {
   const portal = usePortal();
   const platformQuery = usePlatformCarriers();
-  const opsQuery = useOpsCarriersHealth();
+  const opsQuery = useNocCarriers();
 
   if (portal === 'ops') {
     return (
@@ -91,13 +91,7 @@ export function CarriersContent() {
                 skeleton={<Skeleton className="h-64 w-full rounded-2xl" />}
               >
                 {opsQuery.data ? (
-                  <Card className="glass-card">
-                    <CardBody>
-                      <pre className="overflow-x-auto rounded-xl bg-muted/40 p-4 text-xs leading-relaxed">
-                        {JSON.stringify(opsQuery.data, null, 2)}
-                      </pre>
-                    </CardBody>
-                  </Card>
+                  <CarriersOpsDashboard data={opsQuery.data as Record<string, unknown>} />
                 ) : null}
               </QueryState>
             </motion.div>
