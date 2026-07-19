@@ -44,6 +44,12 @@ services:
       IVR_MEDIA_URI: ${IVR_MEDIA_URI:-}
       CONFERENCE_MEDIA_URI: ${CONFERENCE_MEDIA_URI:-}
       VOICEMAIL_MEDIA_URI: ${VOICEMAIL_MEDIA_URI:-}
+      NGINX_HEALTH_HOST: ${NGINX_HEALTH_HOST:-host.docker.internal}
+      NGINX_PUBLIC_HOST: ${NGINX_PUBLIC_HOST:-admin.vspphone.com}
+      SSL_HEALTH_HOST: ${SSL_HEALTH_HOST:-prov.vspphone.com}
+      SSL_HEALTH_PORT: ${SSL_HEALTH_PORT:-443}
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
 
   admin:
     build:

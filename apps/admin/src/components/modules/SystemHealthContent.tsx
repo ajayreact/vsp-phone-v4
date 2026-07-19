@@ -113,11 +113,14 @@ export function SystemHealthContent() {
                       <CardBody className="flex items-center justify-between py-5">
                         <div>
                           <p className="text-sm font-semibold">{svc.name}</p>
-                          {svc.message ? (
-                            <p className="mt-1 text-xs text-muted-foreground">{svc.message}</p>
-                          ) : svc.version ? (
+                          {svc.version ? (
                             <p className="mt-1 text-xs text-muted-foreground">{svc.version}</p>
-                          ) : svc.failureReason ? (
+                          ) : null}
+                          {svc.message ? (
+                            <p className={`text-xs text-muted-foreground ${svc.version ? 'mt-0.5' : 'mt-1'}`}>
+                              {svc.message}
+                            </p>
+                          ) : !svc.version && svc.failureReason ? (
                             <p className="mt-1 text-xs text-muted-foreground">{svc.failureReason}</p>
                           ) : null}
                         </div>

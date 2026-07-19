@@ -25,6 +25,7 @@ export type InfraHealthCheck = {
   version?: string;
   failureReason?: string;
   lastSuccessfulCheck?: string;
+  details?: Record<string, string | number | string[] | undefined>;
 };
 
 export type OpsDashboardSnapshot = {

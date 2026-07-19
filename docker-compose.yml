@@ -94,6 +94,12 @@ services:
       TLS_API_CERT_FILE: ${TLS_API_CERT_FILE:-/etc/vsp/tls/api/fullchain.pem}
       TLS_API_KEY_FILE: ${TLS_API_KEY_FILE:-/etc/vsp/tls/api/privkey.pem}
       TLS_CA_FILE: ${TLS_CA_FILE:-/etc/vsp/tls/ca/ca.crt}
+      # Host nginx (not a Compose service) — probe via Docker host gateway, not container loopback.
+      NGINX_HEALTH_HOST: ${NGINX_HEALTH_HOST:-host.docker.internal}
+      NGINX_PUBLIC_HOST: ${NGINX_PUBLIC_HOST:-admin.vspphone.com}
+      # Live TLS health against the public provisioning hostname (not local PEM paths).
+      SSL_HEALTH_HOST: ${SSL_HEALTH_HOST:-prov.vspphone.com}
+      SSL_HEALTH_PORT: ${SSL_HEALTH_PORT:-443}
     ports:
       - '${API_PORT:-3000}:3000'
       - '${API_TLS_PORT:-3443}:3443'
@@ -101,6 +107,8 @@ services:
       - '${PROV_HTTPS_PORT:-3444}:3444'
     volumes:
       - ./infrastructure/tls/${TLS_ENV:-development}/live:/etc/vsp/tls:ro
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
     depends_on:
       postgres:
         condition: service_healthy

@@ -3,6 +3,10 @@ import { ConfigService } from '@nestjs/config';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import { tcpProbe, udpProbe } from '../../../common/health/tcp-probe';
+import {
+  fetchRemoteTlsCertificate,
+  shortIssuerLabel,
+} from '../../../common/health/tls-cert-probe';
 import { PrismaService } from '../../telecom/prisma/prisma.service';
 import { TelecomRedisService } from '../../telecom/redis/telecom-redis.service';
 import { CarrierService } from '../../carrier/carrier.service';
@@ -15,6 +19,8 @@ export interface HealthCheckResult {
   lastSuccessfulCheck?: string;
   failureReason?: string;
   message?: string;
+  /** Optional structured probe details (e.g. SSL CN/SAN/expiry). */
+  details?: Record<string, string | number | string[] | undefined>;
 }
 
 /** Phase 15 — detailed component health probes. */
@@ -117,35 +123,130 @@ export class EnterpriseHealthService {
   }
 
   async checkNginx(): Promise<HealthCheckResult> {
-    const host = this.config.get('NGINX_HEALTH_HOST') ?? '127.0.0.1';
     const port = Number(this.config.get('NGINX_HEALTH_PORT') ?? '443');
     const started = Date.now();
-    const tcp = await this.tcpCheck(host, port, 2000);
-    if (tcp.status === 'down') {
+    const hosts = this.nginxHealthHosts();
+    let lastFailure = 'unreachable';
+
+    for (const host of hosts) {
+      const tcp = await this.tcpCheck(host, port, 2000);
+      if (tcp.status === 'up') {
+        return this.ok('nginx', {
+          latencyMs: Date.now() - started,
+          message: `${host}:${port}`,
+        });
+      }
+      lastFailure = tcp.failureReason ?? lastFailure;
+
       const http = await this.tcpCheck(host, 80, 1500);
       if (http.status === 'up') {
-        return this.ok('nginx', { latencyMs: Date.now() - started, message: 'port 80' });
+        return this.ok('nginx', {
+          latencyMs: Date.now() - started,
+          message: `${host}:80`,
+        });
       }
-      return this.fail('nginx', tcp.failureReason ?? 'unreachable');
+      lastFailure = http.failureReason ?? lastFailure;
     }
-    return this.ok('nginx', { latencyMs: Date.now() - started, message: `port ${port}` });
+
+    return this.fail('nginx', lastFailure);
   }
 
-  checkSsl(): HealthCheckResult {
-    const cert =
-      this.config.get<string>('TLS_CERT_FILE') ||
-      this.config.get<string>('TLS_PROV_CERT_FILE') ||
-      process.env.TLS_CERT_FILE ||
-      '';
-    if (!cert.trim()) {
-      return { status: 'degraded', message: 'cert path not configured', lastSuccessfulCheck: this.lastSuccess.ssl };
-    }
+  /**
+   * Live TLS inspection of the certificate served on SSL_HEALTH_HOST
+   * (default prov.vspphone.com). Does not check development PEM paths.
+   */
+  async checkSsl(): Promise<HealthCheckResult> {
+    const host =
+      (this.config.get<string>('SSL_HEALTH_HOST') || '').trim() || 'prov.vspphone.com';
+    const port = Number(this.config.get('SSL_HEALTH_PORT') ?? '443');
+
     try {
-      if (!fs.existsSync(cert)) return this.fail('ssl', `missing ${cert}`);
-      return this.ok('ssl', { message: 'certificate file present' });
+      const cert = await fetchRemoteTlsCertificate(host, port, 5000);
+      const issuerLabel = shortIssuerLabel(cert.issuerOrg, cert.issuer);
+      const days = cert.daysRemaining;
+      const sanPreview = cert.san.length ? cert.san.slice(0, 3).join(', ') : cert.cn;
+
+      const details = {
+        cn: cert.cn,
+        san: cert.san,
+        issuer: cert.issuer,
+        issuerOrg: issuerLabel,
+        validFrom: cert.validFrom,
+        validTo: cert.validTo,
+        daysRemaining: days,
+        host: `${host}:${port}`,
+        sanPreview,
+      };
+
+      if (days < 0) {
+        return {
+          status: 'down',
+          version: issuerLabel,
+          message: `Expired ${Math.abs(days)} days ago`,
+          failureReason: `${issuerLabel} expired (CN=${cert.cn})`,
+          latencyMs: cert.latencyMs,
+          lastSuccessfulCheck: this.lastSuccess.ssl,
+          details,
+        };
+      }
+
+      const message = `Expires in ${days} days`;
+
+      if (days < 14) {
+        return {
+          status: 'degraded',
+          version: issuerLabel,
+          message,
+          latencyMs: cert.latencyMs,
+          lastSuccessfulCheck: new Date().toISOString(),
+          failureReason: `certificate expires in ${days} days`,
+          details,
+        };
+      }
+
+      this.lastSuccess.ssl = new Date().toISOString();
+      return {
+        status: 'up',
+        version: issuerLabel,
+        message,
+        latencyMs: cert.latencyMs,
+        lastSuccessfulCheck: this.lastSuccess.ssl,
+        details,
+      };
     } catch (err) {
       return this.fail('ssl', err instanceof Error ? err.message : String(err));
     }
+  }
+
+  /** Prefer host gateway from Docker; never assume host nginx is on container loopback. */
+  private nginxHealthHosts(): string[] {
+    const configured = (this.config.get<string>('NGINX_HEALTH_HOST') || '').trim();
+    const publicHost = (this.config.get<string>('NGINX_PUBLIC_HOST') || '').trim();
+    const inDocker = this.isRunningInDocker();
+
+    const hosts: string[] = [];
+    const push = (h?: string) => {
+      if (h && !hosts.includes(h)) hosts.push(h);
+    };
+
+    push(configured);
+    if (inDocker) {
+      push('host.docker.internal');
+      // Docker bridge gateway (Linux) — common when host.docker.internal is unset.
+      push('172.17.0.1');
+    } else {
+      push('127.0.0.1');
+    }
+    push(publicHost || 'admin.vspphone.com');
+    return hosts;
+  }
+
+  private isRunningInDocker(): boolean {
+    return (
+      fs.existsSync('/.dockerenv') ||
+      Boolean(process.env.DOCKER) ||
+      Boolean(process.env.KUBERNETES_SERVICE_HOST)
+    );
   }
 
   checkDisk(): HealthCheckResult {
@@ -218,6 +319,7 @@ export class EnterpriseHealthService {
       provisioning,
       telnyx,
       nginx,
+      ssl,
     ] = await Promise.all([
       this.checkApi(),
       this.checkPostgres(),
@@ -227,6 +329,7 @@ export class EnterpriseHealthService {
       this.checkProvisioning(),
       this.checkTelnyx(),
       this.checkNginx(),
+      this.checkSsl(),
     ]);
     return {
       api,
@@ -240,7 +343,7 @@ export class EnterpriseHealthService {
       telnyx,
       docker: this.checkDocker(),
       nginx,
-      ssl: this.checkSsl(),
+      ssl,
       disk: this.checkDisk(),
       memory: this.checkMemory(),
       cpu: this.checkCpu(),
