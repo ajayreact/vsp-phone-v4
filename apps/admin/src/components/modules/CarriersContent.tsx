@@ -64,8 +64,8 @@ const columns: Column<CarrierRow>[] = [
 
 export function CarriersContent() {
   const portal = usePortal();
-  const platformQuery = usePlatformCarriers();
-  const opsQuery = useNocCarriers();
+  const platformQuery = usePlatformCarriers({ enabled: portal === 'platform' });
+  const opsQuery = useNocCarriers({ enabled: portal === 'ops' });
 
   if (portal === 'ops') {
     return (

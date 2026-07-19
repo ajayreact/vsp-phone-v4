@@ -183,11 +183,12 @@ export function usePlatformPlans() {
   });
 }
 
-export function usePlatformCarriers() {
+export function usePlatformCarriers(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: queryKeys.platform.carriers(),
     queryFn: () => platformRepository.listCarriers(),
     refetchInterval: 30_000,
+    enabled: options?.enabled ?? true,
   });
 }
 

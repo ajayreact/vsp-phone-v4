@@ -62,11 +62,12 @@ export function useNocRtpengine(tenantId?: string) {
   });
 }
 
-export function useNocCarriers() {
+export function useNocCarriers(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: queryKeys.noc.carriers(),
     queryFn: () => telecomNocRepository.getCarrierMonitoring(),
     refetchInterval: 30_000,
+    enabled: options?.enabled ?? true,
   });
 }
 

@@ -33,7 +33,8 @@ export function Sidebar({
   const settings = usePlatformSettings(portal === 'platform');
   const developerMode = Boolean(settings.data?.developerMode) || isDeveloperModeEnvEnabled();
   const items = filterNavByPermissions(permissions, portal, { developerMode });
-  const health = useOpsHealth();
+  // Ops health is ops-portal only — platform/tenant JWTs get 403 on /v1/ops/*.
+  const health = useOpsHealth({ enabled: portal === 'ops' });
   const sidebarStatus =
     portal === 'ops' && health.data?.readiness
       ? health.data.readiness.ready
