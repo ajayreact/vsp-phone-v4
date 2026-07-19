@@ -11,10 +11,18 @@ live/
   ca/                # optional intermediate bundle for clients
 ```
 
-Sources (future — not automated in Phase 2):
+### RC1 EC2 (Let's Encrypt → prov-edge)
 
-- Let's Encrypt / ACME
-- Corporate internal CA
-- Enterprise PKI / HSM-backed issuance
+Public TLS terminates at host nginx. Prov-edge still needs PEMs on `:3444`.
 
-Set `TLS_ENV=production` and path env vars to point at these files (or secret mounts).
+```bash
+# On EC2 — copy LE material into the Compose bind mount (resolves LE symlinks)
+bash scripts/platform/sync-le-prov-tls.sh
+# → infrastructure/tls/production/live/prov/{fullchain,privkey}.pem
+# mounted read-only at /etc/vsp/tls/prov inside vsp-api
+```
+
+`docker-compose.prod.yml` also mounts `/etc/letsencrypt` so Nest can fall back to
+`/etc/letsencrypt/live/prov.vspphone.com/` if the sync dir is empty.
+
+Set `TLS_ENV=production`. Do **not** use `infrastructure/tls/development/live`.

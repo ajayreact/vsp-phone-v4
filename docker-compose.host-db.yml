@@ -46,12 +46,16 @@ services:
       REDIS_URL: redis://redis:6379
       REDIS_HOST: redis
       # RC1 EC2: nginx terminates Let's Encrypt HTTPS; API listens plain HTTP :3000.
-      # Hard-set so host .env cannot force development Nest TLS paths.
+      # Hard-set so host .env cannot force Nest HTTPS (HTTP curl hang) or development PEMs.
       TLS_TERMINATION: nginx
       TLS_ENABLED: 'false'
+      TLS_ENV: production
       TLS_API_CERT_FILE: ${TLS_API_CERT_FILE:-/etc/vsp/tls/api/fullchain.pem}
       TLS_API_KEY_FILE: ${TLS_API_KEY_FILE:-/etc/vsp/tls/api/privkey.pem}
       TLS_CA_FILE: ${TLS_CA_FILE:-/etc/vsp/tls/ca/ca.crt}
+      PROV_HTTPS_ENABLED: ${PROV_HTTPS_ENABLED:-true}
+      TLS_PROV_CERT_FILE: ${TLS_PROV_CERT_FILE:-/etc/vsp/tls/prov/fullchain.pem}
+      TLS_PROV_KEY_FILE: ${TLS_PROV_KEY_FILE:-/etc/vsp/tls/prov/privkey.pem}
       KAMAILIO_HTTP_HOST: kamailio
       KAMAILIO_HTTP_PORT: ${KAMAILIO_HTTP_PORT:-8880}
       RTPENGINE_HOST: rtpengine

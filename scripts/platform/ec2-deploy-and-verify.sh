@@ -19,9 +19,9 @@ echo "==> Rebuild api + admin"
 $COMPOSE build --no-cache api admin
 $COMPOSE up -d --force-recreate api admin
 
-echo "==> Wait for API healthy"
+echo "==> Wait for API healthy (plain HTTP :3000 — TLS at nginx)"
 for i in $(seq 1 30); do
-  if curl -sk https://127.0.0.1:3000/api/health | grep -q '"status":"ok"'; then
+  if curl -sS -m 5 http://127.0.0.1:3000/api/health | grep -q '"status":"ok"'; then
     echo "API healthy"
     break
   fi

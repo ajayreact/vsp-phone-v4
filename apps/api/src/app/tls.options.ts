@@ -111,6 +111,25 @@ export function loadHttpsOptions(env: NodeJS.ProcessEnv = process.env): HttpsOpt
   return options;
 }
 
+const PROD_PROV_CERT_DEFAULT = '/etc/vsp/tls/prov/fullchain.pem';
+const PROD_PROV_KEY_DEFAULT = '/etc/vsp/tls/prov/privkey.pem';
+/** Fallback when sync-le-prov-tls.sh has not populated /etc/vsp/tls/prov (full LE tree mounted). */
+const LE_PROV_CERT_DEFAULT = '/etc/letsencrypt/live/prov.vspphone.com/fullchain.pem';
+const LE_PROV_KEY_DEFAULT = '/etc/letsencrypt/live/prov.vspphone.com/privkey.pem';
+
+function resolveProdProvTlsPath(
+  configured: string,
+  primaryDefault: string,
+  leDefault: string,
+): string {
+  if (configured && !isDevelopmentTlsPath(configured)) {
+    return configured;
+  }
+  if (existsSync(primaryDefault)) return primaryDefault;
+  if (existsSync(leDefault)) return leDefault;
+  return primaryDefault;
+}
+
 /** Phase 11 — provisioning edge HTTPS (ADR-042). */
 export function loadProvHttpsOptions(env: NodeJS.ProcessEnv = process.env): HttpsOptions | undefined {
   const enabled = (env.PROV_HTTPS_ENABLED ?? 'true').toLowerCase() !== 'false';
@@ -123,12 +142,8 @@ export function loadProvHttpsOptions(env: NodeJS.ProcessEnv = process.env): Http
   let keyRaw = (env.TLS_PROV_KEY_FILE || '').trim();
 
   if (production) {
-    if (!certRaw || isDevelopmentTlsPath(certRaw)) {
-      certRaw = '/etc/vsp/tls/prov/fullchain.pem';
-    }
-    if (!keyRaw || isDevelopmentTlsPath(keyRaw)) {
-      keyRaw = '/etc/vsp/tls/prov/privkey.pem';
-    }
+    certRaw = resolveProdProvTlsPath(certRaw, PROD_PROV_CERT_DEFAULT, LE_PROV_CERT_DEFAULT);
+    keyRaw = resolveProdProvTlsPath(keyRaw, PROD_PROV_KEY_DEFAULT, LE_PROV_KEY_DEFAULT);
   }
 
   const certPath = certRaw ? resolve(certRaw) : '';

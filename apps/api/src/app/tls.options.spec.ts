@@ -1,7 +1,7 @@
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { loadHttpsOptions, resolveApiTlsPaths } from './tls.options';
+import { loadHttpsOptions, loadProvHttpsOptions, resolveApiTlsPaths } from './tls.options';
 
 describe('tls.options production bootstrap', () => {
   let dir: string;
@@ -100,5 +100,29 @@ describe('tls.options production bootstrap', () => {
       TLS_API_KEY_FILE: key,
     });
     expect(opts).toBeDefined();
+  });
+
+  it('loads prov HTTPS from explicit production PEM paths', () => {
+    const opts = loadProvHttpsOptions({
+      NODE_ENV: 'production',
+      VSP_ENV: 'production',
+      PROV_HTTPS_ENABLED: 'true',
+      TLS_PROV_CERT_FILE: cert,
+      TLS_PROV_KEY_FILE: key,
+    });
+    expect(opts).toBeDefined();
+    expect(Buffer.isBuffer(opts?.cert)).toBe(true);
+  });
+
+  it('rejects development prov PEM paths in production when files missing at defaults', () => {
+    expect(() =>
+      loadProvHttpsOptions({
+        NODE_ENV: 'production',
+        VSP_ENV: 'production',
+        PROV_HTTPS_ENABLED: 'true',
+        TLS_PROV_CERT_FILE: './infrastructure/tls/development/live/prov/fullchain.pem',
+        TLS_PROV_KEY_FILE: './infrastructure/tls/development/live/prov/privkey.pem',
+      }),
+    ).toThrow(/Provisioning TLS files not found/);
   });
 });

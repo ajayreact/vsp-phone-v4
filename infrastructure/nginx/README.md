@@ -17,7 +17,9 @@ Operator-owned reverse proxy. The application stack listens on localhost; nginx 
 
 **Single-container production:** One admin service on `:3001` serves all three hostnames. Portal selection is by **Host header** (`admin.*` → platform, `app.*` → ops, `tenant.*` → tenant). Do **not** set `NEXT_PUBLIC_PORTAL` in production `.env` unless running separate builds per portal.
 
-**502 root cause (common):** nginx proxies API with `http://127.0.0.1:3000` but RC1 API uses **HTTPS** on port 3000. Use `proxy_pass https://...` + `proxy_ssl_verify off`.
+**API hang / 504 on api.vspphone.com:** nginx uses `http://127.0.0.1:3000`. The API must listen **plain HTTP** (`TLS_ENABLED=false`, `TLS_TERMINATION=nginx`). If Nest still has HTTPS on :3000, HTTP clients hang (0 bytes). Fix: recreate API with `docker-compose.prod.yml` / `host-db` overlays (they hard-set nginx termination).
+
+**Prov 504:** nginx proxies `https://127.0.0.1:3444`. If prov-edge never started (missing PEMs), connect times out (~10s) → 504. Run `bash scripts/platform/sync-le-prov-tls.sh` then recreate API.
 
 **Conflicting server_name:** multiple files in `sites-enabled/` and `conf.d/` define the same hostnames. Keep **one** canonical file.
 

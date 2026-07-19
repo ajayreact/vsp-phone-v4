@@ -16,6 +16,10 @@ services:
       - ./prisma.config.ts:/app/prisma.config.ts:ro
       - rtpengine_spool:/var/spool/rtpengine:ro
       - ./data/branding:/app/uploads/branding
+      # Let's Encrypt on the Docker host (symlink-safe: mount full tree).
+      - ${LETSENCRYPT_HOST_DIR:-/etc/letsencrypt}:/etc/letsencrypt:ro
+      # Nest default prov path — real PEM copies from sync-le-prov-tls.sh (not LE live/ symlinks).
+      - ${VSP_PROV_TLS_DIR:-./infrastructure/tls/production/live/prov}:/etc/vsp/tls/prov:ro
     environment:
       NODE_ENV: production
       VSP_ENV: production
@@ -28,6 +32,14 @@ services:
       TELNYX_API_KEY: ${TELNYX_API_KEY:-}
       VSP_PLATFORM_INVENTORY_TENANT_ID: ${VSP_PLATFORM_INVENTORY_TENANT_ID:-}
       CORS_ORIGINS: ${CORS_ORIGINS:-https://admin.vspphone.com,https://app.vspphone.com,https://tenant.vspphone.com}
+      # RC1: public TLS at nginx; Nest API is plain HTTP on :3000 (matches nginx proxy_pass).
+      TLS_TERMINATION: nginx
+      TLS_ENABLED: 'false'
+      TLS_ENV: production
+      # Prov-edge still terminates TLS on :3444 (phones via nginx → https://127.0.0.1:3444).
+      PROV_HTTPS_ENABLED: ${PROV_HTTPS_ENABLED:-true}
+      TLS_PROV_CERT_FILE: ${TLS_PROV_CERT_FILE:-/etc/vsp/tls/prov/fullchain.pem}
+      TLS_PROV_KEY_FILE: ${TLS_PROV_KEY_FILE:-/etc/vsp/tls/prov/privkey.pem}
       # ProductionConfigValidatorService probes these at boot (warnings → errors in production).
       KAMAILIO_HTTP_HOST: kamailio
       KAMAILIO_HTTP_PORT: ${KAMAILIO_HTTP_PORT:-8880}
