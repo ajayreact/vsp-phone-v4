@@ -9,14 +9,16 @@ import {
   DeviceStatus,
   DeviceType,
   ProvisioningStatus,
-  SIPEndpointStatus,
 } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import type { JwtPayload } from '../../auth/jwt.util';
 import { EnterpriseAuditService } from '../../enterprise-observability/audit/enterprise-audit.service';
+import { DeviceProvisioningCleanupService } from '../../provisioning/cleanup/device-provisioning-cleanup.service';
 import { DeviceEnrollmentService } from '../../provisioning/enrollment/device-enrollment.service';
+import { ProvisioningOrchestratorService } from '../../provisioning/orchestrator/provisioning-orchestrator.service';
 import { ProvisioningRedisService } from '../../provisioning/redis/provisioning-redis.service';
 import { buildProvConfigUrl } from '../../provisioning/url/prov-config-url';
+import { throwMacConflictIfPrisma } from '../../provisioning/utils/mac-conflict.util';
 import { normalizeMac } from '../../provisioning/vault/provisioning-vault.service';
 import { PrismaService } from '../../telecom/prisma/prisma.service';
 import type {
@@ -76,6 +78,8 @@ export class TenantDevicesService {
     private readonly audit: EnterpriseAuditService,
     private readonly enrollment: DeviceEnrollmentService,
     private readonly redis: ProvisioningRedisService,
+    private readonly provisioningCleanup: DeviceProvisioningCleanupService,
+    private readonly orchestrator: ProvisioningOrchestratorService,
   ) {}
 
   async list(tenantId: string, search?: string) {
@@ -171,10 +175,7 @@ export class TenantDevicesService {
       const mac = dto.macAddress ? normalizeMac(dto.macAddress) : null;
 
       if (mac) {
-        const dup = await this.prisma.device.findFirst({
-          where: { macAddress: mac, deletedAt: null },
-        });
-        if (dup) throw new BadRequestException('MAC address already in use');
+        await this.provisioningCleanup.assertMacAvailable(mac);
       }
 
       this.logger.log(
@@ -240,7 +241,7 @@ export class TenantDevicesService {
           stack: err instanceof Error ? err.stack?.split('\n').slice(0, 8) : undefined,
         }),
       );
-      throw err;
+      throwMacConflictIfPrisma(err);
     }
   }
 
@@ -389,54 +390,13 @@ export class TenantDevicesService {
 
   async remove(tenantId: string, userId: string, id: string) {
     const existing = await this.require(tenantId, id);
-    const mac = existing.macAddress ? normalizeMac(String(existing.macAddress)) : '';
-    const sipEndpointId = existing.sipEndpointId ?? null;
-
-    // Soft-delete, clear MAC / tokens / registration so the same MAC can re-enroll immediately.
-    await this.prisma.$transaction(async (tx) => {
-      await tx.deviceAssignment.updateMany({
-        where: { deviceId: id, tenantId, effectiveTo: null, deletedAt: null },
-        data: { effectiveTo: new Date(), updatedBy: userId },
-      });
-      await tx.device.update({
-        where: { id },
-        data: {
-          deletedAt: new Date(),
-          deletedBy: userId,
-          macAddress: null,
-          lineId: null,
-          userId: null,
-          sipEndpointId: null,
-          status: DeviceStatus.INACTIVE,
-          provisioningStatus: ProvisioningStatus.FAILED,
-          discoveryStatus: null,
-          updatedBy: userId,
-        },
-      });
-
-      if (sipEndpointId) {
-        const siblings = await tx.device.count({
-          where: { sipEndpointId, tenantId, deletedAt: null, id: { not: id } },
-        });
-        if (siblings === 0) {
-          await tx.sIPEndpoint.updateMany({
-            where: { id: sipEndpointId, tenantId, deletedAt: null },
-            data: {
-              registrationStatus: SIPEndpointStatus.UNREGISTERED,
-              lastRegisteredAt: null,
-              updatedBy: userId,
-            },
-          });
-        }
-      }
+    const result = await this.provisioningCleanup.releaseForDelete(tenantId, userId, {
+      id: existing.id,
+      tenantId,
+      macAddress: existing.macAddress ? String(existing.macAddress) : null,
+      sipEndpointId: existing.sipEndpointId ?? null,
+      lineId: existing.lineId ?? null,
     });
-
-    if (mac.length === 12) {
-      await this.redis.del(this.redis.macIndexKey(mac));
-      await this.redis.del(this.redis.quarantineKey(mac));
-    }
-    await this.redis.del(this.redis.deviceMetaKey(tenantId, id));
-    await this.redis.del(this.redis.artifactHistoryKey(tenantId, id));
 
     await auditPbxMutation(this.audit, {
       tenantId,
@@ -445,12 +405,82 @@ export class TenantDevicesService {
       entityType: 'Device',
       entityId: id,
       metadata: {
-        macCleared: Boolean(mac),
-        previousMac: mac || null,
-        sipEndpointCleared: Boolean(sipEndpointId),
+        macCleared: result.macCleared,
+        sipCleared: result.sipCleared,
       },
     });
-    return { ok: true, macCleared: Boolean(mac) };
+    return { ok: true, macCleared: result.macCleared };
+  }
+
+  /** Clear MAC and provisioning while keeping device record and line/extension assignment. */
+  async clearDevice(tenantId: string, userId: string, id: string) {
+    const existing = await this.require(tenantId, id);
+    const result = await this.provisioningCleanup.clearDeviceProvisioning(tenantId, userId, {
+      id: existing.id,
+      tenantId,
+      macAddress: existing.macAddress ? String(existing.macAddress) : null,
+      sipEndpointId: existing.sipEndpointId ?? null,
+      lineId: existing.lineId ?? null,
+    });
+
+    await auditPbxMutation(this.audit, {
+      tenantId,
+      actorUserId: userId,
+      action: 'pbx.device.clear',
+      entityType: 'Device',
+      entityId: id,
+      metadata: { macCleared: result.macCleared },
+    });
+
+    return this.getById(tenantId, id);
+  }
+
+  /** Reset provisioning state; keep MAC, line, and extension assignment. */
+  async resetDevice(tenantId: string, userId: string, id: string) {
+    const existing = await this.require(tenantId, id);
+    if (!existing.macAddress) {
+      throw new BadRequestException('Device has no MAC address to reset');
+    }
+
+    await this.provisioningCleanup.resetDeviceProvisioningState(tenantId, userId, {
+      id: existing.id,
+      tenantId,
+      macAddress: String(existing.macAddress),
+      sipEndpointId: existing.sipEndpointId ?? null,
+      lineId: existing.lineId ?? null,
+    });
+
+    const rendered = await this.orchestrator.reprovision(tenantId, id);
+    const mac = normalizeMac(String(existing.macAddress));
+    await this.redis.set(
+      this.redis.macIndexKey(mac),
+      JSON.stringify({ tenantId, deviceId: id }),
+    );
+
+    await this.prisma.device.update({
+      where: { id },
+      data: {
+        provisioningStatus: ProvisioningStatus.PROVISIONED,
+        lastProvisionedAt: new Date(),
+        status: DeviceStatus.PROVISIONING,
+        updatedBy: userId,
+      },
+    });
+
+    await auditPbxMutation(this.audit, {
+      tenantId,
+      actorUserId: userId,
+      action: 'pbx.device.reset',
+      entityType: 'Device',
+      entityId: id,
+      metadata: {
+        mac,
+        configVersion: rendered.configVersion,
+        artifactHash: rendered.artifactHash,
+      },
+    });
+
+    return this.getById(tenantId, id);
   }
 
   async clone(tenantId: string, userId: string, id: string, dto: CloneDeviceDto) {

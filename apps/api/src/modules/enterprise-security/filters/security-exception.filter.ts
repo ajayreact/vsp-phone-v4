@@ -7,26 +7,11 @@ import {
   Logger,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
+import type { ApiErrorBody } from '../../../common/errors/api-error.types';
+import { mapException } from '../../../common/errors/error-mapper';
+import { resolveRequestId } from '../../../common/errors/request-id.middleware';
 
-export interface SecurityErrorBody {
-  statusCode: number;
-  code: string;
-  message: string;
-  timestamp: string;
-  details?: unknown;
-}
-
-const LEAK_PATTERNS = [
-  /\/apps\/api\//i,
-  /prisma/i,
-  /redis/i,
-  /ECONNREFUSED/i,
-  /password/i,
-  /secret/i,
-  /Bearer\s+/i,
-];
-
-/** Phase 16 — sanitized errors for non-telecom routes (no stack or infra leaks). */
+/** Phase 16 — sanitized, structured errors for non-telecom routes. */
 @Catch()
 export class SecurityExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger(SecurityExceptionFilter.name);
@@ -43,67 +28,57 @@ export class SecurityExceptionFilter implements ExceptionFilter {
       throw exception;
     }
 
-    let status = HttpStatus.INTERNAL_SERVER_ERROR;
-    let code = 'INTERNAL_ERROR';
-    let message = 'An unexpected error occurred';
-    let details: unknown;
-
+    const requestId = resolveRequestId(req);
+    let mapped;
     try {
-      if (exception instanceof HttpException) {
-        status = exception.getStatus();
-        const body = exception.getResponse();
-        if (typeof body === 'string') {
-          message = this.sanitizeMessage(body);
-        } else if (body && typeof body === 'object') {
-          const obj = body as Record<string, unknown>;
-          if (Array.isArray(obj.message)) {
-            message = 'Validation failed';
-            details = obj.message;
-            code = 'VALIDATION_FAILED';
-          } else {
-            message = this.sanitizeMessage(String(obj.message ?? obj.error ?? message));
-          }
-          if (typeof obj.code === 'string') code = obj.code;
-          else if (status === HttpStatus.UNAUTHORIZED) code = 'UNAUTHORIZED';
-          else if (status === HttpStatus.FORBIDDEN) code = 'FORBIDDEN';
-          else if (status === HttpStatus.TOO_MANY_REQUESTS) code = 'RATE_LIMITED';
-          else if (status === HttpStatus.BAD_REQUEST) code = 'VALIDATION_FAILED';
-        }
-      }
+      mapped = mapException(exception);
     } catch {
-      status = HttpStatus.INTERNAL_SERVER_ERROR;
-      code = 'INTERNAL_ERROR';
-      message = 'An unexpected error occurred';
-      details = undefined;
+      mapped = {
+        status: HttpStatus.INTERNAL_SERVER_ERROR,
+        code: 'INTERNAL_ERROR',
+        message: 'An unexpected error occurred. Please try again or contact support.',
+        details: null,
+        field: null,
+      };
     }
 
-    const payload: SecurityErrorBody = {
-      statusCode: status,
-      code,
-      message,
+    const payload: ApiErrorBody = {
+      success: false,
+      code: mapped.code,
+      message: mapped.message,
+      details: mapped.details ?? null,
+      field: mapped.field ?? null,
+      requestId,
       timestamp: new Date().toISOString(),
-      details,
     };
 
-    this.safeLogError(exception, { status, code, path, method: req.method });
+    this.safeLogError(exception, {
+      status: mapped.status,
+      code: mapped.code,
+      path,
+      method: req.method,
+      requestId,
+    });
 
     if (!res.headersSent) {
-      res.status(status).json(payload);
+      res.setHeader('x-request-id', requestId);
+      res.status(mapped.status).json(payload);
     }
   }
 
-  /** Logging must never throw — otherwise Nest falls back to HTML error pages. */
   private safeLogError(
     exception: unknown,
-    ctx: { status: number; code: string; path: string; method: string },
+    ctx: { status: number; code: string; path: string; method: string; requestId: string },
   ): void {
     try {
       const errMsg =
-        exception instanceof Error
-          ? exception.message
-          : typeof exception === 'string'
-            ? exception
-            : String(exception);
+        exception instanceof HttpException
+          ? JSON.stringify(exception.getResponse())
+          : exception instanceof Error
+            ? exception.message
+            : typeof exception === 'string'
+              ? exception
+              : String(exception);
       const errName = exception instanceof Error ? exception.name : 'Unknown';
       const safeMsg = String(errMsg ?? '')
         .replace(/Bearer\s+\S+/gi, 'Bearer [redacted]')
@@ -117,6 +92,7 @@ export class SecurityExceptionFilter implements ExceptionFilter {
             code: ctx.code,
             path: ctx.path,
             method: ctx.method,
+            requestId: ctx.requestId,
             errName,
             errMsg: safeMsg,
             stack:
@@ -131,6 +107,7 @@ export class SecurityExceptionFilter implements ExceptionFilter {
             code: ctx.code,
             path: ctx.path,
             method: ctx.method,
+            requestId: ctx.requestId,
           }),
         );
       }
@@ -143,18 +120,12 @@ export class SecurityExceptionFilter implements ExceptionFilter {
             path: ctx.path,
             method: ctx.method,
             statusCode: ctx.status,
+            requestId: ctx.requestId,
           }),
         );
       } catch {
         /* ignore */
       }
     }
-  }
-
-  private sanitizeMessage(raw: string): string {
-    if (LEAK_PATTERNS.some((p) => p.test(raw))) {
-      return 'Request could not be processed';
-    }
-    return raw;
   }
 }

@@ -2,6 +2,7 @@
 
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { formatApiErrorForDisplay } from '../../lib/api/errors';
 import { Button } from '../ui/Button';
 
 export function ApiErrorState({
@@ -53,7 +54,7 @@ export function QueryState({
   if (isError) {
     return (
       <ApiErrorState
-        message={error?.message ?? 'An unexpected error occurred.'}
+        message={formatApiErrorForDisplay(error, 'Unable to load data. Please try again.')}
         onRetry={onRetry}
       />
     );

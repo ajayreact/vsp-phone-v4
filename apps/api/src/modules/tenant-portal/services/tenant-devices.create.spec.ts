@@ -1,4 +1,4 @@
-import { BadRequestException } from '@nestjs/common';
+import { ConflictException } from '@nestjs/common';
 import { DeviceType } from '@prisma/client';
 import { TenantDevicesService } from './tenant-devices.service';
 
@@ -40,14 +40,24 @@ describe('TenantDevicesService.create (Add Device)', () => {
       artifactHistoryKey: (t: string, d: string) => `vsp:${t}:prov:device:${d}:history`,
     };
 
+    const provisioningCleanup = {
+      assertMacAvailable: jest.fn().mockResolvedValue(undefined),
+      releaseForDelete: jest.fn(),
+      clearDeviceProvisioning: jest.fn(),
+      resetDeviceProvisioningState: jest.fn(),
+    };
+    const orchestrator = { reprovision: jest.fn() };
+
     const service = new TenantDevicesService(
       prisma as never,
       audit as never,
       enrollment as never,
       redis as never,
+      provisioningCleanup as never,
+      orchestrator as never,
     );
 
-    return { service, prisma, audit, enrollment, redis, deviceRow };
+    return { service, prisma, audit, enrollment, redis, provisioningCleanup, deviceRow };
   }
 
   it('POST inventory path: WEBRTC softphone writes device then enriches', async () => {
@@ -121,9 +131,10 @@ describe('TenantDevicesService.create (Add Device)', () => {
   });
 
   it('rejects duplicate MAC before write', async () => {
-    const { service } = buildService({
-      findFirstImpl: jest.fn().mockResolvedValue({ id: 'existing' }),
-    });
+    const { service, provisioningCleanup } = buildService();
+    provisioningCleanup.assertMacAvailable.mockRejectedValue(
+      new ConflictException({ code: 'MAC_ALREADY_EXISTS', message: 'duplicate' }),
+    );
 
     await expect(
       service.create(tenantId, userId, {
@@ -131,6 +142,6 @@ describe('TenantDevicesService.create (Add Device)', () => {
         deviceType: DeviceType.SIP,
         macAddress: '001122334455',
       }),
-    ).rejects.toBeInstanceOf(BadRequestException);
+    ).rejects.toBeInstanceOf(ConflictException);
   });
 });

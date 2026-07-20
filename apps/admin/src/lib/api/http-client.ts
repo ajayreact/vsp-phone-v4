@@ -1,5 +1,5 @@
 import { getAccessToken } from '../auth/session';
-import { apiFetch, ApiError, API_BASE } from '../api/client';
+import { apiFetch, ApiError, API_BASE, parseErrorJson } from '../api/client';
 
 export { ApiError, API_BASE };
 
@@ -56,14 +56,7 @@ export async function bffGet<T>(path: string): Promise<T> {
   });
   if (!res.ok) {
     const text = await res.text();
-    let message = text || `HTTP ${res.status}`;
-    try {
-      const json = JSON.parse(text) as { error?: string };
-      if (json.error) message = json.error;
-    } catch {
-      /* use raw text */
-    }
-    throw new ApiError(message, res.status);
+    throw parseErrorJson(text, res.status);
   }
   return res.json() as Promise<T>;
 }

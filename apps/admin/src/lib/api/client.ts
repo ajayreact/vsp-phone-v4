@@ -1,43 +1,76 @@
+import type { ApiErrorResponse } from './errors';
+
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
 
 export class ApiError extends Error {
   constructor(
     message: string,
     readonly status: number,
+    readonly code?: string,
+    readonly field?: string | null,
+    readonly details?: unknown,
+    readonly requestId?: string,
   ) {
     super(message);
     this.name = 'ApiError';
   }
 }
 
+function parseErrorJson(text: string, status: number): ApiError {
+  const trimmed = text.trim();
+  if (!trimmed) return new ApiError(`HTTP ${status}`, status);
+
+  try {
+    const json = JSON.parse(trimmed) as ApiErrorResponse;
+    const message = resolveErrorMessage(json, status);
+    return new ApiError(
+      message,
+      status,
+      json.code,
+      json.field ?? null,
+      json.details ?? null,
+      json.requestId,
+    );
+  } catch {
+    return new ApiError(
+      trimmed.length > 280 ? `${trimmed.slice(0, 280)}…` : trimmed,
+      status,
+    );
+  }
+}
+
+function resolveErrorMessage(json: ApiErrorResponse, status: number): string {
+  if (typeof json.message === 'string' && json.message.length > 0) {
+    return json.message;
+  }
+  if (Array.isArray(json.message)) {
+    return json.message.join(', ');
+  }
+  if (json.error) return json.error;
+  return `Request failed (HTTP ${status}).`;
+}
+
 function humanizeErrorBody(text: string, status: number): string {
   const trimmed = text.trim();
   if (!trimmed) return `HTTP ${status}`;
 
-  // Nest/Express sometimes returns HTML when an exception filter itself throws.
-  if (trimmed.startsWith('<!DOCTYPE') || trimmed.startsWith('<html') || /<pre>\s*Internal Server Error/i.test(trimmed)) {
+  if (
+    trimmed.startsWith('<!DOCTYPE') ||
+    trimmed.startsWith('<html') ||
+    /<pre>\s*Internal Server Error/i.test(trimmed)
+  ) {
     return status >= 500
-      ? 'Internal server error. Please retry or check API logs.'
+      ? 'The server encountered an error. Please try again.'
       : `Request failed (HTTP ${status}).`;
   }
 
-  try {
-    const json = JSON.parse(trimmed) as { message?: string | string[]; error?: string };
-    if (Array.isArray(json.message)) return json.message.join(', ');
-    if (typeof json.message === 'string') return json.message;
-    if (json.error) return json.error;
-  } catch {
-    /* not JSON */
-  }
-
-  // Cap long non-JSON bodies so toasts stay readable.
-  return trimmed.length > 280 ? `${trimmed.slice(0, 280)}…` : trimmed;
+  return parseErrorJson(trimmed, status).message;
 }
 
 async function parseJson<T>(res: Response): Promise<T> {
   if (!res.ok) {
     const text = await res.text();
-    throw new ApiError(humanizeErrorBody(text, res.status), res.status);
+    throw parseErrorJson(text, res.status);
   }
   return res.json() as Promise<T>;
 }
@@ -50,7 +83,6 @@ export async function apiFetch<T>(
 ): Promise<T> {
   const { token, headers, timeoutMs = DEFAULT_FETCH_TIMEOUT_MS, signal, ...rest } = options;
   const isFormData = typeof FormData !== 'undefined' && rest.body instanceof FormData;
-  // Prefer caller signal; otherwise bound every request so login cannot spin forever.
   const effectiveSignal =
     signal ??
     (typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function'
@@ -70,11 +102,11 @@ export async function apiFetch<T>(
   } catch (err) {
     const name = err instanceof Error ? err.name : '';
     if (name === 'TimeoutError' || name === 'AbortError') {
-      throw new ApiError(`Request timed out after ${timeoutMs}ms`, 504);
+      throw new ApiError(`Request timed out after ${timeoutMs}ms`, 504, 'TIMEOUT');
     }
     throw err;
   }
   return parseJson<T>(res);
 }
 
-export { API_BASE };
+export { API_BASE, humanizeErrorBody, parseErrorJson };

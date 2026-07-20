@@ -1,6 +1,5 @@
 import {
   BadRequestException,
-  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -20,6 +19,7 @@ import { ProvisioningAuditService } from '../audit/provisioning-audit.service';
 import type { FirmwareChannel } from '../firmware/firmware-catalog.service';
 import { ConfigGeneratorService } from '../generator/config-generator.service';
 import { ProvisioningRedisService } from '../redis/provisioning-redis.service';
+import { throwMacConflictIfPrisma, macAlreadyExistsConflict } from '../utils/mac-conflict.util';
 import { isValidMac, normalizeMac, ProvisioningVaultService } from '../vault/provisioning-vault.service';
 
 export interface EnrollDeskPhoneInput {
@@ -160,6 +160,8 @@ export class DeviceEnrollmentService {
       }
 
       return sipEndpoint;
+    }).catch((err) => {
+      throwMacConflictIfPrisma(err);
     });
 
     const sipEndpointId = endpoint.id;
@@ -308,14 +310,22 @@ export class DeviceEnrollmentService {
   private async assertGlobalMacAvailable(mac: string): Promise<void> {
     const indexed = await this.redis.get(this.redis.macIndexKey(mac));
     if (indexed) {
-      throw new ConflictException('MAC already enrolled');
+      try {
+        const parsed = JSON.parse(indexed) as { deviceId?: string };
+        const active = await this.prisma.device.findFirst({
+          where: { id: parsed.deviceId, macAddress: mac, deletedAt: null },
+        });
+        if (active) macAlreadyExistsConflict();
+        await this.redis.del(this.redis.macIndexKey(mac));
+      } catch {
+        await this.redis.del(this.redis.macIndexKey(mac));
+      }
     }
+
     const existing = await this.prisma.device.findFirst({
-      where: { macAddress: mac, deletedAt: null },
+      where: { macAddress: mac },
     });
-    if (existing) {
-      throw new ConflictException('MAC already enrolled');
-    }
+    if (existing) macAlreadyExistsConflict();
   }
 
   private async requireTenantDevice(tenantId: string, deviceId: string) {

@@ -40,6 +40,7 @@ import { formatPhoneDisplay } from '../../../lib/extensions/format-extension-lab
 import { deviceRepository } from '../../../lib/repositories/device.repository';
 import { tenantRepository } from '../../../lib/repositories/tenant.repository';
 import { queryKeys } from '../../../lib/query/query-keys';
+import { formatApiErrorForDisplay, getFieldError } from '../../../lib/api/errors';
 import { useToast } from '../../../lib/toast/ToastProvider';
 import { Button } from '../../ui/Button';
 import { Input } from '../../ui/Input';
@@ -207,6 +208,7 @@ export function ExtensionConfigureModal({
   const [qr, setQr] = useState<ExtensionMobileQrResult | null>(null);
   const [deskDevice, setDeskDevice] = useState<Record<string, unknown> | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [macFieldError, setMacFieldError] = useState<string | null>(null);
   const [pendingTab, setPendingTab] = useState<ModalTabId | 'close' | null>(null);
   const [unsavedOpen, setUnsavedOpen] = useState(false);
   const [copiedUrl, setCopiedUrl] = useState(false);
@@ -217,6 +219,7 @@ export function ExtensionConfigureModal({
   const [visitedTabs, setVisitedTabs] = useState<Set<ModalTabId>>(() => new Set([normalizeConfigureTab(initialTab)]));
   const [revealedPassword, setRevealedPassword] = useState<string | null>(null);
   const [saveProgress, setSaveProgress] = useState<string | null>(null);
+  const [deleteConfirmDeviceId, setDeleteConfirmDeviceId] = useState<string | null>(null);
 
   const queryClient = useQueryClient();
   const toast = useToast();
@@ -319,7 +322,7 @@ export function ExtensionConfigureModal({
       setQr(res);
     } catch (e) {
       if (activeExtensionIdRef.current !== extensionId) return;
-      setError(e instanceof Error ? e.message : 'QR generation failed');
+      setError(formatApiErrorForDisplay(e, 'QR generation failed'));
     }
   }, [mobileQr, row]);
 
@@ -434,9 +437,9 @@ export function ExtensionConfigureModal({
       onSaved?.();
       toast.success(andProvision ? 'Configuration Saved & Provisioned' : 'Configuration Saved');
     } catch (e) {
-      const message = e instanceof Error ? e.message : 'Save failed';
+      const message = formatApiErrorForDisplay(e, 'Save failed');
       setError(message);
-      toast.error('Save Failed', { description: message });
+      toast.error(message);
       throw e;
     } finally {
       setSaveProgress(null);
@@ -454,9 +457,9 @@ export function ExtensionConfigureModal({
       onSaved?.();
       toast.success('DID Removed');
     } catch (e) {
-      const message = e instanceof Error ? e.message : 'Remove failed';
+      const message = formatApiErrorForDisplay(e, 'Remove failed');
       setError(message);
-      toast.error('Remove DID Failed', { description: message });
+      toast.error(message);
     }
   };
 
@@ -484,15 +487,14 @@ export function ExtensionConfigureModal({
       onSaved?.();
       toast.success('DID Assigned');
     } catch (e) {
-      const message = e instanceof Error ? e.message : 'Assign DID failed';
+      const message = formatApiErrorForDisplay(e, 'Assign DID failed');
       setError(message);
-      toast.error('Assign DID Failed', { description: message });
+      toast.error(message);
     } finally {
       setDidBusy(false);
     }
   };
 
-  /** Unified Add Device — Mobile App / WebRTC create a softphone stub; hardware brands require a MAC address. */
   const addDeviceGeneric = async () => {
     if (!row) return;
     const isHardware = (HARDWARE_BRANDS as readonly string[]).includes(addDeviceChoice);
@@ -501,6 +503,7 @@ export function ExtensionConfigureModal({
       return;
     }
     setError(null);
+    setMacFieldError(null);
     try {
       await createDevice.mutateAsync({
         name:
@@ -517,9 +520,25 @@ export function ExtensionConfigureModal({
       invalidateDetail();
       onSaved?.();
     } catch (e) {
-      const message = e instanceof Error ? e.message : 'Add device failed';
+      const message = formatApiErrorForDisplay(e, 'Add device failed');
       setError(message);
-      toast.error('Add Device Failed', { description: message });
+      setMacFieldError(getFieldError(e, 'macAddress') ?? null);
+      toast.error(message);
+    }
+  };
+
+  const confirmDeleteDevice = async (deviceId: string) => {
+    setError(null);
+    try {
+      await deleteDevice.mutateAsync(deviceId);
+      setDeleteConfirmDeviceId(null);
+      invalidateDetail();
+      onSaved?.();
+      toast.success('Device Removed');
+    } catch (e: unknown) {
+      const message = formatApiErrorForDisplay(e, 'Remove device failed');
+      setError(message);
+      toast.error(message);
     }
   };
 
@@ -609,7 +628,7 @@ export function ExtensionConfigureModal({
         await navigator.clipboard.writeText(text);
         toast.success(successLabel);
       } catch (e) {
-        toast.error('Copy failed', { description: e instanceof Error ? e.message : undefined });
+        toast.error(formatApiErrorForDisplay(e, 'Copy failed'));
       }
     },
     [toast],
@@ -624,7 +643,7 @@ export function ExtensionConfigureModal({
           invalidateDetail();
           onSaved?.();
         })
-        .catch((e: unknown) => toast.error('Make Primary Failed', { description: e instanceof Error ? e.message : undefined }));
+        .catch((e: unknown) => toast.error(formatApiErrorForDisplay(e, 'Make primary failed')));
     },
     [makePrimaryDevice, invalidateDetail, onSaved, toast],
   );
@@ -634,7 +653,7 @@ export function ExtensionConfigureModal({
     void revealSipPassword
       .mutateAsync(row.lineId)
       .then((res) => setRevealedPassword(res.password))
-      .catch((e: unknown) => toast.error('Reveal Password Failed', { description: e instanceof Error ? e.message : undefined }));
+      .catch((e: unknown) => toast.error(formatApiErrorForDisplay(e, 'Reveal password failed')));
   }, [revealSipPassword, row?.lineId, toast]);
 
   const doResetSipPassword = useCallback(() => {
@@ -649,7 +668,7 @@ export function ExtensionConfigureModal({
         toast.success('SIP Password Reset');
         void queryClient.invalidateQueries({ queryKey: queryKeys.tenant.sipCredentials(row.lineId) });
       })
-      .catch((e: unknown) => toast.error('Reset Password Failed', { description: e instanceof Error ? e.message : undefined }));
+      .catch((e: unknown) => toast.error(formatApiErrorForDisplay(e, 'Reset password failed')));
   }, [resetSipPassword, row?.lineId, toast, queryClient]);
 
   const quickActionHandlers: QuickActionHandlers = useMemo(
@@ -661,14 +680,14 @@ export function ExtensionConfigureModal({
         void tenantRepository
           .getSipCredentials(row.lineId)
           .then((creds) => copyToClipboard(creds.username, 'SIP Username Copied'))
-          .catch((e: unknown) => toast.error('Could not load SIP username', { description: e instanceof Error ? e.message : undefined }));
+          .catch((e: unknown) => toast.error(formatApiErrorForDisplay(e, 'Could not load SIP username')));
       },
       onCopyProvisionUrl: () => {
         if (!row?.device?.id) return;
         void deviceRepository
           .getDevice(row.device.id)
           .then((d) => copyToClipboard(String((d as Record<string, unknown>).provUrl ?? ''), 'Provision URL Copied'))
-          .catch((e: unknown) => toast.error('Could not load provision URL', { description: e instanceof Error ? e.message : undefined }));
+          .catch((e: unknown) => toast.error(formatApiErrorForDisplay(e, 'Could not load provision URL')));
       },
       onGenerateQr: () => {
         requestTabChange('devices');
@@ -683,7 +702,7 @@ export function ExtensionConfigureModal({
             toast.success('Registration Restarted');
             onSaved?.();
           })
-          .catch((e: unknown) => toast.error('Restart Registration Failed', { description: e instanceof Error ? e.message : undefined }));
+          .catch((e: unknown) => toast.error(formatApiErrorForDisplay(e, 'Restart registration failed')));
       },
       onReProvisionDevice: () => {
         if (!row?.device?.id) return;
@@ -693,14 +712,14 @@ export function ExtensionConfigureModal({
             toast.success('Provision Successful');
             onSaved?.();
           })
-          .catch((e: unknown) => toast.error('Re-Provision Failed', { description: e instanceof Error ? e.message : undefined }));
+          .catch((e: unknown) => toast.error(formatApiErrorForDisplay(e, 'Re-provision failed')));
       },
       onRebootDeskPhone: () => {
         if (!row?.device?.id) return;
         void reboot
           .mutateAsync(row.device.id)
           .then(() => toast.success('Reboot Command Sent'))
-          .catch((e: unknown) => toast.error('Reboot Failed', { description: e instanceof Error ? e.message : undefined }));
+          .catch((e: unknown) => toast.error(formatApiErrorForDisplay(e, 'Reboot failed')));
       },
       onDisableExtension: () => {
         if (!row?.id) return;
@@ -710,7 +729,7 @@ export function ExtensionConfigureModal({
             toast.success('Extension Disabled');
             onSaved?.();
           })
-          .catch((e: unknown) => toast.error('Disable Failed', { description: e instanceof Error ? e.message : undefined }));
+          .catch((e: unknown) => toast.error(formatApiErrorForDisplay(e, 'Disable failed')));
       },
       onEnableExtension: () => {
         if (!row?.id) return;
@@ -720,7 +739,7 @@ export function ExtensionConfigureModal({
             toast.success('Extension Enabled');
             onSaved?.();
           })
-          .catch((e: unknown) => toast.error('Enable Failed', { description: e instanceof Error ? e.message : undefined }));
+          .catch((e: unknown) => toast.error(formatApiErrorForDisplay(e, 'Enable failed')));
       },
       onArchiveExtension: () => {
         if (!row?.id) return;
@@ -730,7 +749,7 @@ export function ExtensionConfigureModal({
             toast.success('Extension Archived');
             onSaved?.();
           })
-          .catch((e: unknown) => toast.error('Archive Failed', { description: e instanceof Error ? e.message : undefined }));
+          .catch((e: unknown) => toast.error(formatApiErrorForDisplay(e, 'Archive failed')));
       },
       onUnarchiveExtension: () => {
         if (!row?.id) return;
@@ -740,7 +759,7 @@ export function ExtensionConfigureModal({
             toast.success('Extension Restored');
             onSaved?.();
           })
-          .catch((e: unknown) => toast.error('Restore Failed', { description: e instanceof Error ? e.message : undefined }));
+          .catch((e: unknown) => toast.error(formatApiErrorForDisplay(e, 'Restore failed')));
       },
     }),
     [
@@ -973,20 +992,7 @@ export function ExtensionConfigureModal({
                                     size="sm"
                                     variant="outline"
                                     disabled={deleteDevice.isPending}
-                                    onClick={() =>
-                                      void deleteDevice
-                                        .mutateAsync(deviceId)
-                                        .then(() => {
-                                          invalidateDetail();
-                                          onSaved?.();
-                                          toast.success('Device Removed');
-                                        })
-                                        .catch((e: unknown) => {
-                                          const message = e instanceof Error ? e.message : 'Remove device failed';
-                                          setError(message);
-                                          toast.error('Remove Device Failed', { description: message });
-                                        })
-                                    }
+                                    onClick={() => setDeleteConfirmDeviceId(deviceId)}
                                   >
                                     Remove Device
                                   </Button>
@@ -1035,10 +1041,16 @@ export function ExtensionConfigureModal({
                           <span className="font-medium">MAC Address</span>
                           <Input
                             value={deviceForm.macAddress}
-                            onChange={(e) => setDeviceForm((f) => ({ ...f, macAddress: e.target.value }))}
+                            onChange={(e) => {
+                              setDeviceForm((f) => ({ ...f, macAddress: e.target.value }));
+                              setMacFieldError(null);
+                            }}
                             placeholder="AA:BB:CC:DD:EE:FF"
                             className="w-48 font-mono"
                           />
+                          {macFieldError ? (
+                            <p className="text-xs text-destructive">{macFieldError}</p>
+                          ) : null}
                         </label>
                         <label className="block space-y-1.5 text-sm">
                           <span className="font-medium">Model</span>
@@ -1203,7 +1215,7 @@ export function ExtensionConfigureModal({
                                 toast.success('Provision Successful');
                               })
                               .catch((e: unknown) =>
-                                toast.error('Regenerate Config Failed', { description: e instanceof Error ? e.message : undefined }),
+                                toast.error(formatApiErrorForDisplay(e, 'Regenerate config failed')),
                               )
                           }
                         >
@@ -1221,7 +1233,7 @@ export function ExtensionConfigureModal({
                                 toast.success('Re-Provision Successful');
                               })
                               .catch((e: unknown) =>
-                                toast.error('Re-Provision Failed', { description: e instanceof Error ? e.message : undefined }),
+                                toast.error(formatApiErrorForDisplay(e, 'Re-provision failed')),
                               )
                           }
                         >
@@ -1236,7 +1248,7 @@ export function ExtensionConfigureModal({
                               .mutateAsync(row.device.id)
                               .then(() => toast.success('Reboot Command Sent'))
                               .catch((e: unknown) =>
-                                toast.error('Reboot Failed', { description: e instanceof Error ? e.message : undefined }),
+                                toast.error(formatApiErrorForDisplay(e, 'Reboot failed')),
                               )
                           }
                         >
@@ -1509,9 +1521,7 @@ export function ExtensionConfigureModal({
                             toast.success('Registration Restarted');
                           })
                           .catch((e: unknown) =>
-                            toast.error('Restart Registration Failed', {
-                              description: e instanceof Error ? e.message : undefined,
-                            }),
+                            toast.error(formatApiErrorForDisplay(e, 'Restart registration failed')),
                           )
                       }
                     >
@@ -1542,6 +1552,38 @@ export function ExtensionConfigureModal({
         }}
         saving={saving}
       />
+
+      <Modal
+        open={Boolean(deleteConfirmDeviceId)}
+        onClose={() => setDeleteConfirmDeviceId(null)}
+        title="Delete Device"
+        size="lg"
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setDeleteConfirmDeviceId(null)} disabled={deleteDevice.isPending}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={deleteDevice.isPending || !deleteConfirmDeviceId}
+              onClick={() => deleteConfirmDeviceId && void confirmDeleteDevice(deleteConfirmDeviceId)}
+            >
+              {deleteDevice.isPending ? 'Deleting…' : 'Delete'}
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-4 text-sm">
+          <p className="font-medium text-foreground">This will:</p>
+          <ul className="list-disc space-y-1 pl-5 text-muted-foreground">
+            <li>Remove the device</li>
+            <li>Release the MAC address</li>
+            <li>Remove provisioning</li>
+            <li>Remove SIP registration</li>
+          </ul>
+          <p className="text-destructive">This action cannot be undone.</p>
+        </div>
+      </Modal>
     </>
   );
 }

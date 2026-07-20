@@ -199,6 +199,22 @@ export class TenantDevicesController {
     return this.devices.moveSite(user.tenantId, user.sub, id, dto);
   }
 
+  @Post(':id/clear')
+  @RequirePermission(PERMISSIONS.TENANT_DEVICES_WRITE)
+  @ApiOperation({ summary: 'Clear MAC and provisioning; keep device and extension assignment' })
+  clearDevice(@Param('id') id: string, @Req() req: Request) {
+    const user = getJwtUser(req);
+    return this.devices.clearDevice(user.tenantId, user.sub, id);
+  }
+
+  @Post(':id/reset')
+  @RequireAnyPermission(PERMISSIONS.TENANT_DEVICES_WRITE, PERMISSIONS.PROVISIONING_ADMIN)
+  @ApiOperation({ summary: 'Reset device provisioning; keep MAC, line, and extension' })
+  resetDevice(@Param('id') id: string, @Req() req: Request) {
+    const user = getJwtUser(req);
+    return this.devices.resetDevice(user.tenantId, user.sub, id);
+  }
+
   @Delete(':id')
   @RequirePermission(PERMISSIONS.TENANT_DEVICES_WRITE)
   @ApiOperation({ summary: 'Soft-delete device' })

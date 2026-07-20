@@ -43,6 +43,17 @@ export class TenantProvisioningController {
     private readonly templates: TenantProvisioningTemplatesService,
   ) {}
 
+  @Post('portal-reset')
+  @RequirePermission(PERMISSIONS.PROVISIONING_ADMIN)
+  @ApiOperation({
+    summary:
+      'Reset tenant provisioning portal — removes all devices and provisioning state; preserves users, extensions, DIDs, and settings',
+  })
+  resetPortal(@Req() req: Request) {
+    const user = getJwtUser(req);
+    return this.provisioning.resetPortal(user.tenantId, user.sub);
+  }
+
   @Post('devices/enroll')
   @RequireAnyPermission(PERMISSIONS.PROVISIONING_ADMIN, PERMISSIONS.TENANT_DEVICES_WRITE)
   @ApiOperation({ summary: 'Zero-touch enroll desk phone' })

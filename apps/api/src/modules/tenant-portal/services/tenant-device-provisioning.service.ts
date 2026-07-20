@@ -3,6 +3,7 @@ import { DeviceStatus, ProvisioningStatus } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import type { JwtPayload } from '../../auth/jwt.util';
 import { EnterpriseAuditService } from '../../enterprise-observability/audit/enterprise-audit.service';
+import { DeviceProvisioningCleanupService } from '../../provisioning/cleanup/device-provisioning-cleanup.service';
 import { DeviceEnrollmentService } from '../../provisioning/enrollment/device-enrollment.service';
 import {
   FirmwareCatalogService,
@@ -31,7 +32,23 @@ export class TenantDeviceProvisioningService {
     private readonly store: ArtifactStoreService,
     private readonly redis: ProvisioningRedisService,
     private readonly firmwareCatalog: FirmwareCatalogService,
+    private readonly provisioningCleanup: DeviceProvisioningCleanupService,
   ) {}
+
+  async resetPortal(tenantId: string, userId: string) {
+    const result = await this.provisioningCleanup.resetTenantPortal(tenantId, userId);
+
+    await auditPbxMutation(this.audit, {
+      tenantId,
+      actorUserId: userId,
+      action: 'pbx.provisioning.portal_reset',
+      entityType: 'Tenant',
+      entityId: tenantId,
+      metadata: result,
+    });
+
+    return result;
+  }
 
   async enroll(tenantId: string, userId: string, dto: EnrollDeviceDto) {
     const user: JwtPayload = { sub: userId, tenantId, email: '', portal: 'tenant' };

@@ -4,6 +4,8 @@ import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { json, urlencoded } from 'express';
 import { AppModule } from './app/app.module';
+import { validationExceptionFactory } from './common/errors/validation-exception.factory';
+import { requestIdMiddleware } from './common/errors/request-id.middleware';
 import { loadHttpsOptions } from './app/tls.options';
 import { LoginRequestDto } from './modules/auth/dto/auth.dto';
 import { redactLogMessage } from './modules/enterprise-security/secrets/log-redaction.service';
@@ -101,6 +103,8 @@ async function bootstrap() {
       allowedHeaders: ['Content-Type', 'Authorization'],
     });
 
+    app.use(requestIdMiddleware);
+
     const bodyLimit = configService.get<string>('REQUEST_BODY_MAX_BYTES') ?? '1mb';
     app.use(json({ limit: bodyLimit }));
     app.use(urlencoded({ extended: true, limit: bodyLimit }));
@@ -110,6 +114,7 @@ async function bootstrap() {
       forbidNonWhitelisted: true,
       transform: true,
       transformOptions: { enableImplicitConversion: true },
+      exceptionFactory: validationExceptionFactory,
     });
     const timedPipe: PipeTransform = {
       async transform(value: unknown, metadata: ArgumentMetadata) {

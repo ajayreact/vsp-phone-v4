@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Phone } from 'lucide-react';
+import { formatApiErrorForDisplay } from '../../lib/api/errors';
 import { useAuth } from '../../lib/auth/AuthProvider';
 import { detectPortal } from '../../lib/portal/detect-portal';
 import { isExtensionHubEnabled } from '../../lib/feature-flags';
@@ -31,7 +32,7 @@ export function LoginForm() {
         portal === 'tenant' && isExtensionHubEnabled() ? '/extensions' : '/dashboard';
       router.replace(landing);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Login failed');
+      setError(formatApiErrorForDisplay(err, 'Login failed. Please try again.'));
     } finally {
       setSubmitting(false);
     }

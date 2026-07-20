@@ -79,6 +79,10 @@ export class ProvisioningVaultService {
     this.provHttp.delete(normalizeMac(mac));
   }
 
+  revokeAdminPassword(deviceId: string): void {
+    this.adminPw.delete(deviceId.toLowerCase());
+  }
+
   resolveDeskSipPassword(sipEndpointId: string): string | null {
     return this.deskSip.get(sipEndpointId.toLowerCase())?.password ?? null;
   }

@@ -114,6 +114,25 @@ export class ProvisioningRedisService {
     }
   }
 
+  /** Delete all keys matching prefix (SCAN + DEL). Returns count deleted. */
+  async deleteByPrefix(prefix: string): Promise<number> {
+    if (!this.client) return 0;
+    let cursor = '0';
+    let deleted = 0;
+    try {
+      do {
+        const [next, keys] = await this.client.scan(cursor, 'MATCH', `${prefix}*`, 'COUNT', 100);
+        cursor = next;
+        if (keys.length > 0) {
+          deleted += await this.client.del(...keys);
+        }
+      } while (cursor !== '0');
+    } catch {
+      /* soft fail */
+    }
+    return deleted;
+  }
+
   isAvailable(): boolean {
     return this.client !== null;
   }
