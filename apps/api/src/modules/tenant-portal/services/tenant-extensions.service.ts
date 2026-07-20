@@ -34,6 +34,7 @@ import {
 import { ExtensionAutoProvisionService } from './extension-auto-provision.service';
 import { LineSipEndpointService } from './line-sip-endpoint.service';
 import { TenantLinesService } from './tenant-lines.service';
+import { DeviceProvisioningCleanupService } from '../../provisioning/cleanup/device-provisioning-cleanup.service';
 import { auditPbxMutation } from '../utils/tenant-pbx-audit';
 import { formatExtensionLabel, formatRelativeTime } from '../utils/format-extension-label';
 import { newPublicId, tenantScope } from '../utils/tenant.util';
@@ -141,6 +142,7 @@ export class TenantExtensionsService {
     private readonly vault: SipCredentialVaultService,
     private readonly redis: TelecomRedisService,
     private readonly config: ConfigService,
+    private readonly provisioningCleanup: DeviceProvisioningCleanupService,
   ) {
     this.enrollTtlSec = Number(config.get('WEBRTC_ENROLL_TTL_SEC') ?? '900');
     this.platformDomain = config.get<string>('SIP_PLATFORM_DOMAIN', 'vsp.internal');
@@ -475,6 +477,12 @@ export class TenantExtensionsService {
     const lineId = existing.lineId;
     const now = new Date();
 
+    const { sipEndpointIds } = await this.provisioningCleanup.releaseDevicesOnLine(
+      tenantId,
+      lineId,
+      userId,
+    );
+
     await this.prisma.$transaction(async (tx) => {
       const phones = await tx.phoneNumber.findMany({
         where: { lineId, tenantId, deletedAt: null },
@@ -519,21 +527,9 @@ export class TenantExtensionsService {
         data: { deviceId: null, updatedBy: userId },
       });
 
-      const devices = await tx.device.findMany({
-        where: { lineId, tenantId, deletedAt: null },
-        select: { id: true, sipEndpointId: true },
-      });
-      const sipIds = devices.map((d) => d.sipEndpointId).filter((x): x is string => Boolean(x));
-
-      if (devices.length) {
-        await tx.device.updateMany({
-          where: { lineId, tenantId, deletedAt: null },
-          data: { deletedAt: now, deletedBy: userId, sipEndpointId: null, lineId: null },
-        });
-      }
-      if (sipIds.length) {
+      if (sipEndpointIds.length) {
         await tx.sIPEndpoint.updateMany({
-          where: { id: { in: sipIds }, tenantId, deletedAt: null },
+          where: { id: { in: sipEndpointIds }, tenantId, deletedAt: null },
           data: { deletedAt: now, deletedBy: userId },
         });
       }

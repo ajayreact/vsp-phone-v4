@@ -12,6 +12,7 @@ import { ArtifactStoreService } from './store/artifact-store.service';
 import { TemplateEngineService } from './templates/template-engine.service';
 import { ProvisioningVaultService } from './vault/provisioning-vault.service';
 import { DeviceProvisioningCleanupService } from './cleanup/device-provisioning-cleanup.service';
+import { LegacyDeviceMacRepairService } from './cleanup/legacy-device-mac-repair.service';
 import { ProvMacAuthGuard } from './guards/prov-mac-auth.guard';
 
 /** Shared provisioning providers (no HTTP controllers). */
@@ -19,6 +20,7 @@ import { ProvMacAuthGuard } from './guards/prov-mac-auth.guard';
   imports: [TelecomModule, AuthModule, ExtensionProvisionCoreModule],
   providers: [
     DeviceProvisioningCleanupService,
+    LegacyDeviceMacRepairService,
     ProvisioningRedisService,
     ProvisioningVaultService,
     ArtifactStoreService,

@@ -9,6 +9,7 @@ describe('DeviceProvisioningCleanupService', () => {
 
   function buildService(overrides?: {
     deviceFindFirst?: unknown;
+    deviceFindMany?: unknown[];
     deviceCount?: number;
     transactionImpl?: (fn: (tx: unknown) => Promise<unknown>) => Promise<unknown>;
   }) {
@@ -41,8 +42,9 @@ describe('DeviceProvisioningCleanupService', () => {
     const prisma = {
       device: {
         findFirst: jest.fn().mockResolvedValue(overrides?.deviceFindFirst ?? null),
-        findMany: jest.fn().mockResolvedValue([]),
+        findMany: jest.fn().mockResolvedValue(overrides?.deviceFindMany ?? []),
         update: jest.fn().mockResolvedValue({}),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
         count: jest.fn().mockResolvedValue(0),
       },
       sIPEndpoint: { updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
@@ -137,5 +139,89 @@ describe('DeviceProvisioningCleanupService', () => {
         }),
       }),
     );
+  });
+
+  it('releaseDevicesOnLine uses releaseForDelete for each device on the line', async () => {
+    const deviceFindMany = [
+      { id: deviceId, macAddress: mac, sipEndpointId: 'sip-1' },
+      { id: 'device-2', macAddress: null, sipEndpointId: 'sip-1' },
+    ];
+    const { svc, prisma } = buildService({ deviceFindMany });
+    const releaseSpy = jest.spyOn(svc, 'releaseForDelete').mockResolvedValue({
+      macCleared: true,
+      sipCleared: false,
+    });
+
+    const result = await svc.releaseDevicesOnLine(tenantId, 'line-1', actorUserId);
+
+    expect(result.deviceIds).toEqual([deviceId, 'device-2']);
+    expect(result.sipEndpointIds).toEqual(['sip-1']);
+    expect(releaseSpy).toHaveBeenCalledTimes(2);
+    expect(prisma.device.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { tenantId, lineId: 'line-1', deletedAt: null } }),
+    );
+  });
+
+  it('releaseAllActiveDevices delegates to releaseForDelete for each active device', async () => {
+    const { svc } = buildService({
+      deviceFindMany: [{ id: deviceId, macAddress: mac, sipEndpointId: 'sip-1' }],
+    });
+    const releaseSpy = jest.spyOn(svc, 'releaseForDelete').mockResolvedValue({
+      macCleared: true,
+      sipCleared: true,
+    });
+
+    const count = await svc.releaseAllActiveDevices(tenantId, actorUserId);
+
+    expect(count).toBe(1);
+    expect(releaseSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('assertMacAvailable heals soft-deleted device rows that still hold MAC', async () => {
+    const deletedAt = new Date('2026-07-01T00:00:00.000Z');
+    const { svc, prisma, redis, vault } = buildService({
+      deviceFindFirst: {
+        id: deviceId,
+        tenantId,
+        deletedAt,
+        macAddress: mac,
+        sipEndpointId: 'sip-1',
+        status: DeviceStatus.INACTIVE,
+        line: { extension: { extension: '101' } },
+      },
+    });
+
+    await expect(svc.assertMacAvailable(mac)).resolves.toBeUndefined();
+
+    expect(prisma.device.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: deviceId, tenantId, macAddress: mac },
+        data: expect.objectContaining({ macAddress: null }),
+      }),
+    );
+    expect(redis.del).toHaveBeenCalledWith(`vsp:prov:mac:${mac}`);
+    expect(vault.revokeProvHttp).toHaveBeenCalledWith(mac);
+  });
+
+  it('repairSoftDeletedDeviceMacBindings clears MAC on all soft-deleted devices', async () => {
+    const { svc, prisma, vault } = buildService({
+      deviceFindMany: [
+        {
+          id: deviceId,
+          tenantId,
+          macAddress: mac,
+          sipEndpointId: 'sip-1',
+          deletedAt: new Date(),
+          status: DeviceStatus.INACTIVE,
+          line: { extension: { extension: '101' } },
+        },
+      ],
+    });
+
+    const repaired = await svc.repairSoftDeletedDeviceMacBindings();
+
+    expect(repaired).toBe(1);
+    expect(prisma.device.updateMany).toHaveBeenCalled();
+    expect(vault.revokeProvHttp).toHaveBeenCalledWith(mac);
   });
 });

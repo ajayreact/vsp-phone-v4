@@ -120,8 +120,15 @@ describe('TenantResetService', () => {
     };
 
     const audit = { append: jest.fn().mockResolvedValue(undefined) };
-    const service = new TenantResetService(prisma as never, audit as never);
-    return { service, prisma, audit, tx, phoneNumber };
+    const provisioningCleanup = {
+      releaseAllActiveDevices: jest.fn().mockResolvedValue(0),
+    };
+    const service = new TenantResetService(
+      prisma as never,
+      audit as never,
+      provisioningCleanup as never,
+    );
+    return { service, prisma, audit, tx, phoneNumber, provisioningCleanup };
   }
 
   it('rejects protected tenant slugs', async () => {

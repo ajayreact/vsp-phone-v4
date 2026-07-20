@@ -4,6 +4,7 @@ import { CarrierAdminModule } from '../carrier-admin/carrier-admin.module';
 import { EnterpriseObservabilityCoreModule } from '../enterprise-observability/enterprise-observability-core.module';
 import { EnterpriseSecurityCoreModule } from '../enterprise-security/enterprise-security-core.module';
 import { ProductionPlatformCoreModule } from '../production-platform/production-platform-core.module';
+import { ProvisioningCoreModule } from '../provisioning/provisioning-core.module';
 import { RecordingCoreModule } from '../recording/recording-core.module';
 import { TelecomInfrastructureModule } from '../telecom/telecom-infrastructure.module';
 import { PlatformApiKeysController } from './controllers/platform-api-keys.controller';
@@ -49,6 +50,7 @@ import { TenantResetService } from './services/tenant-reset.service';
     ProductionPlatformCoreModule,
     CarrierAdminModule,
     RecordingCoreModule,
+    ProvisioningCoreModule,
   ],
   controllers: [
     PlatformDashboardController,

@@ -7,6 +7,7 @@ import { ConfigService } from '@nestjs/config';
 import { DeviceStatus, DeviceType, TenantStatus } from '@prisma/client';
 import { DeviceEnrollmentService } from './device-enrollment.service';
 import { LineSipEndpointService } from '../../tenant-portal/services/line-sip-endpoint.service';
+import { macAlreadyExistsConflict } from '../utils/mac-conflict.util';
 
 describe('multi-device SIP enroll (integration)', () => {
   const tenantId = '11111111-1111-1111-1111-111111111111';
@@ -135,6 +136,14 @@ describe('multi-device SIP enroll (integration)', () => {
 
     const audit = { log: jest.fn() };
 
+    const provisioningCleanup = {
+      assertMacAvailable: jest.fn().mockImplementation(async (mac: string) => {
+        if (opts?.existingMac && mac === opts.existingMac) {
+          macAlreadyExistsConflict();
+        }
+      }),
+    };
+
     const svc = new DeviceEnrollmentService(
       prisma as never,
       redis as never,
@@ -143,6 +152,7 @@ describe('multi-device SIP enroll (integration)', () => {
       audit as never,
       lineSip,
       config,
+      provisioningCleanup as never,
     );
 
     return { svc, tx, createdDevices, getSipCreateCount: () => sipCreateCount, vault };

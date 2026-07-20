@@ -89,6 +89,57 @@ export class DeviceProvisioningCleanupService {
   }
 
   /**
+   * Release every active device in a tenant via releaseForDelete (canonical delete path).
+   */
+  async releaseAllActiveDevices(tenantId: string, actorUserId: string): Promise<number> {
+    const devices = await this.prisma.device.findMany({
+      where: { tenantId, deletedAt: null },
+      select: { id: true, macAddress: true, sipEndpointId: true },
+    });
+
+    for (const device of devices) {
+      await this.releaseForDelete(tenantId, actorUserId, {
+        id: device.id,
+        tenantId,
+        macAddress: device.macAddress ? String(device.macAddress) : null,
+        sipEndpointId: device.sipEndpointId,
+      });
+    }
+
+    return devices.length;
+  }
+
+  /**
+   * Release all active devices on a line; returns SIP endpoint ids that were linked (for extension teardown).
+   */
+  async releaseDevicesOnLine(
+    tenantId: string,
+    lineId: string,
+    actorUserId: string,
+  ): Promise<{ deviceIds: string[]; sipEndpointIds: string[] }> {
+    const devices = await this.prisma.device.findMany({
+      where: { tenantId, lineId, deletedAt: null },
+      select: { id: true, macAddress: true, sipEndpointId: true },
+    });
+
+    const sipEndpointIds = new Set<string>();
+    for (const device of devices) {
+      if (device.sipEndpointId) sipEndpointIds.add(device.sipEndpointId);
+      await this.releaseForDelete(tenantId, actorUserId, {
+        id: device.id,
+        tenantId,
+        macAddress: device.macAddress ? String(device.macAddress) : null,
+        sipEndpointId: device.sipEndpointId,
+      });
+    }
+
+    return {
+      deviceIds: devices.map((d) => d.id),
+      sipEndpointIds: [...sipEndpointIds],
+    };
+  }
+
+  /**
    * Full release for delete: end assignments, soft-delete, null MAC/line, purge Redis/vault.
    */
   async releaseForDelete(
@@ -236,23 +287,130 @@ export class DeviceProvisioningCleanupService {
     return deleted;
   }
 
-  /** Assert MAC is not held by any device row (including soft-deleted rows that still store MAC). */
+  /**
+   * Clear MAC binding on a device row that is no longer active (soft-deleted or being retired).
+   * Does not change deleted_at — only releases MAC inventory + prov sidecars.
+   */
+  async releaseMacBinding(
+    tenantId: string,
+    device: DeviceCleanupRow,
+    actorUserId?: string,
+  ): Promise<boolean> {
+    const mac = device.macAddress ? normalizeMac(String(device.macAddress)) : '';
+    if (mac.length !== 12) return false;
+
+    await this.prisma.device.updateMany({
+      where: { id: device.id, tenantId, macAddress: mac },
+      data: {
+        macAddress: null,
+        status: DeviceStatus.INACTIVE,
+        provisioningStatus: ProvisioningStatus.FAILED,
+        ...(actorUserId ? { updatedBy: actorUserId } : {}),
+      },
+    });
+
+    await this.purgeRedisForDevice(tenantId, device.id, mac);
+    this.revokeVaultSecrets(device.id, mac, device.sipEndpointId, false);
+
+    this.logger.log(
+      JSON.stringify({
+        event: 'provisioning.mac.released',
+        tenantId,
+        deviceId: device.id,
+        mac,
+        reason: 'soft_deleted_orphan',
+      }),
+    );
+
+    return true;
+  }
+
+  /**
+   * One-time / startup repair for devices soft-deleted before MAC release was enforced.
+   */
+  async repairSoftDeletedDeviceMacBindings(): Promise<number> {
+    const rows = await this.prisma.device.findMany({
+      where: { deletedAt: { not: null }, macAddress: { not: null } },
+      select: {
+        id: true,
+        tenantId: true,
+        macAddress: true,
+        sipEndpointId: true,
+        deletedAt: true,
+        status: true,
+        line: { select: { extension: { select: { extension: true } } } },
+      },
+    });
+
+    let repaired = 0;
+    for (const row of rows) {
+      const released = await this.releaseMacBinding(row.tenantId, {
+        id: row.id,
+        tenantId: row.tenantId,
+        macAddress: row.macAddress ? String(row.macAddress) : null,
+        sipEndpointId: row.sipEndpointId,
+      });
+      if (released) {
+        repaired += 1;
+        this.logger.warn(
+          JSON.stringify({
+            event: 'provisioning.mac.legacy_repair',
+            table: 'devices',
+            deviceId: row.id,
+            tenantId: row.tenantId,
+            extension: row.line?.extension?.extension ?? null,
+            deletedAt: row.deletedAt?.toISOString() ?? null,
+            status: row.status,
+            mac: row.macAddress,
+          }),
+        );
+      }
+    }
+
+    if (repaired > 0) {
+      this.logger.log(
+        JSON.stringify({ event: 'provisioning.mac.legacy_repair_complete', repaired }),
+      );
+    }
+
+    return repaired;
+  }
+
+  /** Assert MAC is not held by any active device row; heal orphaned soft-deleted bindings. */
   async assertMacAvailable(macRaw: string, excludeDeviceId?: string): Promise<void> {
     const mac = normalizeMac(macRaw);
     const indexed = await this.redis.get(this.redis.macIndexKey(mac));
     if (indexed) {
+      let parsed: { deviceId?: string } = {};
       try {
-        const parsed = JSON.parse(indexed) as { deviceId?: string };
-        if (!excludeDeviceId || parsed.deviceId !== excludeDeviceId) {
-          const active = await this.prisma.device.findFirst({
-            where: { id: parsed.deviceId, macAddress: mac, deletedAt: null },
-          });
-          if (active) macAlreadyExistsConflict();
-          await this.redis.del(this.redis.macIndexKey(mac));
-        }
+        parsed = JSON.parse(indexed) as { deviceId?: string };
       } catch {
         await this.redis.del(this.redis.macIndexKey(mac));
       }
+
+      if (parsed.deviceId && (!excludeDeviceId || parsed.deviceId !== excludeDeviceId)) {
+        const owner = await this.prisma.device.findFirst({
+          where: { id: parsed.deviceId, macAddress: mac },
+          select: {
+            id: true,
+            tenantId: true,
+            deletedAt: true,
+            macAddress: true,
+            sipEndpointId: true,
+          },
+        });
+        if (owner?.deletedAt) {
+          await this.releaseMacBinding(owner.tenantId, {
+            id: owner.id,
+            tenantId: owner.tenantId,
+            macAddress: owner.macAddress ? String(owner.macAddress) : null,
+            sipEndpointId: owner.sipEndpointId,
+          });
+        } else if (owner) {
+          macAlreadyExistsConflict();
+        }
+      }
+      await this.redis.del(this.redis.macIndexKey(mac));
     }
 
     const existing = await this.prisma.device.findFirst({
@@ -260,9 +418,29 @@ export class DeviceProvisioningCleanupService {
         macAddress: mac,
         ...(excludeDeviceId ? { id: { not: excludeDeviceId } } : {}),
       },
-      select: { id: true },
+      select: {
+        id: true,
+        tenantId: true,
+        deletedAt: true,
+        macAddress: true,
+        sipEndpointId: true,
+        status: true,
+        line: { select: { extension: { select: { extension: true } } } },
+      },
     });
-    if (existing) macAlreadyExistsConflict();
+    if (!existing) return;
+
+    if (existing.deletedAt) {
+      await this.releaseMacBinding(existing.tenantId, {
+        id: existing.id,
+        tenantId: existing.tenantId,
+        macAddress: existing.macAddress ? String(existing.macAddress) : null,
+        sipEndpointId: existing.sipEndpointId,
+      });
+      return;
+    }
+
+    macAlreadyExistsConflict();
   }
 
   /**
@@ -274,11 +452,6 @@ export class DeviceProvisioningCleanupService {
     redisKeysDeleted: number;
     macsCleared: number;
   }> {
-    const devices = await this.prisma.device.findMany({
-      where: { tenantId, deletedAt: null },
-      select: { id: true, macAddress: true, sipEndpointId: true },
-    });
-
     const macs = new Set<string>();
     const macRows = await this.prisma.device.findMany({
       where: { tenantId, macAddress: { not: null } },
@@ -288,56 +461,32 @@ export class DeviceProvisioningCleanupService {
       if (row.macAddress) macs.add(normalizeMac(String(row.macAddress)));
     }
 
-    await this.prisma.$transaction(async (tx) => {
-      await tx.deviceAssignment.updateMany({
-        where: { tenantId, effectiveTo: null, deletedAt: null },
-        data: { effectiveTo: new Date(), updatedBy: actorUserId },
-      });
+    const devicesRemoved = await this.releaseAllActiveDevices(tenantId, actorUserId);
 
-      await tx.device.updateMany({
-        where: { tenantId, deletedAt: null },
-        data: {
-          deletedAt: new Date(),
-          deletedBy: actorUserId,
-          macAddress: null,
-          lineId: null,
-          userId: null,
-          sipEndpointId: null,
-          status: DeviceStatus.INACTIVE,
-          provisioningStatus: ProvisioningStatus.FAILED,
-          discoveryStatus: null,
-          lastProvisionedAt: null,
-          firmwareVersion: null,
-          updatedBy: actorUserId,
-        },
-      });
+    await this.prisma.device.updateMany({
+      where: { tenantId, deletedAt: { not: null }, macAddress: { not: null } },
+      data: {
+        macAddress: null,
+        status: DeviceStatus.INACTIVE,
+        provisioningStatus: ProvisioningStatus.FAILED,
+        updatedBy: actorUserId,
+      },
+    });
 
-      await tx.device.updateMany({
-        where: { tenantId, macAddress: { not: null } },
-        data: { macAddress: null, updatedBy: actorUserId },
-      });
-
-      await tx.sIPEndpoint.updateMany({
-        where: {
-          tenantId,
-          deletedAt: null,
-          devices: { none: { tenantId, deletedAt: null } },
-        },
-        data: {
-          registrationStatus: SIPEndpointStatus.UNREGISTERED,
-          lastRegisteredAt: null,
-          updatedBy: actorUserId,
-        },
-      });
+    await this.prisma.sIPEndpoint.updateMany({
+      where: {
+        tenantId,
+        deletedAt: null,
+        devices: { none: { tenantId, deletedAt: null } },
+      },
+      data: {
+        registrationStatus: SIPEndpointStatus.UNREGISTERED,
+        lastRegisteredAt: null,
+        updatedBy: actorUserId,
+      },
     });
 
     let redisKeysDeleted = await this.purgeTenantProvisioningRedis(tenantId, [...macs]);
-    for (const device of devices) {
-      this.vault.revokeAdminPassword(device.id);
-      if (device.sipEndpointId) {
-        this.vault.revokeDeskSip(device.sipEndpointId);
-      }
-    }
     for (const mac of macs) {
       this.vault.revokeProvHttp(mac);
     }
@@ -346,14 +495,14 @@ export class DeviceProvisioningCleanupService {
       JSON.stringify({
         event: 'provisioning.tenant_portal_reset',
         tenantId,
-        devicesRemoved: devices.length,
+        devicesRemoved,
         macsCleared: macs.size,
         redisKeysDeleted,
       }),
     );
 
     return {
-      devicesRemoved: devices.length,
+      devicesRemoved,
       redisKeysDeleted,
       macsCleared: macs.size,
     };

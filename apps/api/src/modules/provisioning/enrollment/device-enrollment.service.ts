@@ -19,7 +19,8 @@ import { ProvisioningAuditService } from '../audit/provisioning-audit.service';
 import type { FirmwareChannel } from '../firmware/firmware-catalog.service';
 import { ConfigGeneratorService } from '../generator/config-generator.service';
 import { ProvisioningRedisService } from '../redis/provisioning-redis.service';
-import { throwMacConflictIfPrisma, macAlreadyExistsConflict } from '../utils/mac-conflict.util';
+import { DeviceProvisioningCleanupService } from '../cleanup/device-provisioning-cleanup.service';
+import { throwMacConflictIfPrisma } from '../utils/mac-conflict.util';
 import { isValidMac, normalizeMac, ProvisioningVaultService } from '../vault/provisioning-vault.service';
 
 export interface EnrollDeskPhoneInput {
@@ -64,6 +65,7 @@ export class DeviceEnrollmentService {
     private readonly audit: ProvisioningAuditService,
     private readonly lineSip: LineSipEndpointService,
     private readonly config: ConfigService,
+    private readonly provisioningCleanup: DeviceProvisioningCleanupService,
   ) {
     this.platformDomain = config.get<string>('SIP_PLATFORM_DOMAIN', 'vsp.internal');
   }
@@ -77,7 +79,7 @@ export class DeviceEnrollmentService {
       throw new BadRequestException('Invalid MAC address');
     }
 
-    await this.assertGlobalMacAvailable(mac);
+    await this.provisioningCleanup.assertMacAvailable(mac);
 
     const line = await this.prisma.line.findFirst({
       where: { id: input.lineId, tenantId: user.tenantId, deletedAt: null },
@@ -307,26 +309,6 @@ export class DeviceEnrollmentService {
     return { deviceId, lineId };
   }
 
-  private async assertGlobalMacAvailable(mac: string): Promise<void> {
-    const indexed = await this.redis.get(this.redis.macIndexKey(mac));
-    if (indexed) {
-      try {
-        const parsed = JSON.parse(indexed) as { deviceId?: string };
-        const active = await this.prisma.device.findFirst({
-          where: { id: parsed.deviceId, macAddress: mac, deletedAt: null },
-        });
-        if (active) macAlreadyExistsConflict();
-        await this.redis.del(this.redis.macIndexKey(mac));
-      } catch {
-        await this.redis.del(this.redis.macIndexKey(mac));
-      }
-    }
-
-    const existing = await this.prisma.device.findFirst({
-      where: { macAddress: mac },
-    });
-    if (existing) macAlreadyExistsConflict();
-  }
 
   private async requireTenantDevice(tenantId: string, deviceId: string) {
     const device = await this.prisma.device.findFirst({

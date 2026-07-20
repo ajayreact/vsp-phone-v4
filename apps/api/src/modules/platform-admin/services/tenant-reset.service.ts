@@ -12,6 +12,7 @@ import {
   type Prisma,
 } from '@prisma/client';
 import { EnterpriseAuditService } from '../../enterprise-observability/audit/enterprise-audit.service';
+import { DeviceProvisioningCleanupService } from '../../provisioning/cleanup/device-provisioning-cleanup.service';
 import { PrismaService } from '../../telecom/prisma/prisma.service';
 import {
   detachDidFromPriorExtension,
@@ -50,6 +51,7 @@ export class TenantResetService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: EnterpriseAuditService,
+    private readonly provisioningCleanup: DeviceProvisioningCleanupService,
   ) {}
 
   async resetPbx(
@@ -61,6 +63,7 @@ export class TenantResetService {
     this.assertConfirm(tenant.displayName, 'reset_pbx', dto.confirmPhrase);
 
     // Preserve PhoneNumber rows and DID↔extension bindings (lineId / CallerID / ownership).
+    await this.provisioningCleanup.releaseAllActiveDevices(tenantId, actorUserId);
     await this.prisma.$transaction(
       async (tx) => {
         await this.wipePbxOps(tx, tenantId, { preserveDidBindings: true });
@@ -102,6 +105,8 @@ export class TenantResetService {
     }
     const tenant = await this.requireMutableTenant(tenantId);
     this.assertConfirm(tenant.displayName, 'reset_tenant', dto.confirmPhrase);
+
+    await this.provisioningCleanup.releaseAllActiveDevices(tenantId, actorUserId);
 
     const didsKept = await this.prisma.$transaction(
       async (tx) => {
@@ -151,6 +156,8 @@ export class TenantResetService {
     const tenant = await this.requireMutableTenant(tenantId);
     this.assertConfirm(tenant.displayName, 'delete', dto.confirmPhrase);
 
+    await this.provisioningCleanup.releaseAllActiveDevices(tenantId, actorUserId);
+
     const didsReleased = await this.prisma.$transaction(
       async (tx) => {
         const n = await this.releaseDidsToGlobalInventory(tx, {
@@ -173,10 +180,6 @@ export class TenantResetService {
         });
 
         await tx.extension.updateMany({
-          where: { tenantId, deletedAt: null },
-          data: { deletedAt: new Date(), deletedBy: actorUserId },
-        });
-        await tx.device.updateMany({
           where: { tenantId, deletedAt: null },
           data: { deletedAt: new Date(), deletedBy: actorUserId },
         });
