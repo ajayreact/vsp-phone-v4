@@ -1,10 +1,11 @@
-import { Logger, ValidationPipe } from '@nestjs/common';
+import { Logger, ValidationPipe, type PipeTransform, type ArgumentMetadata } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { json, urlencoded } from 'express';
 import { AppModule } from './app/app.module';
 import { loadHttpsOptions } from './app/tls.options';
+import { LoginRequestDto } from './modules/auth/dto/auth.dto';
 import { redactLogMessage } from './modules/enterprise-security/secrets/log-redaction.service';
 import { bootstrapProvEdge } from './prov/prov-edge.bootstrap';
 import { TELECOM_HEADERS } from './common/telecom/telecom.headers';
@@ -103,14 +104,46 @@ async function bootstrap() {
     const bodyLimit = configService.get<string>('REQUEST_BODY_MAX_BYTES') ?? '1mb';
     app.use(json({ limit: bodyLimit }));
     app.use(urlencoded({ extended: true, limit: bodyLimit }));
-    app.useGlobalPipes(
-      new ValidationPipe({
-        whitelist: true,
-        forbidNonWhitelisted: true,
-        transform: true,
-        transformOptions: { enableImplicitConversion: true },
-      }),
-    );
+    // TEMP [vsp-pipeline]: wrap ValidationPipe to time login DTO validation.
+    const basePipe = new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+      transformOptions: { enableImplicitConversion: true },
+    });
+    const timedPipe: PipeTransform = {
+      async transform(value: unknown, metadata: ArgumentMetadata) {
+        const isLoginBody = metadata.type === 'body' && metadata.metatype === LoginRequestDto;
+        const t0 = isLoginBody ? Date.now() : 0;
+        if (isLoginBody) {
+          // eslint-disable-next-line no-console
+          console.warn(
+            JSON.stringify({
+              tag: '[vsp-pipeline]',
+              phase: 'pipe.ValidationPipe',
+              stage: 'ENTER',
+              elapsedMs: 0,
+            }),
+          );
+        }
+        try {
+          return await basePipe.transform(value, metadata);
+        } finally {
+          if (isLoginBody) {
+            // eslint-disable-next-line no-console
+            console.warn(
+              JSON.stringify({
+                tag: '[vsp-pipeline]',
+                phase: 'pipe.ValidationPipe',
+                stage: 'EXIT',
+                elapsedMs: Date.now() - t0,
+              }),
+            );
+          }
+        }
+      },
+    };
+    app.useGlobalPipes(timedPipe);
     app.enableShutdownHooks();
 
     if (swaggerEnabled) {

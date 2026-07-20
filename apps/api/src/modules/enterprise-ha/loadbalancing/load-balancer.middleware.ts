@@ -1,6 +1,11 @@
 import { Injectable, NestMiddleware } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { NextFunction, Request, Response } from 'express';
+import {
+  pipelineEnter,
+  pipelineExit,
+  pipelineReqId,
+} from '../../auth/login-pipeline-trace';
 import { parseTrustedProxies, resolveClientIp } from './trusted-proxy.config';
 
 export const CLIENT_IP_KEY = 'clientIp';
@@ -18,9 +23,16 @@ export class LoadBalancerMiddleware implements NestMiddleware {
   }
 
   use(req: Request, _res: Response, next: NextFunction): void {
+    const isLogin = req.method === 'POST' && /\/v1\/auth\/login\/?$/.test(req.path);
+    const reqId =
+      (req as Request & { vspPipelineReqId?: string }).vspPipelineReqId ||
+      (isLogin ? pipelineReqId(req) : '');
+    const t0 = isLogin ? pipelineEnter('middleware.load_balancer', reqId) : 0;
+
     if (!this.trustProxy) {
       (req as Request & { [CLIENT_IP_KEY]?: string })[CLIENT_IP_KEY] =
         req.ip || req.socket.remoteAddress || 'unknown';
+      if (isLogin) pipelineExit('middleware.load_balancer', reqId, t0);
       next();
       return;
     }
@@ -36,6 +48,7 @@ export class LoadBalancerMiddleware implements NestMiddleware {
       : req.ip || remote || 'unknown';
 
     (req as Request & { [CLIENT_IP_KEY]?: string })[CLIENT_IP_KEY] = clientIp;
+    if (isLogin) pipelineExit('middleware.load_balancer', reqId, t0);
     next();
   }
 

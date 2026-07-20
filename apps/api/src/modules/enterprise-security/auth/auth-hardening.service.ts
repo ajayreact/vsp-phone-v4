@@ -1,5 +1,6 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { pipelineEnter, pipelineExit } from '../../auth/login-pipeline-trace';
 import { TelecomRedisService } from '../../telecom/redis/telecom-redis.service';
 
 /** Phase 16 — failed login tracking, lockout, session invalidation. */
@@ -12,7 +13,15 @@ export class AuthHardeningService {
 
   async assertNotLocked(email: string): Promise<void> {
     const key = this.redis.authLockoutKey(email.toLowerCase());
-    const locked = await this.redis.get(key);
+    // TEMP [vsp-pipeline]
+    const reqId = `lock-${Date.now().toString(36)}`;
+    const t0 = pipelineEnter('service.AuthHardening.assertNotLocked.redis.get', reqId);
+    let locked: string | null;
+    try {
+      locked = await this.redis.get(key);
+    } finally {
+      pipelineExit('service.AuthHardening.assertNotLocked.redis.get', reqId, t0);
+    }
     if (locked) {
       throw new UnauthorizedException('Account temporarily locked');
     }

@@ -16,6 +16,7 @@ import { TelecomRedisService } from '../telecom/redis/telecom-redis.service';
 import { PrismaService } from '../telecom/prisma/prisma.service';
 import type { LoginRequestDto, LoginResponseDto, MeResponseDto } from './dto/auth.dto';
 import { signJwt, type AuthPortal, type JwtPayload } from './jwt.util';
+import { pipelineEnter, pipelineExit } from './login-pipeline-trace';
 
 const IMPERSONATION_TTL_SEC = 45 * 60;
 const HANDOFF_TTL_SEC = 90;
@@ -43,85 +44,104 @@ export class AuthService {
   }
 
   async login(dto: LoginRequestDto): Promise<LoginResponseDto> {
-    await this.hardening.assertNotLocked(dto.email);
-    const portal = (dto.portal ?? 'tenant') as AuthPortal;
-    const secret = this.jwtSecret();
+    // TEMP [vsp-pipeline] — entry marker (auth.login event is SUCCESS-only, much later).
+    const reqId = `svc-${Date.now().toString(36)}`;
+    const tLogin = pipelineEnter('service.AuthService.login', reqId);
+    try {
+      const tLock = pipelineEnter('service.AuthHardening.assertNotLocked', reqId);
+      await this.hardening.assertNotLocked(dto.email);
+      pipelineExit('service.AuthHardening.assertNotLocked', reqId, tLock);
 
-    const dev = this.tryDevLogin(dto);
-    if (dev) {
+      const portal = (dto.portal ?? 'tenant') as AuthPortal;
+      const secret = this.jwtSecret();
+
+      const dev = this.tryDevLogin(dto);
+      if (dev) {
+        await this.hardening.clearFailures(dto.email);
+        await this.assertPortalLoginAllowed(dev.userId, portal);
+        const token = signJwt(
+          { sub: dev.userId, tenantId: dev.tenantId, email: dev.email, portal },
+          secret,
+          this.jwtTtlSec,
+        );
+        this.securityAudit.login({
+          tenantId: dev.tenantId,
+          userId: dev.userId,
+          email: dev.email,
+        });
+        return this.toLoginResponse(token, {
+          userId: dev.userId,
+          tenantId: dev.tenantId,
+          email: dev.email,
+          portal,
+        });
+      }
+
+      if (!this.prisma.connected) {
+        throw new UnauthorizedException('Authentication unavailable');
+      }
+
+      const tPrisma = pipelineEnter('service.Prisma.user.findFirst', reqId);
+      const user = await this.prisma.user.findFirst({
+        where: {
+          deletedAt: null,
+          email: { equals: dto.email, mode: 'insensitive' },
+          status: { in: [UserStatus.ACTIVE, UserStatus.PENDING] },
+        },
+      });
+      pipelineExit('service.Prisma.user.findFirst', reqId, tPrisma);
+
+      const tPw = pipelineEnter('service.verifyPassword', reqId);
+      const passwordOk = !!user && this.verifyPassword(dto.password, user.passwordHash);
+      pipelineExit('service.verifyPassword', reqId, tPw);
+
+      if (!user || !passwordOk) {
+        await this.hardening.recordFailure(dto.email);
+        this.securityAudit.failedLogin({ email: dto.email, reason: 'invalid_credentials' });
+        throw new UnauthorizedException('Invalid credentials');
+      }
+
+      await this.assertPortalLoginAllowed(user.id, portal);
+
       await this.hardening.clearFailures(dto.email);
-      await this.assertPortalLoginAllowed(dev.userId, portal);
+
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: { lastLoginAt: new Date() },
+      });
+
+      const tJwt = pipelineEnter('service.jwt.signJwt', reqId);
       const token = signJwt(
-        { sub: dev.userId, tenantId: dev.tenantId, email: dev.email, portal },
+        { sub: user.id, tenantId: user.tenantId, email: user.email, portal },
         secret,
         this.jwtTtlSec,
       );
+      pipelineExit('service.jwt.signJwt', reqId, tJwt);
+
       this.securityAudit.login({
-        tenantId: dev.tenantId,
-        userId: dev.userId,
-        email: dev.email,
+        tenantId: user.tenantId,
+        userId: user.id,
+        email: user.email,
       });
+
+      this.logger.log(
+        JSON.stringify({
+          event: 'auth.login',
+          userId: user.id,
+          tenantId: user.tenantId,
+          portal,
+        }),
+      );
+
       return this.toLoginResponse(token, {
-        userId: dev.userId,
-        tenantId: dev.tenantId,
-        email: dev.email,
-        portal,
-      });
-    }
-
-    if (!this.prisma.connected) {
-      throw new UnauthorizedException('Authentication unavailable');
-    }
-
-    const user = await this.prisma.user.findFirst({
-      where: {
-        deletedAt: null,
-        email: { equals: dto.email, mode: 'insensitive' },
-        status: { in: [UserStatus.ACTIVE, UserStatus.PENDING] },
-      },
-    });
-    if (!user || !this.verifyPassword(dto.password, user.passwordHash)) {
-      await this.hardening.recordFailure(dto.email);
-      this.securityAudit.failedLogin({ email: dto.email, reason: 'invalid_credentials' });
-      throw new UnauthorizedException('Invalid credentials');
-    }
-
-    await this.assertPortalLoginAllowed(user.id, portal);
-
-    await this.hardening.clearFailures(dto.email);
-
-    await this.prisma.user.update({
-      where: { id: user.id },
-      data: { lastLoginAt: new Date() },
-    });
-
-    const token = signJwt(
-      { sub: user.id, tenantId: user.tenantId, email: user.email, portal },
-      secret,
-      this.jwtTtlSec,
-    );
-
-    this.securityAudit.login({
-      tenantId: user.tenantId,
-      userId: user.id,
-      email: user.email,
-    });
-
-    this.logger.log(
-      JSON.stringify({
-        event: 'auth.login',
         userId: user.id,
         tenantId: user.tenantId,
+        email: user.email,
         portal,
-      }),
-    );
-
-    return this.toLoginResponse(token, {
-      userId: user.id,
-      tenantId: user.tenantId,
-      email: user.email,
-      portal,
-    });
+      });
+    } finally {
+      pipelineExit('service.AuthService.login', reqId, tLogin);
+    }
   }
 
   async refreshAccessToken(refreshToken: string): Promise<LoginResponseDto> {

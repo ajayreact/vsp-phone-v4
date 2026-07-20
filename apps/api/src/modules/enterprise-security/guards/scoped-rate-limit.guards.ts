@@ -6,6 +6,7 @@ import {
   Injectable,
 } from '@nestjs/common';
 import type { Request } from 'express';
+import { pipelineEnter, pipelineExit } from '../../auth/login-pipeline-trace';
 import { RateLimitService } from '../rate-limit/rate-limit.service';
 
 function clientKey(req: Request): string {
@@ -22,12 +23,19 @@ export class AuthRateLimitGuard implements CanActivate {
   constructor(private readonly rateLimit: RateLimitService) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const req = context.switchToHttp().getRequest<Request>();
-    const { allowed } = await this.rateLimit.check('auth', clientKey(req));
-    if (!allowed) {
-      throw new HttpException('Too many authentication attempts', HttpStatus.TOO_MANY_REQUESTS);
+    const req = context.switchToHttp().getRequest<Request & { vspPipelineReqId?: string }>();
+    const isLogin = req.method === 'POST' && /\/v1\/auth\/login\/?$/.test(req.path);
+    const reqId = req.vspPipelineReqId || (isLogin ? `guard-${Date.now()}` : '');
+    const t0 = isLogin ? pipelineEnter('guard.AuthRateLimitGuard', reqId) : 0;
+    try {
+      const { allowed } = await this.rateLimit.check('auth', clientKey(req));
+      if (!allowed) {
+        throw new HttpException('Too many authentication attempts', HttpStatus.TOO_MANY_REQUESTS);
+      }
+      return true;
+    } finally {
+      if (isLogin) pipelineExit('guard.AuthRateLimitGuard', reqId, t0);
     }
-    return true;
   }
 }
 

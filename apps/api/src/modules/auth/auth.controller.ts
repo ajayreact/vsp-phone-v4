@@ -3,6 +3,7 @@ import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagg
 import type { Request } from 'express';
 import { AuthRateLimitGuard } from '../enterprise-security/guards/scoped-rate-limit.guards';
 import { AuthService } from './auth.service';
+import { pipelineEnter, pipelineExit } from './login-pipeline-trace';
 import {
   ImpersonationExchangeDto,
   ImpersonationExitResponseDto,
@@ -31,8 +32,17 @@ export class AuthController {
   @ApiResponse({ status: 401, description: 'Invalid credentials' })
   @ApiResponse({ status: 403, description: 'Portal access denied' })
   @ApiResponse({ status: 429, description: 'Rate limited' })
-  login(@Body() dto: LoginRequestDto): Promise<LoginResponseDto> {
-    return this.auth.login(dto);
+  async login(
+    @Req() req: Request & { vspPipelineReqId?: string },
+    @Body() dto: LoginRequestDto,
+  ): Promise<LoginResponseDto> {
+    const reqId = req.vspPipelineReqId || `controller-${Date.now()}`;
+    const t0 = pipelineEnter('controller.AuthController.login', reqId);
+    try {
+      return await this.auth.login(dto);
+    } finally {
+      pipelineExit('controller.AuthController.login', reqId, t0);
+    }
   }
 
   @Post('refresh')

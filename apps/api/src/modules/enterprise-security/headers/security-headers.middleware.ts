@@ -1,14 +1,27 @@
 import { Injectable, NestMiddleware } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { NextFunction, Request, Response } from 'express';
+import {
+  pipelineEnter,
+  pipelineExit,
+  pipelineReqId,
+} from '../../auth/login-pipeline-trace';
 
 /** Phase 16 — secure HTTP response headers (non-breaking defaults). */
 @Injectable()
 export class SecurityHeadersMiddleware implements NestMiddleware {
   constructor(private readonly config: ConfigService) {}
 
-  use(_req: Request, res: Response, next: NextFunction): void {
+  use(req: Request, res: Response, next: NextFunction): void {
+    const isLogin = req.method === 'POST' && /\/v1\/auth\/login\/?$/.test(req.path);
+    const reqId = isLogin ? pipelineReqId(req) : '';
+    const t0 = isLogin ? pipelineEnter('middleware.security_headers', reqId) : 0;
+    if (isLogin) {
+      (req as Request & { vspPipelineReqId?: string }).vspPipelineReqId = reqId;
+    }
+
     if (this.config.get('SECURITY_HEADERS_ENABLED') === 'false') {
+      if (isLogin) pipelineExit('middleware.security_headers', reqId, t0);
       next();
       return;
     }
@@ -34,6 +47,7 @@ export class SecurityHeadersMiddleware implements NestMiddleware {
       res.setHeader('Strict-Transport-Security', `max-age=${hstsMax}; includeSubDomains`);
     }
 
+    if (isLogin) pipelineExit('middleware.security_headers', reqId, t0);
     next();
   }
 }

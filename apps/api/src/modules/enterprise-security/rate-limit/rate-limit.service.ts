@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { pipelineEnter, pipelineExit } from '../../auth/login-pipeline-trace';
 import { TelecomRedisService } from '../../telecom/redis/telecom-redis.service';
 
 export type RateLimitScope =
@@ -28,7 +29,16 @@ export class RateLimitService {
     }
 
     const key = this.redis.rateLimitKey(scope, identifier);
-    const count = await this.redis.incr(key);
+    // TEMP [vsp-pipeline]
+    const traceAuth = scope === 'auth';
+    const reqId = traceAuth ? `rl-${Date.now().toString(36)}` : '';
+    const tIncr = traceAuth ? pipelineEnter('guard.AuthRateLimitGuard.redis.incr', reqId) : 0;
+    let count: number;
+    try {
+      count = await this.redis.incr(key);
+    } finally {
+      if (traceAuth) pipelineExit('guard.AuthRateLimitGuard.redis.incr', reqId, tIncr);
+    }
     if (count === 1) {
       await this.redis.expire(key, windowSec);
     }
