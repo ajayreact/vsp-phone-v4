@@ -314,7 +314,7 @@ export function mapExtensionDetailToForm(
     callerIdName: callerId?.callerIdName != null ? String(callerId.callerIdName) : '',
     outboundCallerId: outbound,
     pin: ts?.pin != null ? String(ts.pin) : vm?.pin != null ? String(vm.pin) : '',
-    voicemailEnabled: vm?.status === 'ACTIVE' || row.voicemailEnabled,
+    voicemailEnabled: Boolean(vm?.status === 'ACTIVE' || row.voicemailEnabled),
     voicemailNotifyEmail: ts?.voicemailNotifyEmail != null ? String(ts.voicemailNotifyEmail) : '',
     callForwardEnabled: Boolean(ts?.callForwardEnabled),
     callForwardDestination: ts?.callForwardDestination != null ? String(ts.callForwardDestination) : '',

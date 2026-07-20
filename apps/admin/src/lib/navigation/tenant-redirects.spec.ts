@@ -13,7 +13,7 @@ describe('resolveTenantLegacyRedirect', () => {
     expect(resolveTenantLegacyRedirect('/settings/company')).toBeNull();
     expect(resolveTenantLegacyRedirect('/settings/business-hours')).toBeNull();
     expect(resolveTenantLegacyRedirect('/settings/branding')).toBeNull();
-    expect(resolveTenantLegacyRedirect('/settings/danger-zone')).toBeNull();
+    expect(resolveTenantLegacyRedirect('/settings/danger-zone')).toBe('/settings/security');
   });
 
   it('does not rewrite /reports children into /reports/analytics/...', () => {

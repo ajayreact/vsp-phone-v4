@@ -422,18 +422,6 @@ export const TENANT_MODULES_V2: ModuleDefinition[] = [
     breadcrumb: ['Settings', 'Branding'],
   },
   {
-    id: 'settings-danger-zone',
-    label: 'Danger Zone',
-    href: '/settings/danger-zone',
-    group: 'system',
-    section: 'settings',
-    icon: Shield,
-    permission: PERMISSIONS.TENANT_SETTINGS_WRITE,
-    integration: 'planned',
-    description: 'Destructive tenant operations (pilot-gated).',
-    breadcrumb: ['Settings', 'Danger Zone'],
-  },
-  {
     id: 'supervisor',
     label: 'Supervisor',
     href: '/contact-center/supervisor',

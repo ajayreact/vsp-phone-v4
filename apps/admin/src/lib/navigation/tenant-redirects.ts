@@ -30,6 +30,7 @@ export const TENANT_LEGACY_REDIRECTS: Record<string, string> = {
   '/provisioning': '/extensions',
   '/phone-numbers/routing': '/phone-numbers/my-numbers',
   '/api-keys': '/settings/api-keys',
+  '/settings/danger-zone': '/settings/security',
   '/call-flow/routing': '/phone-numbers/my-numbers',
 };
 
