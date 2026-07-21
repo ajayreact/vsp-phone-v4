@@ -257,7 +257,7 @@ export function validateEnv(env: NodeJS.ProcessEnv): ApiEnv {
     PROV_FIRMWARE_N1_VERSION: env.PROV_FIRMWARE_N1_VERSION ?? '1.0.5.11',
     PROV_FIRMWARE_EMERGENCY_VERSION: env.PROV_FIRMWARE_EMERGENCY_VERSION ?? '1.0.5.10',
     SIP_REGISTRAR_HOST: env.SIP_REGISTRAR_HOST,
-    SIP_PORT: requirePort(env, 'SIP_PORT', '5061'),
+    SIP_PORT: requirePort(env, 'SIP_PORT', '5060'),
     RECORDING_ENABLED: (env.RECORDING_ENABLED ?? 'true').toLowerCase() !== 'false',
     RECORDING_UPLOAD_ENABLED: (env.RECORDING_UPLOAD_ENABLED ?? 'true').toLowerCase() !== 'false',
     S3_ENDPOINT: env.S3_ENDPOINT,

@@ -7,6 +7,7 @@ import { ArtifactStoreService } from '../store/artifact-store.service';
 import { TemplateEngineService } from '../templates/template-engine.service';
 import { buildProvConfigUrl } from '../url/prov-config-url';
 import { ProvisioningVaultService } from '../vault/provisioning-vault.service';
+import { resolveDeskPhoneSipEndpoint } from './desk-phone-sip-endpoint.util';
 
 export interface DeviceRenderInput {
   tenantId: string;
@@ -101,6 +102,11 @@ export class ConfigGeneratorService {
         PROV_PUBLIC_BASE_URL: provBase,
       }) ?? `${provBase}/${vendorPath}/${input.mac}/cfg.xml`;
 
+    const sipEndpoint = resolveDeskPhoneSipEndpoint({
+      transport: input.transport,
+      configuredPort: Number(this.config.get('SIP_PORT') ?? '5060'),
+    });
+
     const xml = this.template.render({
       mac: input.mac,
       deviceName: input.deviceName,
@@ -112,7 +118,8 @@ export class ConfigGeneratorService {
       sipUsername: input.authUsername,
       sipPassword,
       sipServer: this.sipServer(input.realm),
-      sipPort: Number(this.config.get('SIP_PORT') ?? '5061'),
+      sipPort: sipEndpoint.port,
+      grandstreamTransport: sipEndpoint.grandstreamTransport,
       aor: input.aor,
       displayName: input.displayName,
       timezone: input.timezone,

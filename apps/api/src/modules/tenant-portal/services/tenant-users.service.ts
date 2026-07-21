@@ -14,6 +14,10 @@ import {
 import { EnterpriseAuditService } from '../../enterprise-observability/audit/enterprise-audit.service';
 import { PrismaService } from '../../telecom/prisma/prisma.service';
 import { defaultExtensionDisplayName } from '../utils/extension-auto-provision.util';
+import {
+  lineNameMatchesUserOwnedLabels,
+  userOwnedLineNameCandidates,
+} from '../utils/line-user-display-name.util';
 import { auditPbxMutation } from '../utils/tenant-pbx-audit';
 import { newPublicId, tenantScope } from '../utils/tenant.util';
 
@@ -269,7 +273,11 @@ export class TenantUsersService {
     });
     if (!user) throw new NotFoundException('User not found');
 
-    const displayName = this.resolveUserDisplayName(user.profile);
+    const ownedNameCandidates = userOwnedLineNameCandidates({
+      email: user.email,
+      username: user.username,
+      profile: user.profile,
+    });
 
     await this.prisma.$transaction(async (tx) => {
       const lines = await tx.line.findMany({
@@ -283,9 +291,8 @@ export class TenantUsersService {
           updatedBy: actorId,
         };
         if (
-          displayName &&
-          line.name.trim() === displayName &&
-          line.extension?.extension
+          line.extension?.extension &&
+          lineNameMatchesUserOwnedLabels(line.name, ownedNameCandidates)
         ) {
           data.name = defaultExtensionDisplayName(line.extension.extension);
         }

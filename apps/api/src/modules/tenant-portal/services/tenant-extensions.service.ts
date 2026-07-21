@@ -29,8 +29,13 @@ import {
 } from '../utils/did-extension-binding';
 import {
   extensionNeedsBusinessSetup,
+  defaultExtensionDisplayName,
   tombstoneExtensionNumber,
 } from '../utils/extension-auto-provision.util';
+import {
+  lineNameMatchesUserOwnedLabels,
+  userOwnedLineNameCandidates,
+} from '../utils/line-user-display-name.util';
 import { ExtensionAutoProvisionService } from './extension-auto-provision.service';
 import { LineSipEndpointService } from './line-sip-endpoint.service';
 import { TenantLinesService } from './tenant-lines.service';
@@ -193,6 +198,13 @@ export class TenantExtensionsService {
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       this.logger.warn(`syncOrphanDidsToExtensions failed tenant=${tenantId}: ${msg}`);
+    }
+
+    try {
+      await this.repairStaleUserOwnedLineNames(tenantId);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      this.logger.warn(`repairStaleUserOwnedLineNames failed tenant=${tenantId}: ${msg}`);
     }
 
     const where: Record<string, unknown> = {
@@ -1094,6 +1106,50 @@ export class TenantExtensionsService {
     }
 
     return map;
+  }
+
+  private async repairStaleUserOwnedLineNames(tenantId: string): Promise<void> {
+    if (!this.prisma.connected) return;
+
+    const lines = await this.prisma.line.findMany({
+      where: { tenantId, userId: null, deletedAt: null },
+      include: { extension: { select: { extension: true } } },
+    });
+
+    for (const line of lines) {
+      if (!line.extension?.extension) continue;
+
+      const defaultName = defaultExtensionDisplayName(line.extension.extension);
+      if (line.name.trim() === defaultName) continue;
+
+      const deletedUser = await this.prisma.user.findFirst({
+        where: {
+          tenantId,
+          deletedAt: { not: null },
+          OR: [
+            { profile: { displayName: { equals: line.name.trim(), mode: 'insensitive' } } },
+            { email: { equals: line.name.trim(), mode: 'insensitive' } },
+            { username: { equals: line.name.trim(), mode: 'insensitive' } },
+          ],
+        },
+        include: {
+          profile: { select: { displayName: true, firstName: true, lastName: true } },
+        },
+      });
+      if (!deletedUser) continue;
+
+      const candidates = userOwnedLineNameCandidates({
+        email: deletedUser.email,
+        username: deletedUser.username,
+        profile: deletedUser.profile,
+      });
+      if (!lineNameMatchesUserOwnedLabels(line.name, candidates)) continue;
+
+      await this.prisma.line.update({
+        where: { id: line.id },
+        data: { name: defaultName },
+      });
+    }
   }
 
   private toHubRow(

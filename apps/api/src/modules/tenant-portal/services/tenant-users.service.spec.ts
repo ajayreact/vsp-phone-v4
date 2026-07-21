@@ -30,6 +30,8 @@ describe('TenantUsersService.softDelete', () => {
       user: {
         findFirst: jest.fn().mockResolvedValue({
           id: userId,
+          email: 'basha@example.com',
+          username: 'basha',
           profile: { displayName: 'Basha', firstName: 'Basha', lastName: '' },
         }),
       },
@@ -65,7 +67,29 @@ describe('TenantUsersService.softDelete', () => {
     });
   });
 
-  it('does not rename line.name when it does not exactly match the deleted user display name', async () => {
+  it('resets line.name when it matches the deleted user username', async () => {
+    const { service, tx, lineUpdate } = buildService();
+    tx.line.findMany.mockResolvedValue([
+      {
+        id: lineId,
+        name: 'basha',
+        extension: { extension: '102' },
+      },
+    ]);
+
+    await service.softDelete(tenantId, actorId, userId);
+
+    expect(lineUpdate).toHaveBeenCalledWith({
+      where: { id: lineId },
+      data: {
+        userId: null,
+        updatedBy: actorId,
+        name: 'Extension 102',
+      },
+    });
+  });
+
+  it('does not rename line.name when it does not match any deleted user label', async () => {
     const { service, tx, lineUpdate } = buildService();
     tx.line.findMany.mockResolvedValue([
       {

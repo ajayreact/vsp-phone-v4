@@ -15,6 +15,7 @@ export interface RenderContext {
   sipPassword: string;
   sipServer: string;
   sipPort: number;
+  grandstreamTransport?: 0 | 1 | 2;
   aor: string;
   displayName: string;
   timezone: string;
@@ -71,6 +72,7 @@ export class TemplateEngineService {
 
   private renderGrandstream(ctx: RenderContext): string {
     const tlsValidate = ctx.tlsValidate ? '1' : '0';
+    const transport = ctx.grandstreamTransport ?? 0;
     return `<?xml version="1.0" encoding="UTF-8"?>
 <gs_provisioning version="1">
   <mac>${ctx.mac}</mac>
@@ -93,7 +95,7 @@ export class TemplateEngineService {
     <Account1Password>${escapeXml(ctx.sipPassword)}</Account1Password>
     <Account1SIPServer>${escapeXml(ctx.sipServer)}</Account1SIPServer>
     <Account1SIPServerPort>${ctx.sipPort}</Account1SIPServerPort>
-    <Account1Transport>0</Account1Transport>
+    <Account1Transport>${transport}</Account1Transport>
     <Account1DisplayName>${escapeXml(ctx.displayName)}</Account1DisplayName>
   </Account1>
 </gs_provisioning>`;

@@ -8,6 +8,7 @@ function invalidateTenantLists(qc: ReturnType<typeof useQueryClient>, keys: stri
     void qc.invalidateQueries({ queryKey: ['tenant', key] });
   }
   void qc.invalidateQueries({ queryKey: ['tenant', 'extensionHub'] });
+  void qc.invalidateQueries({ queryKey: ['tenant', 'search'] });
 }
 
 export function useCreateTenantQueue() {
