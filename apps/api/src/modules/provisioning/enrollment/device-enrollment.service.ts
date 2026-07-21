@@ -174,7 +174,7 @@ export class DeviceEnrollmentService {
     if (!this.vault.resolveDeskSipPassword(sipEndpointId)) {
       deskSecretVersion = this.vault.issueDeskSip({ sipEndpointId, authUsername, realm }).version;
     }
-    const provHttp = this.vault.resolveProvHttp(mac) ?? this.vault.issueProvHttp(mac);
+    const provHttp = (await this.vault.resolveProvHttp(mac)) ?? (await this.vault.issueProvHttp(mac));
     this.vault.issueAdminPassword(deviceId);
 
     const timezone = line.tenant.settings?.timezone ?? 'America/New_York';

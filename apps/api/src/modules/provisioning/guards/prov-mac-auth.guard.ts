@@ -33,7 +33,7 @@ export class ProvMacAuthGuard implements CanActivate {
       throw new UnauthorizedException('Unknown device');
     }
 
-    const cred = this.vault.resolveProvHttp(mac);
+    const cred = await this.vault.resolveProvHttp(mac);
     if (!cred) {
       throw new UnauthorizedException('Provisioning credentials missing');
     }

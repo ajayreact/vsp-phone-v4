@@ -128,3 +128,47 @@ export function displayNameFromSession(
   if (profile?.firstName) return `${profile.firstName} ${profile.lastName}`.trim();
   return email.split('@')[0] ?? email;
 }
+
+const PROTECTED_TENANT_SLUGS = new Set(['platform', 'inventory', 'platform-inventory', 'vsp-internal']);
+
+export function isProtectedTenantSlug(slug: string | null | undefined): boolean {
+  if (!slug) return false;
+  return PROTECTED_TENANT_SLUGS.has(slug.trim().toLowerCase());
+}
+
+/** Platform operators (not tenant-only admins) who may run lifecycle actions. */
+export function isPlatformAdministrator(
+  session: { impersonatorUserId?: string | null; portal?: string; roles?: { name: string }[] } | null,
+  permissions: string[],
+): boolean {
+  if (!session) return false;
+  if (session.portal === 'platform') return true;
+  if (session.impersonatorUserId) return true;
+  if (hasPermission(permissions, PERMISSIONS.PLATFORM_SUPER_ADMIN)) return true;
+  if (
+    hasPermission(permissions, [
+      PERMISSIONS.PLATFORM_TENANTS_RESET,
+      PERMISSIONS.PLATFORM_TENANTS_DELETE,
+      PERMISSIONS.PLATFORM_TENANTS_WRITE,
+    ])
+  ) {
+    return true;
+  }
+  return (session.roles ?? []).some((role) => /platform\s*(super\s*)?admin/i.test(role.name.trim()));
+}
+
+export function canPlatformResetPbx(permissions: string[]): boolean {
+  return hasPermission(permissions, [
+    PERMISSIONS.PLATFORM_TENANTS_RESET,
+    PERMISSIONS.PLATFORM_TENANTS_WRITE,
+    PERMISSIONS.PLATFORM_SUPER_ADMIN,
+  ]);
+}
+
+export function canPlatformResetTenant(permissions: string[]): boolean {
+  return hasPermission(permissions, [PERMISSIONS.PLATFORM_TENANTS_RESET, PERMISSIONS.PLATFORM_SUPER_ADMIN]);
+}
+
+export function canPlatformDeleteTenant(permissions: string[]): boolean {
+  return hasPermission(permissions, [PERMISSIONS.PLATFORM_TENANTS_DELETE, PERMISSIONS.PLATFORM_SUPER_ADMIN]);
+}

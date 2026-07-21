@@ -13,6 +13,7 @@ import { Button } from '../ui/Button';
 import { Card, CardBody, CardHeader } from '../ui/Card';
 import { Input } from '../ui/Input';
 import { Skeleton } from '../ui/Skeleton';
+import { SecurityDangerZoneCard } from './settings/SecurityDangerZoneCard';
 
 export function TenantSettingsContent({ section }: { section: 'pbx' | 'security' }) {
   const { session } = useAuth();
@@ -119,26 +120,7 @@ export function TenantSettingsContent({ section }: { section: 'pbx' | 'security'
                   </p>
                 </CardBody>
               </Card>
-              <Card className="glass-card border-destructive/40 lg:col-span-2">
-                <CardHeader
-                  title="Danger Zone"
-                  description="Destructive tenant lifecycle operations. Factory Reset and Delete are platform-only for Customer Pilot."
-                />
-                <CardBody className="space-y-3 text-sm">
-                  <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4">
-                    <p className="font-medium text-destructive">Reset PBX / Reset Tenant / Delete Tenant</p>
-                    <p className="mt-1 text-muted-foreground">
-                      Use Platform Admin → Tenants → Actions (or Developer Tools). Reset PBX keeps users and DID
-                      ownership. Reset Tenant (Re-Onboarding) prepares onboarding again without releasing DIDs. Delete
-                      soft-deletes the tenant and returns DIDs to Global Inventory.
-                    </p>
-                    <p className="mt-2 text-xs text-muted-foreground">
-                      Factory Reset / Delete are platform-only for Customer Pilot. Contact platform support for assisted
-                      export.
-                    </p>
-                  </div>
-                </CardBody>
-              </Card>
+              <SecurityDangerZoneCard />
             </div>
           )}
         </PageContainer>

@@ -2,6 +2,13 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { randomBytes } from 'node:crypto';
 import { SipCredentialVaultService } from '../../telecom/auth/sip-credential-vault.service';
+import { ProvisioningRedisService } from '../redis/provisioning-redis.service';
+import {
+  decryptProvHttpPassword,
+  deriveProvHttpCredentialKey,
+  encryptProvHttpPassword,
+} from './prov-http-credential.crypto';
+import type { StoredProvHttpCred } from './prov-http-credential.types';
 
 export interface DeskSipSecret {
   password: string;
@@ -21,11 +28,20 @@ export class ProvisioningVaultService {
   private readonly deskSip = new Map<string, DeskSipSecret>();
   private readonly provHttp = new Map<string, ProvHttpCred>();
   private readonly adminPw = new Map<string, string>();
+  private readonly provHttpKey: Buffer;
 
   constructor(
     private readonly config: ConfigService,
     private readonly sipVault: SipCredentialVaultService,
-  ) {}
+    private readonly redis: ProvisioningRedisService,
+  ) {
+    const secret =
+      this.config.get<string>('PROV_HTTP_CREDENTIAL_KEY') ||
+      this.config.get<string>('JWT_SECRET') ||
+      this.config.get<string>('DEV_JWT_SECRET') ||
+      'dev-only-prov-http-credential-key';
+    this.provHttpKey = deriveProvHttpCredentialKey(secret);
+  }
 
   issueDeskSip(params: {
     sipEndpointId: string;
@@ -45,7 +61,10 @@ export class ProvisioningVaultService {
     return { password, version };
   }
 
-  issueProvHttp(mac: string): ProvHttpCred {
+  async issueProvHttp(mac: string): Promise<ProvHttpCred> {
+    const existing = await this.resolveProvHttp(mac);
+    if (existing) return existing;
+
     const normalized = normalizeMac(mac);
     const cred: ProvHttpCred = {
       username: normalized,
@@ -53,11 +72,27 @@ export class ProvisioningVaultService {
       version: `prov-${Date.now()}`,
     };
     this.provHttp.set(normalized, cred);
+    await this.persistProvHttp(normalized, cred);
     return cred;
   }
 
-  resolveProvHttp(mac: string): ProvHttpCred | null {
-    return this.provHttp.get(normalizeMac(mac)) ?? null;
+  async resolveProvHttp(mac: string): Promise<ProvHttpCred | null> {
+    const normalized = normalizeMac(mac);
+    const cached = this.provHttp.get(normalized);
+    if (cached) return cached;
+
+    const rehydrated = await this.loadProvHttpFromRedis(normalized);
+    if (!rehydrated) return null;
+
+    this.provHttp.set(normalized, rehydrated);
+    this.logger.log(
+      JSON.stringify({
+        event: 'provisioning.credentials.rehydrated',
+        mac: normalized,
+        version: rehydrated.version,
+      }),
+    );
+    return rehydrated;
   }
 
   issueAdminPassword(deviceId: string): string {
@@ -75,8 +110,10 @@ export class ProvisioningVaultService {
     this.sipVault.revokePersistentCredential(sipEndpointId);
   }
 
-  revokeProvHttp(mac: string): void {
-    this.provHttp.delete(normalizeMac(mac));
+  async revokeProvHttp(mac: string): Promise<void> {
+    const normalized = normalizeMac(mac);
+    this.provHttp.delete(normalized);
+    await this.redis.del(this.redis.provHttpCredKey(normalized));
   }
 
   revokeAdminPassword(deviceId: string): void {
@@ -85,6 +122,48 @@ export class ProvisioningVaultService {
 
   resolveDeskSipPassword(sipEndpointId: string): string | null {
     return this.deskSip.get(sipEndpointId.toLowerCase())?.password ?? null;
+  }
+
+  private async persistProvHttp(mac: string, cred: ProvHttpCred): Promise<void> {
+    const payload: StoredProvHttpCred = {
+      username: cred.username,
+      passwordEnc: encryptProvHttpPassword(cred.password, this.provHttpKey),
+      version: cred.version,
+      createdAt: new Date().toISOString(),
+      expiresAt: null,
+    };
+    await this.redis.set(this.redis.provHttpCredKey(mac), JSON.stringify(payload));
+  }
+
+  private async loadProvHttpFromRedis(mac: string): Promise<ProvHttpCred | null> {
+    const raw = await this.redis.get(this.redis.provHttpCredKey(mac));
+    if (!raw) return null;
+
+    try {
+      const stored = JSON.parse(raw) as StoredProvHttpCred;
+      if (!stored.username || !stored.passwordEnc || !stored.version) return null;
+      if (stored.expiresAt) {
+        const expiresAtMs = Date.parse(stored.expiresAt);
+        if (Number.isFinite(expiresAtMs) && expiresAtMs <= Date.now()) {
+          await this.redis.del(this.redis.provHttpCredKey(mac));
+          return null;
+        }
+      }
+      return {
+        username: stored.username,
+        password: decryptProvHttpPassword(stored.passwordEnc, this.provHttpKey),
+        version: stored.version,
+      };
+    } catch (err) {
+      this.logger.warn(
+        JSON.stringify({
+          event: 'provisioning.credentials.rehydrate_failed',
+          mac,
+          message: err instanceof Error ? err.message : String(err),
+        }),
+      );
+      return null;
+    }
   }
 }
 

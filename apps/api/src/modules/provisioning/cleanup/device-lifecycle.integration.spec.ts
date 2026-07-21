@@ -47,7 +47,7 @@ describe('device lifecycle integration (MAC re-enroll)', () => {
     };
 
     const vault = {
-      revokeProvHttp: jest.fn((m: string) => {
+      revokeProvHttp: jest.fn(async (m: string) => {
         vaultRevoked.macs.push(m);
       }),
       revokeAdminPassword: jest.fn((id: string) => {

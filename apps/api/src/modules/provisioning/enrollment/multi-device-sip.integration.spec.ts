@@ -107,8 +107,8 @@ describe('multi-device SIP enroll (integration)', () => {
     const vault = {
       resolveDeskSipPassword: jest.fn().mockReturnValue('existing-secret'),
       issueDeskSip: jest.fn().mockReturnValue({ password: 'x', version: 'v1' }),
-      resolveProvHttp: jest.fn().mockReturnValue(null),
-      issueProvHttp: jest.fn().mockReturnValue({ username: 'mac', password: 'p', version: 'pv1' }),
+      resolveProvHttp: jest.fn().mockResolvedValue(null),
+      issueProvHttp: jest.fn().mockResolvedValue({ username: 'mac', password: 'p', version: 'pv1' }),
       issueAdminPassword: jest.fn().mockReturnValue('admin'),
     };
 

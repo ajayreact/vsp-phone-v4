@@ -141,9 +141,23 @@ export function useResetTenant() {
   });
 }
 
-/** @deprecated Use useResetTenant */
+/** @deprecated Use useResetTenant — kept for explicit factory-reset endpoint callers */
 export function useFactoryResetTenant() {
-  return useResetTenant();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      confirmPhrase,
+      acknowledged,
+    }: {
+      id: string;
+      confirmPhrase: string;
+      acknowledged: boolean;
+    }) => platformRepository.factoryReset(id, { confirmPhrase, acknowledged }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['platform', 'tenants'] });
+    },
+  });
 }
 
 export function useDeleteTenantConfirmed() {

@@ -4,13 +4,14 @@ import { useEffect, useMemo, useState } from 'react';
 import { Button } from '../../ui/Button';
 import { Input } from '../../ui/Input';
 
-export type LifecycleDialogKind = 'reset_pbx' | 'reset_tenant' | 'delete';
+export type LifecycleDialogKind = 'reset_pbx' | 'reset_tenant' | 'factory_reset' | 'delete';
 
 function expectedPhrase(kind: LifecycleDialogKind, name: string): string {
   switch (kind) {
     case 'reset_pbx':
       return `RESET PBX ${name}`;
     case 'reset_tenant':
+    case 'factory_reset':
       return `RESET ${name}`;
     case 'delete':
       return `DELETE ${name}`;
@@ -66,6 +67,12 @@ const COPY: Record<
       'Prepares this tenant for onboarding again. The tenant is NOT deleted. Assigned DIDs stay owned by this tenant.',
     requireAck: true,
   },
+  factory_reset: {
+    title: 'Factory Reset',
+    warning:
+      'Factory reset prepares this tenant for onboarding again. Assigned DIDs remain owned by this tenant. The tenant is not deleted.',
+    requireAck: true,
+  },
   delete: {
     title: 'Delete Tenant',
     warning:
@@ -119,7 +126,7 @@ export function TenantLifecycleConfirmDialog({
         </p>
         <p className="mt-3 text-sm text-muted-foreground">{copy.warning}</p>
 
-        {kind === 'reset_tenant' ? (
+        {kind === 'reset_tenant' || kind === 'factory_reset' ? (
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-3">
               <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">This operation will KEEP</p>

@@ -47,14 +47,14 @@ export class DeviceProvisioningCleanupService {
   }
 
   /** Revoke in-memory prov HTTP, admin, and optionally shared desk SIP credentials. */
-  revokeVaultSecrets(
+  async revokeVaultSecrets(
     deviceId: string,
     macRaw: string | null,
     sipEndpointId: string | null,
     revokeSharedSip: boolean,
-  ): void {
+  ): Promise<void> {
     if (macRaw) {
-      this.vault.revokeProvHttp(macRaw);
+      await this.vault.revokeProvHttp(macRaw);
     }
     this.vault.revokeAdminPassword(deviceId);
     if (revokeSharedSip && sipEndpointId) {
@@ -181,7 +181,7 @@ export class DeviceProvisioningCleanupService {
     );
 
     await this.purgeRedisForDevice(tenantId, device.id, mac || null);
-    this.revokeVaultSecrets(device.id, mac || null, device.sipEndpointId, sipCleared);
+    await this.revokeVaultSecrets(device.id, mac || null, device.sipEndpointId, sipCleared);
 
     this.logger.log(
       JSON.stringify({
@@ -227,7 +227,7 @@ export class DeviceProvisioningCleanupService {
     );
 
     await this.purgeRedisForDevice(tenantId, device.id, mac || null);
-    this.revokeVaultSecrets(device.id, mac || null, device.sipEndpointId, sipCleared);
+    await this.revokeVaultSecrets(device.id, mac || null, device.sipEndpointId, sipCleared);
 
     return { macCleared: mac.length === 12 };
   }
@@ -245,8 +245,8 @@ export class DeviceProvisioningCleanupService {
     const mac = normalizeMac(String(device.macAddress));
     await this.purgeRedisForDevice(tenantId, device.id, mac);
 
-    this.vault.revokeProvHttp(mac);
-    this.vault.issueProvHttp(mac);
+    await this.vault.revokeProvHttp(mac);
+    await this.vault.issueProvHttp(mac);
     this.vault.revokeAdminPassword(device.id);
     this.vault.issueAdminPassword(device.id);
 
@@ -310,7 +310,7 @@ export class DeviceProvisioningCleanupService {
     });
 
     await this.purgeRedisForDevice(tenantId, device.id, mac);
-    this.revokeVaultSecrets(device.id, mac, device.sipEndpointId, false);
+    await this.revokeVaultSecrets(device.id, mac, device.sipEndpointId, false);
 
     this.logger.log(
       JSON.stringify({
@@ -488,7 +488,7 @@ export class DeviceProvisioningCleanupService {
 
     let redisKeysDeleted = await this.purgeTenantProvisioningRedis(tenantId, [...macs]);
     for (const mac of macs) {
-      this.vault.revokeProvHttp(mac);
+      await this.vault.revokeProvHttp(mac);
     }
 
     this.logger.log(

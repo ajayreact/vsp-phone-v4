@@ -23,10 +23,10 @@ describe('DeviceProvisioningCleanupService', () => {
       get: jest.fn().mockResolvedValue(null),
     };
     const vault = {
-      revokeProvHttp: jest.fn(),
+      revokeProvHttp: jest.fn().mockResolvedValue(undefined),
       revokeAdminPassword: jest.fn(),
       revokeDeskSip: jest.fn(),
-      issueProvHttp: jest.fn().mockReturnValue({ username: mac, password: 'p', version: 'v1' }),
+      issueProvHttp: jest.fn().mockResolvedValue({ username: mac, password: 'p', version: 'v1' }),
       issueAdminPassword: jest.fn().mockReturnValue('admin-pw'),
     };
     const tx = {

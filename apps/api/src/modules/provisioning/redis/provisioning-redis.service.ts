@@ -29,6 +29,10 @@ export class ProvisioningRedisService {
     return `vsp:prov:mac:${mac}`;
   }
 
+  provHttpCredKey(mac: string): string {
+    return `vsp:prov:http:${mac}`;
+  }
+
   quarantineKey(mac: string): string {
     return `vsp:prov:quarantine:${mac}`;
   }
