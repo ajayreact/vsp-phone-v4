@@ -11,6 +11,7 @@ import {
   useMakePrimaryDevice,
   useRebootDevice,
   useReprovisionDevice,
+  useResetTenantDevice,
 } from '../../../lib/hooks/queries/use-device-mutations';
 import {
   emptyExtensionConfigureForm,
@@ -41,12 +42,26 @@ import { deviceRepository } from '../../../lib/repositories/device.repository';
 import { tenantRepository } from '../../../lib/repositories/tenant.repository';
 import { queryKeys } from '../../../lib/query/query-keys';
 import { formatApiErrorForDisplay, getFieldError } from '../../../lib/api/errors';
+import {
+  checkMac,
+  normalizeMac,
+  type MacCheckResult,
+} from '../../../lib/devices/check-mac';
+import { getRegistrationBadge } from '../../../lib/devices/device-display';
 import { useToast } from '../../../lib/toast/ToastProvider';
 import { Button } from '../../ui/Button';
 import { Input } from '../../ui/Input';
 import { Modal } from '../../ui/Modal';
 import { Skeleton } from '../../ui/Skeleton';
 import { ActivityTimeline } from './ActivityTimeline';
+import { CurrentDeviceCard, type DevicePendingAction } from './CurrentDeviceCard';
+import {
+  DeviceActionConfirmModal,
+  HardwareMacField,
+  ReplaceDevicePanel,
+  hardwareMacCanSubmit,
+  type DeviceConfirmAction,
+} from './DeviceTabUi';
 import { emptyDeviceModelForm } from './DeviceModelFields';
 import { ExtensionOverviewHeader } from './ExtensionOverviewHeader';
 import { ExtensionQrPanel } from './ExtensionQrPanel';
@@ -209,6 +224,8 @@ export function ExtensionConfigureModal({
   const [deskDevice, setDeskDevice] = useState<Record<string, unknown> | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [macFieldError, setMacFieldError] = useState<string | null>(null);
+  const [macCheck, setMacCheck] = useState<MacCheckResult>({ status: 'idle' });
+  const [replaceDeskMode, setReplaceDeskMode] = useState(false);
   const [pendingTab, setPendingTab] = useState<ModalTabId | 'close' | null>(null);
   const [unsavedOpen, setUnsavedOpen] = useState(false);
   const [copiedUrl, setCopiedUrl] = useState(false);
@@ -219,7 +236,13 @@ export function ExtensionConfigureModal({
   const [visitedTabs, setVisitedTabs] = useState<Set<ModalTabId>>(() => new Set([normalizeConfigureTab(initialTab)]));
   const [revealedPassword, setRevealedPassword] = useState<string | null>(null);
   const [saveProgress, setSaveProgress] = useState<string | null>(null);
-  const [deleteConfirmDeviceId, setDeleteConfirmDeviceId] = useState<string | null>(null);
+  const [deviceConfirm, setDeviceConfirm] = useState<{ action: DeviceConfirmAction; deviceId: string } | null>(
+    null,
+  );
+  const [pendingDeviceAction, setPendingDeviceAction] = useState<DevicePendingAction>(null);
+  const [deskPhoneDetail, setDeskPhoneDetail] = useState<Record<string, unknown> | null>(null);
+  const [deskPhoneDetailLoading, setDeskPhoneDetailLoading] = useState(false);
+  const [copiedDeviceProvUrl, setCopiedDeviceProvUrl] = useState(false);
 
   const queryClient = useQueryClient();
   const toast = useToast();
@@ -243,6 +266,7 @@ export function ExtensionConfigureModal({
   const restartReg = useExtensionRestartRegistration();
   const reboot = useRebootDevice();
   const reprovision = useReprovisionDevice();
+  const resetDeviceProv = useResetTenantDevice();
   const disableExt = useDisableExtension();
   const enableExt = useEnableExtension();
   const archiveExt = useArchiveExtension();
@@ -251,7 +275,10 @@ export function ExtensionConfigureModal({
   const resetSipPassword = useResetSipPassword();
   const availableDidsQuery = useTenantDids(didSearch, { enabled: visitedTabs.has('did') });
   const sipCredentialsQuery = useSipCredentials(row?.lineId ?? '', open && visitedTabs.has('devices') && Boolean(row?.lineId));
-  const activityQuery = useExtensionActivity(row?.id ?? '', open && visitedTabs.has('activity') && Boolean(row?.id));
+  const activityQuery = useExtensionActivity(
+    row?.id ?? '',
+    open && (visitedTabs.has('activity') || visitedTabs.has('devices')) && Boolean(row?.id),
+  );
 
   const patchForm = useCallback((patch: Partial<ExtensionConfigureFormState>) => {
     setForm((prev) => ({ ...prev, ...patch }));
@@ -282,6 +309,14 @@ export function ExtensionConfigureModal({
     setDidPickerOpen(false);
     setDidSearch('');
     setAddDeviceChoice('WEBRTC');
+    setReplaceDeskMode(false);
+    setMacCheck({ status: 'idle' });
+    setMacFieldError(null);
+    setDeviceConfirm(null);
+    setPendingDeviceAction(null);
+    setDeskPhoneDetail(null);
+    setDeskPhoneDetailLoading(false);
+    setCopiedDeviceProvUrl(false);
     setRevealedPassword(null);
     setSaveProgress(null);
 
@@ -313,6 +348,17 @@ export function ExtensionConfigureModal({
     void detailQuery.refetch();
   }, [detailQuery]);
 
+  const line = detailQuery.data?.line as Record<string, unknown> | undefined;
+  const devices = (line?.devices as Record<string, unknown>[] | undefined) ?? [];
+  const deskPhoneDevice = useMemo(
+    () => devices.find((d) => String(d.deviceType) === 'DESK_PHONE') ?? null,
+    [devices],
+  );
+  const nonDeskDevices = useMemo(
+    () => devices.filter((d) => String(d.deviceType) !== 'DESK_PHONE'),
+    [devices],
+  );
+
   const loadQr = useCallback(async () => {
     if (!row) return;
     const extensionId = row.id;
@@ -331,23 +377,91 @@ export function ExtensionConfigureModal({
     void loadQr();
   }, [open, row?.id, tab]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const showHardwareMacForm =
+    (HARDWARE_BRANDS as readonly string[]).includes(addDeviceChoice) && (!deskPhoneDevice || replaceDeskMode);
+
   useEffect(() => {
-    if (!open || !row || tab !== 'desk' || !row.hasDeskPhone || !row.device?.id) {
+    if (!open || !row || tab !== 'devices' || !showHardwareMacForm) {
+      setMacCheck({ status: 'idle' });
       return;
     }
+
+    const mac = deviceForm.macAddress.trim();
+    const normalized = normalizeMac(mac);
+    if (!mac || normalized.length < 12) {
+      setMacCheck({ status: 'idle' });
+      setMacFieldError(null);
+      return;
+    }
+
     let cancelled = false;
+    const timer = window.setTimeout(() => {
+      setMacCheck({ status: 'checking' });
+      void checkMac(mac, { lineId: row.lineId, extension: row.extension })
+        .then((result) => {
+          if (cancelled) return;
+          setMacCheck(result);
+          if (
+            result.status === 'same_extension' ||
+            result.status === 'other_extension' ||
+            result.status === 'invalid'
+          ) {
+            setMacFieldError(result.message ?? null);
+          } else {
+            setMacFieldError(null);
+          }
+        })
+        .catch(() => {
+          if (!cancelled) setMacCheck({ status: 'idle' });
+        });
+    }, 400);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [open, row, tab, showHardwareMacForm, deviceForm.macAddress]);
+
+  useEffect(() => {
+    if (!open || !row || (tab !== 'desk' && tab !== 'devices')) {
+      return;
+    }
+
+    const deskId =
+      tab === 'devices' && deskPhoneDevice
+        ? String(deskPhoneDevice.id)
+        : row.hasDeskPhone && row.device?.id
+          ? row.device.id
+          : null;
+
+    if (!deskId) {
+      setDeskPhoneDetail(null);
+      setDeskPhoneDetailLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setDeskPhoneDetailLoading(true);
     void deviceRepository
-      .getDevice(row.device.id)
+      .getDevice(deskId)
       .then((d) => {
-        if (!cancelled) setDeskDevice(d);
+        if (cancelled) return;
+        if (tab === 'desk') setDeskDevice(d);
+        setDeskPhoneDetail(d);
       })
       .catch(() => {
-        if (!cancelled) setDeskDevice(null);
+        if (cancelled) return;
+        if (tab === 'desk') setDeskDevice(null);
+        setDeskPhoneDetail(null);
+      })
+      .finally(() => {
+        if (!cancelled) setDeskPhoneDetailLoading(false);
       });
+
     return () => {
       cancelled = true;
     };
-  }, [open, row, tab]);
+  }, [open, row, tab, deskPhoneDevice?.id]);
 
   const isTabDirty = useCallback(
     (targetTab: ModalTabId) => {
@@ -502,6 +616,10 @@ export function ExtensionConfigureModal({
       setError('MAC address is required for hardware devices.');
       return;
     }
+    if (isHardware && !hardwareMacCanSubmit(deviceForm.macAddress, macCheck)) {
+      setError(macFieldError ?? 'Enter a valid, available MAC address before adding this device.');
+      return;
+    }
     setError(null);
     setMacFieldError(null);
     try {
@@ -517,6 +635,8 @@ export function ExtensionConfigureModal({
         transport: isHardware ? deviceForm.transport : undefined,
       });
       toast.success('Device Added');
+      setDeviceForm({ ...emptyDeviceModelForm, name: `${row.displayName} Phone`, manufacturer: 'GRANDSTREAM' });
+      setMacCheck({ status: 'idle' });
       invalidateDetail();
       onSaved?.();
     } catch (e) {
@@ -527,20 +647,122 @@ export function ExtensionConfigureModal({
     }
   };
 
-  const confirmDeleteDevice = async (deviceId: string) => {
+  const saveReplaceDeskDevice = async () => {
+    if (!row || !deskPhoneDevice) return;
+    if (!deviceForm.macAddress.trim()) {
+      setError('MAC address is required.');
+      return;
+    }
+    if (!hardwareMacCanSubmit(deviceForm.macAddress, macCheck)) {
+      setError(macFieldError ?? 'Enter a valid, available MAC address before replacing this device.');
+      return;
+    }
+    const deviceId = String(deskPhoneDevice.id);
+    const manufacturer = String(deskPhoneDevice.manufacturer ?? addDeviceChoice);
     setError(null);
+    setMacFieldError(null);
     try {
       await deleteDevice.mutateAsync(deviceId);
-      setDeleteConfirmDeviceId(null);
+      await createDevice.mutateAsync({
+        name: deviceForm.name || `${row.displayName} Phone`,
+        deviceType: 'DESK_PHONE',
+        lineId: row.lineId,
+        manufacturer,
+        model: deviceForm.model || String(deskPhoneDevice.model ?? ''),
+        macAddress: deviceForm.macAddress,
+        transport: deviceForm.transport,
+      });
+      toast.success('Device Replaced');
+      setReplaceDeskMode(false);
+      setDeviceForm({ ...emptyDeviceModelForm, name: `${row.displayName} Phone`, manufacturer: 'GRANDSTREAM' });
+      setMacCheck({ status: 'idle' });
       invalidateDetail();
       onSaved?.();
-      toast.success('Device Removed');
-    } catch (e: unknown) {
-      const message = formatApiErrorForDisplay(e, 'Remove device failed');
+    } catch (e) {
+      const message = formatApiErrorForDisplay(e, 'Replace device failed');
       setError(message);
+      setMacFieldError(getFieldError(e, 'macAddress') ?? null);
       toast.error(message);
     }
   };
+
+  const startReplaceDeskDevice = useCallback(() => {
+    if (!deskPhoneDevice) return;
+    setReplaceDeskMode(true);
+    setMacCheck({ status: 'idle' });
+    setMacFieldError(null);
+    setDeviceForm({
+      ...emptyDeviceModelForm,
+      name: String(deskPhoneDevice.name ?? ''),
+      manufacturer: String(deskPhoneDevice.manufacturer ?? 'GRANDSTREAM'),
+      model: String(deskPhoneDevice.model ?? ''),
+      macAddress: '',
+      transport: String(deskPhoneDevice.transport ?? 'UDP'),
+    });
+    setAddDeviceChoice(
+      (HARDWARE_BRANDS as readonly string[]).includes(String(deskPhoneDevice.manufacturer ?? ''))
+        ? (String(deskPhoneDevice.manufacturer) as AddDeviceChoice)
+        : 'GRANDSTREAM',
+    );
+  }, [deskPhoneDevice]);
+
+  const confirmDeviceAction = async () => {
+    if (!deviceConfirm) return;
+    const { action, deviceId } = deviceConfirm;
+    setError(null);
+    setPendingDeviceAction(action === 'remove' ? 'remove' : action);
+    try {
+      if (action === 'remove') {
+        await deleteDevice.mutateAsync(deviceId);
+        if (deskPhoneDevice && String(deskPhoneDevice.id) === deviceId) {
+          setReplaceDeskMode(false);
+        }
+        toast.success('Device Removed');
+      } else if (action === 'reprovision') {
+        await reprovision.mutateAsync(deviceId);
+        toast.success('Reprovision started');
+      } else {
+        await resetDeviceProv.mutateAsync(deviceId);
+        toast.success('Provisioning reset');
+      }
+      setDeviceConfirm(null);
+      invalidateDetail();
+      onSaved?.();
+    } catch (e: unknown) {
+      const fallback =
+        action === 'remove'
+          ? 'Remove device failed'
+          : action === 'reprovision'
+            ? 'Reprovision failed'
+            : 'Reset provisioning failed';
+      const message = formatApiErrorForDisplay(e, fallback);
+      setError(message);
+      toast.error(message);
+    } finally {
+      setPendingDeviceAction(null);
+    }
+  };
+
+  const copyDeviceProvUrl = useCallback(
+    async (url: string) => {
+      try {
+        await navigator.clipboard.writeText(url);
+        setCopiedDeviceProvUrl(true);
+        window.setTimeout(() => setCopiedDeviceProvUrl(false), 2000);
+        toast.success('Provision URL copied');
+      } catch (e) {
+        toast.error(formatApiErrorForDisplay(e, 'Copy failed'));
+      }
+    },
+    [toast],
+  );
+
+  const deviceAnyActionBusy =
+    reprovision.isPending ||
+    resetDeviceProv.isPending ||
+    deleteDevice.isPending ||
+    createDevice.isPending ||
+    pendingDeviceAction !== null;
 
   const requestTabChange = (next: ModalTabId) => {
     if (next === tab) return;
@@ -598,8 +820,6 @@ export function ExtensionConfigureModal({
   const detailLoadError =
     !detailReady && detailQuery.isError && !extensionDetailMatchesRow(detailQuery.data, row?.id ?? '');
 
-  const line = detailQuery.data?.line as Record<string, unknown> | undefined;
-  const devices = (line?.devices as Record<string, unknown>[] | undefined) ?? [];
   const provUrl = String(deskDevice?.provUrl ?? '');
 
   const availableUnassignedDids = useMemo(() => {
@@ -948,8 +1168,8 @@ export function ExtensionConfigureModal({
                       </tr>
                     </thead>
                     <tbody>
-                      {devices.length ? (
-                        devices.map((d) => {
+                      {nonDeskDevices.length ? (
+                        nonDeskDevices.map((d) => {
                           const deviceId = String(d.id);
                           const isPrimary = Boolean(d.isPrimary);
                           const lastSeen = (d.lastSeenAt as string | null | undefined) ?? null;
@@ -968,17 +1188,26 @@ export function ExtensionConfigureModal({
                               <td className="px-3 py-2">{String(d.model ?? '—')}</td>
                               <td className="px-3 py-2 font-mono text-xs">{String(d.macAddress ?? '—')}</td>
                               <td className="px-3 py-2">
-                                {String(
-                                  (d.sipEndpoint as { registrationStatus?: string } | undefined)?.registrationStatus ??
-                                    '—',
-                                )}
+                                {(() => {
+                                  const badge = getRegistrationBadge(d);
+                                  return (
+                                    <span
+                                      className="inline-flex items-center gap-1.5 text-xs"
+                                      role="status"
+                                      aria-label={`Registration status: ${badge.label}`}
+                                    >
+                                      <span aria-hidden="true">{badge.emoji}</span>
+                                      <span>{badge.label}</span>
+                                    </span>
+                                  );
+                                })()}
                               </td>
                               <td className="px-3 py-2 text-xs text-muted-foreground">
                                 {lastSeen ? new Date(lastSeen).toLocaleString() : 'Never'}
                               </td>
                               <td className="px-3 py-2">
                                 <div className="flex flex-wrap gap-2">
-                                  {!isPrimary && devices.length > 1 ? (
+                                  {!isPrimary && nonDeskDevices.length > 1 ? (
                                     <Button
                                       size="sm"
                                       variant="outline"
@@ -991,8 +1220,8 @@ export function ExtensionConfigureModal({
                                   <Button
                                     size="sm"
                                     variant="outline"
-                                    disabled={deleteDevice.isPending}
-                                    onClick={() => setDeleteConfirmDeviceId(deviceId)}
+                                    disabled={deviceAnyActionBusy}
+                                    onClick={() => setDeviceConfirm({ action: 'remove', deviceId })}
                                   >
                                     Remove Device
                                   </Button>
@@ -1001,72 +1230,138 @@ export function ExtensionConfigureModal({
                             </tr>
                           );
                         })
-                      ) : (
+                      ) : !deskPhoneDevice ? (
                         <tr>
                           <td colSpan={8} className="px-3 py-6 text-center text-muted-foreground">
                             No devices assigned
                           </td>
                         </tr>
-                      )}
+                      ) : null}
                     </tbody>
                   </table>
                 </div>
 
-                <div className="rounded-xl border border-border p-4">
-                  <p className="mb-3 text-sm font-medium">Add Device</p>
-                  <div className="flex flex-wrap items-end gap-3">
-                    <label className="block space-y-1.5 text-sm">
-                      <span className="font-medium">Type</span>
-                      <select
-                        className="h-10 w-48 rounded-xl border border-border bg-background px-3 text-sm"
-                        value={addDeviceChoice}
-                        onChange={(e) => {
-                          const next = e.target.value as AddDeviceChoice;
-                          setAddDeviceChoice(next);
-                          if ((HARDWARE_BRANDS as readonly string[]).includes(next)) {
-                            setDeviceForm((f) => ({ ...f, manufacturer: next }));
-                          }
+                {deskPhoneDevice ? (
+                  <>
+                    <CurrentDeviceCard
+                      device={deskPhoneDevice}
+                      enrichedDevice={deskPhoneDetail}
+                      detailLoading={deskPhoneDetailLoading}
+                      pendingAction={pendingDeviceAction}
+                      replaceMode={replaceDeskMode}
+                      anyActionBusy={deviceAnyActionBusy}
+                      copiedProvUrl={copiedDeviceProvUrl}
+                      activityEvents={activityQuery.data ?? []}
+                      onReprovision={() =>
+                        setDeviceConfirm({
+                          action: 'reprovision',
+                          deviceId: String(deskPhoneDevice.id),
+                        })
+                      }
+                      onReset={() =>
+                        setDeviceConfirm({
+                          action: 'reset',
+                          deviceId: String(deskPhoneDevice.id),
+                        })
+                      }
+                      onReplace={startReplaceDeskDevice}
+                      onRemove={() =>
+                        setDeviceConfirm({
+                          action: 'remove',
+                          deviceId: String(deskPhoneDevice.id),
+                        })
+                      }
+                      onCopyProvUrl={(url) => void copyDeviceProvUrl(url)}
+                    />
+                    {replaceDeskMode ? (
+                      <ReplaceDevicePanel
+                        model={deviceForm.model}
+                        onModelChange={(value) => setDeviceForm((f) => ({ ...f, model: value }))}
+                        macAddress={deviceForm.macAddress}
+                        onMacChange={(value) => {
+                          setDeviceForm((f) => ({ ...f, macAddress: value }));
+                          setMacFieldError(null);
                         }}
-                      >
-                        {ADD_DEVICE_CHOICES.map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {c.label}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    {(HARDWARE_BRANDS as readonly string[]).includes(addDeviceChoice) ? (
-                      <>
-                        <label className="block space-y-1.5 text-sm">
-                          <span className="font-medium">MAC Address</span>
-                          <Input
+                        macCheck={macCheck}
+                        macFieldError={macFieldError}
+                        busy={deviceAnyActionBusy}
+                        canSave={hardwareMacCanSubmit(deviceForm.macAddress, macCheck)}
+                        onSave={() => void saveReplaceDeskDevice()}
+                        onCancel={() => {
+                          setReplaceDeskMode(false);
+                          setMacCheck({ status: 'idle' });
+                          setMacFieldError(null);
+                        }}
+                      />
+                    ) : null}
+                  </>
+                ) : null}
+
+                {!deskPhoneDevice ? (
+                  <div className="rounded-xl border border-border p-4">
+                    <p className="mb-3 text-sm font-medium">Add Device</p>
+                    <div className="flex flex-wrap items-end gap-3">
+                      <label className="block space-y-1.5 text-sm">
+                        <span className="font-medium">Type</span>
+                        <select
+                          className="h-10 w-48 rounded-xl border border-border bg-background px-3 text-sm"
+                          value={addDeviceChoice}
+                          onChange={(e) => {
+                            const next = e.target.value as AddDeviceChoice;
+                            setAddDeviceChoice(next);
+                            if ((HARDWARE_BRANDS as readonly string[]).includes(next)) {
+                              setDeviceForm((f) => ({ ...f, manufacturer: next }));
+                            }
+                            setMacCheck({ status: 'idle' });
+                            setMacFieldError(null);
+                          }}
+                        >
+                          {ADD_DEVICE_CHOICES.map((c) => (
+                            <option key={c.id} value={c.id}>
+                              {c.label}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      {(HARDWARE_BRANDS as readonly string[]).includes(addDeviceChoice) ? (
+                        <>
+                          <HardwareMacField
+                            id="add-device-mac"
+                            label="MAC Address"
                             value={deviceForm.macAddress}
-                            onChange={(e) => {
-                              setDeviceForm((f) => ({ ...f, macAddress: e.target.value }));
+                            onChange={(value) => {
+                              setDeviceForm((f) => ({ ...f, macAddress: value }));
                               setMacFieldError(null);
                             }}
-                            placeholder="AA:BB:CC:DD:EE:FF"
-                            className="w-48 font-mono"
+                            macCheck={macCheck}
+                            macFieldError={macFieldError}
+                            disabled={createDevice.isPending}
                           />
-                          {macFieldError ? (
-                            <p className="text-xs text-destructive">{macFieldError}</p>
-                          ) : null}
-                        </label>
-                        <label className="block space-y-1.5 text-sm">
-                          <span className="font-medium">Model</span>
-                          <Input
-                            value={deviceForm.model}
-                            onChange={(e) => setDeviceForm((f) => ({ ...f, model: e.target.value }))}
-                            className="w-40"
-                          />
-                        </label>
-                      </>
-                    ) : null}
-                    <Button onClick={() => void addDeviceGeneric()} disabled={createDevice.isPending}>
-                      Add Device
-                    </Button>
+                          <label htmlFor="add-device-model" className="block min-w-[10rem] space-y-1.5 text-sm sm:max-w-xs">
+                            <span className="font-medium">Model</span>
+                            <Input
+                              id="add-device-model"
+                              value={deviceForm.model}
+                              onChange={(e) => setDeviceForm((f) => ({ ...f, model: e.target.value }))}
+                              disabled={createDevice.isPending}
+                            />
+                          </label>
+                        </>
+                      ) : null}
+                      <Button
+                        onClick={() => void addDeviceGeneric()}
+                        disabled={
+                          createDevice.isPending ||
+                          ((HARDWARE_BRANDS as readonly string[]).includes(addDeviceChoice) &&
+                            !hardwareMacCanSubmit(deviceForm.macAddress, macCheck))
+                        }
+                        aria-busy={createDevice.isPending}
+                      >
+                        {createDevice.isPending ? 'Adding…' : 'Add Device'}
+                      </Button>
+                    </div>
                   </div>
-                </div>
+                ) : null}
 
                 <div className="grid gap-6 lg:grid-cols-2">
                   <div className="space-y-4">
@@ -1553,37 +1848,13 @@ export function ExtensionConfigureModal({
         saving={saving}
       />
 
-      <Modal
-        open={Boolean(deleteConfirmDeviceId)}
-        onClose={() => setDeleteConfirmDeviceId(null)}
-        title="Delete Device"
-        size="lg"
-        footer={
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => setDeleteConfirmDeviceId(null)} disabled={deleteDevice.isPending}>
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              disabled={deleteDevice.isPending || !deleteConfirmDeviceId}
-              onClick={() => deleteConfirmDeviceId && void confirmDeleteDevice(deleteConfirmDeviceId)}
-            >
-              {deleteDevice.isPending ? 'Deleting…' : 'Delete'}
-            </Button>
-          </div>
-        }
-      >
-        <div className="space-y-4 text-sm">
-          <p className="font-medium text-foreground">This will:</p>
-          <ul className="list-disc space-y-1 pl-5 text-muted-foreground">
-            <li>Remove the device</li>
-            <li>Release the MAC address</li>
-            <li>Remove provisioning</li>
-            <li>Remove SIP registration</li>
-          </ul>
-          <p className="text-destructive">This action cannot be undone.</p>
-        </div>
-      </Modal>
+      <DeviceActionConfirmModal
+        action={deviceConfirm?.action ?? null}
+        open={Boolean(deviceConfirm)}
+        busy={deviceAnyActionBusy}
+        onClose={() => setDeviceConfirm(null)}
+        onConfirm={() => void confirmDeviceAction()}
+      />
     </>
   );
 }

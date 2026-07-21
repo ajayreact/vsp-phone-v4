@@ -1,0 +1,49 @@
+{
+  "startedAt": "2026-07-19T21:28:28.268Z",
+  "base": "https://tenant.vspphone.com",
+  "networkAllAuth": [],
+  "pendingAuth": [],
+  "console": [],
+  "pageErrors": [
+    "Minified React error #418; visit https://react.dev/errors/418?args[]=text&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings."
+  ],
+  "requestFailed": [
+    {
+      "url": "https://api.vspphone.com/api/v1/auth/login",
+      "method": "POST",
+      "failure": "net::ERR_ABORTED",
+      "resourceType": "fetch"
+    }
+  ],
+  "ssrPortalHint": "Operations Center",
+  "clientPortalHint": "Tenant Portal",
+  "buttonText": "Continue",
+  "finalUrl": "https://tenant.vspphone.com/login",
+  "conclusions": {
+    "ssrPortalHint": "Operations Center",
+    "clientPortalHint": "Tenant Portal",
+    "hydrationMismatchLikely": true,
+    "loginReturned": false,
+    "loginStatuses": [],
+    "meReturned": false,
+    "meStatuses": [],
+    "routerLeftLogin": false,
+    "stuckOnSigningIn": false,
+    "pendingAuth": [],
+    "firstFailingRequest": {
+      "url": "https://api.vspphone.com/api/v1/auth/login",
+      "method": "POST",
+      "failure": "net::ERR_ABORTED",
+      "resourceType": "fetch"
+    },
+    "firstJsError": "Minified React error #418; visit https://react.dev/errors/418?args[]=text&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+    "componentHint": "see report",
+    "apiProbeNote": "api.vspphone.com timed out from this host during investigation"
+  },
+  "inputValues": {
+    "email": "devtools-probe@invalid.local",
+    "passwordLen": 13
+  },
+  "observeMs": 15163,
+  "errorBanner": "Request timed out after 15000ms"
+}

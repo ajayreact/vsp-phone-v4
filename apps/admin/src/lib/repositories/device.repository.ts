@@ -2,6 +2,11 @@ import { httpDelete, httpGet, httpPatch, httpPost } from '../api/http-client';
 import { normalizeList } from './api-utils';
 
 export const deviceRepository = {
+  listDevices(search?: string): Promise<Record<string, unknown>[]> {
+    const q = search ? `?search=${encodeURIComponent(search)}` : '';
+    return httpGet<{ data: Record<string, unknown>[] }>(`/v1/tenant/devices${q}`).then(normalizeList);
+  },
+
   getDevice(id: string): Promise<Record<string, unknown>> {
     return httpGet<Record<string, unknown>>(`/v1/tenant/devices/${id}`);
   },
@@ -16,6 +21,14 @@ export const deviceRepository = {
 
   deleteDevice(id: string): Promise<Record<string, unknown>> {
     return httpDelete<Record<string, unknown>>(`/v1/tenant/devices/${id}`);
+  },
+
+  clearDevice(id: string): Promise<Record<string, unknown>> {
+    return httpPost<Record<string, unknown>>(`/v1/tenant/devices/${id}/clear`, {});
+  },
+
+  resetDevice(id: string): Promise<Record<string, unknown>> {
+    return httpPost<Record<string, unknown>>(`/v1/tenant/devices/${id}/reset`, {});
   },
 
   assignDevice(id: string, lineId: string): Promise<Record<string, unknown>> {

@@ -1,0 +1,60 @@
+{
+  "envRaw": {
+    "DATABASE_URL": "postgresql://vsp:vsp@localhost:5432/vsp_phone_v4?schema=public",
+    "KAMAILIO_HTTP_HOST": "kamailio",
+    "RTPENGINE_HOST": "rtpengine",
+    "DATABASE_HOST": "postgres",
+    "POSTGRES_DB": "vsp_phone_v4",
+    "POSTGRES_APP_DB": "vsp_phone_v4"
+  },
+  "effective": {
+    "DATABASE_URL": "postgresql://***:***@postgres:5432/vsp_phone_v4?schema=public",
+    "REDIS_URL": "redis://redis:6379",
+    "POSTGRES_HOST": "postgres",
+    "REDIS_HOST": "redis",
+    "KAMAILIO_HTTP_HOST": "kamailio",
+    "KAMAILIO_HTTP_PORT": "8880",
+    "RTPENGINE_HOST": "rtpengine",
+    "RTPENGINE_NG_PORT": "2223",
+    "VSP_ENV": "production",
+    "TLS_TERMINATION": "nginx"
+  },
+  "checks": {
+    "databaseUrlUsesLocalhost": false,
+    "databaseUrlUsesVspVoip": false,
+    "databaseUrlHostPostgres": true,
+    "databaseUrlDbVspPhoneV4": true,
+    "kamailioHostOk": true,
+    "rtpengineHostOk": true,
+    "kamailioDependsOnApi": false,
+    "apiDependsOnKamailio": true,
+    "postgresDbExpanded": "vsp_phone_v4"
+  },
+  "dependsOn": {
+    "api": {
+      "postgres": {
+        "condition": "service_healthy"
+      },
+      "redis": {
+        "condition": "service_healthy"
+      },
+      "rtpengine": {
+        "condition": "service_healthy"
+      },
+      "kamailio": {
+        "condition": "service_healthy"
+      }
+    },
+    "kamailio": {
+      "redis": {
+        "condition": "service_healthy"
+      },
+      "rtpengine": {
+        "condition": "service_started"
+      },
+      "postgres": {
+        "condition": "service_healthy"
+      }
+    }
+  }
+}

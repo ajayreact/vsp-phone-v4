@@ -52,6 +52,26 @@ export function useDeleteTenantDevice() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: deviceRepository.deleteDevice,
+    onSuccess: () => {
+      invalidateDeviceQueries(qc);
+      void qc.invalidateQueries({ queryKey: ['tenant', 'extensionHub'] });
+      void qc.invalidateQueries({ queryKey: ['tenant', 'extensions', 'detail'] });
+    },
+  });
+}
+
+export function useClearTenantDevice() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: deviceRepository.clearDevice,
+    onSuccess: () => invalidateDeviceQueries(qc),
+  });
+}
+
+export function useResetTenantDevice() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: deviceRepository.resetDevice,
     onSuccess: () => invalidateDeviceQueries(qc),
   });
 }
