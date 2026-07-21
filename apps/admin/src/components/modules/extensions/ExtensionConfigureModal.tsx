@@ -34,7 +34,7 @@ import {
 import { useExtensionActivity } from '../../../lib/hooks/queries/use-extension-activity';
 import { useAssignDid } from '../../../lib/hooks/queries/use-dids';
 import { useTenantDepartments } from '../../../lib/hooks/queries/use-tenant-organization';
-import { useUpdateTenantExtension } from '../../../lib/hooks/queries/use-tenant-mutations';
+import { useUpdateTenantExtension, useDeleteTenantExtension } from '../../../lib/hooks/queries/use-tenant-mutations';
 import { useTenantDids, useTenantUsers } from '../../../lib/hooks/queries/use-tenant';
 import { useRevealSipPassword, useResetSipPassword, useSipCredentials } from '../../../lib/hooks/queries/use-sip-credentials';
 import { formatPhoneDisplay } from '../../../lib/extensions/format-extension-label';
@@ -243,6 +243,7 @@ export function ExtensionConfigureModal({
   const [deskPhoneDetail, setDeskPhoneDetail] = useState<Record<string, unknown> | null>(null);
   const [deskPhoneDetailLoading, setDeskPhoneDetailLoading] = useState(false);
   const [copiedDeviceProvUrl, setCopiedDeviceProvUrl] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
   const queryClient = useQueryClient();
   const toast = useToast();
@@ -271,6 +272,7 @@ export function ExtensionConfigureModal({
   const enableExt = useEnableExtension();
   const archiveExt = useArchiveExtension();
   const unarchiveExt = useUnarchiveExtension();
+  const deleteExt = useDeleteTenantExtension();
   const revealSipPassword = useRevealSipPassword();
   const resetSipPassword = useResetSipPassword();
   const availableDidsQuery = useTenantDids(didSearch, { enabled: visitedTabs.has('did') });
@@ -973,20 +975,20 @@ export function ExtensionConfigureModal({
         void archiveExt
           .mutateAsync(row.id)
           .then(() => {
-            toast.success('Extension Archived');
+            toast.success('Extension Deactivated');
             onSaved?.();
           })
-          .catch((e: unknown) => toast.error(formatApiErrorForDisplay(e, 'Archive failed')));
+          .catch((e: unknown) => toast.error(formatApiErrorForDisplay(e, 'Deactivate failed')));
       },
       onUnarchiveExtension: () => {
         if (!row?.id) return;
         void unarchiveExt
           .mutateAsync(row.id)
           .then(() => {
-            toast.success('Extension Restored');
+            toast.success('Extension Reactivated');
             onSaved?.();
           })
-          .catch((e: unknown) => toast.error(formatApiErrorForDisplay(e, 'Restore failed')));
+          .catch((e: unknown) => toast.error(formatApiErrorForDisplay(e, 'Reactivate failed')));
       },
     }),
     [
@@ -1007,12 +1009,29 @@ export function ExtensionConfigureModal({
     ],
   );
 
+  const confirmDeleteExtension = async () => {
+    if (!row?.id) return;
+    setError(null);
+    try {
+      await deleteExt.mutateAsync(row.id);
+      setDeleteConfirmOpen(false);
+      toast.success('Extension deleted');
+      onSaved?.();
+      onClose();
+    } catch (e: unknown) {
+      const message = formatApiErrorForDisplay(e, 'Delete extension failed');
+      setError(message);
+      toast.error(message);
+    }
+  };
+
   const saving =
     updateExt.isPending ||
     createDevice.isPending ||
     reprovision.isPending ||
     reboot.isPending ||
-    restartReg.isPending;
+    restartReg.isPending ||
+    deleteExt.isPending;
 
   const footer = (
     <div className="flex flex-wrap items-center justify-between gap-3">
@@ -1156,6 +1175,22 @@ export function ExtensionConfigureModal({
                     ))}
                   </select>
                 </Field>
+                <div className="sm:col-span-2 mt-2 rounded-xl border border-destructive/30 bg-destructive/5 p-4">
+                  <h3 className="text-sm font-semibold text-destructive">Delete Extension</h3>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Permanently removes this extension, its line, devices, and routing. Phone numbers are released back
+                    to inventory.
+                  </p>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    className="mt-3"
+                    disabled={deleteExt.isPending || saving}
+                    onClick={() => setDeleteConfirmOpen(true)}
+                  >
+                    Delete Extension
+                  </Button>
+                </div>
               </div>
             ) : null}
 
@@ -1866,6 +1901,29 @@ export function ExtensionConfigureModal({
         onClose={() => setDeviceConfirm(null)}
         onConfirm={() => void confirmDeviceAction()}
       />
+
+      <Modal
+        open={deleteConfirmOpen}
+        onClose={() => setDeleteConfirmOpen(false)}
+        title="Delete extension?"
+        description={
+          row
+            ? `This will permanently delete extension ${row.extension} (${row.displayName}). This action cannot be undone.`
+            : undefined
+        }
+        footer={
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <Button variant="ghost" onClick={() => setDeleteConfirmOpen(false)} disabled={deleteExt.isPending}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={() => void confirmDeleteExtension()} disabled={deleteExt.isPending}>
+              {deleteExt.isPending ? 'Deleting…' : 'Delete Extension'}
+            </Button>
+          </div>
+        }
+      >
+        {null}
+      </Modal>
     </>
   );
 }

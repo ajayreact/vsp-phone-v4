@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DeviceStatus } from '@prisma/client';
 import { OnEvent } from '@nestjs/event-emitter';
@@ -24,6 +24,7 @@ export interface MacLookupResult {
 /** Phase 11 — render, download, rollback, reprovision orchestration. */
 @Injectable()
 export class ProvisioningOrchestratorService {
+  private readonly logger = new Logger(ProvisioningOrchestratorService.name);
   private readonly platformDomain: string;
 
   constructor(
@@ -94,6 +95,9 @@ export class ProvisioningOrchestratorService {
   }
 
   async reprovision(tenantId: string, deviceId: string): Promise<{ artifactHash: string; configVersion: number }> {
+    this.logger.log(
+      JSON.stringify({ event: 'provisioning.reprovision.orchestrator.enter', tenantId, deviceId }),
+    );
     const rendered = await this.renderDevice(deviceId, tenantId);
     await this.audit.log('provisioning.reprovision', {
       tenantId,
@@ -101,6 +105,15 @@ export class ProvisioningOrchestratorService {
       configVersion: rendered.configVersion,
       artifactHash: rendered.artifactHash,
     });
+    this.logger.log(
+      JSON.stringify({
+        event: 'provisioning.reprovision.orchestrator.exit',
+        tenantId,
+        deviceId,
+        configVersion: rendered.configVersion,
+        artifactHash: rendered.artifactHash,
+      }),
+    );
     return rendered;
   }
 

@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  Logger,
   Param,
   Patch,
   Post,
@@ -38,6 +39,8 @@ import { TenantProvisioningTemplatesService } from '../services/tenant-provision
 @Controller('v1/tenant/provisioning')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class TenantProvisioningController {
+  private readonly logger = new Logger(TenantProvisioningController.name);
+
   constructor(
     private readonly provisioning: TenantDeviceProvisioningService,
     private readonly templates: TenantProvisioningTemplatesService,
@@ -67,7 +70,26 @@ export class TenantProvisioningController {
   @ApiOperation({ summary: 'Reprovision device configuration' })
   reprovision(@Body() dto: ReprovisionDeviceDto, @Req() req: Request) {
     const user = getJwtUser(req);
-    return this.provisioning.reprovision(user.tenantId, user.sub, dto.deviceId);
+    this.logger.log(
+      JSON.stringify({
+        event: 'provisioning.reprovision.enter',
+        tenantId: user.tenantId,
+        deviceId: dto.deviceId,
+        actorUserId: user.sub,
+      }),
+    );
+    return this.provisioning.reprovision(user.tenantId, user.sub, dto.deviceId).then((result) => {
+      this.logger.log(
+        JSON.stringify({
+          event: 'provisioning.reprovision.exit',
+          tenantId: user.tenantId,
+          deviceId: dto.deviceId,
+          configVersion: result.configVersion,
+          artifactHash: result.artifactHash,
+        }),
+      );
+      return result;
+    });
   }
 
   @Post('devices/rollback')

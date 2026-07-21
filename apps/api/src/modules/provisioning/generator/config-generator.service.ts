@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { DeviceManufacturer } from '@prisma/client';
 import type { FirmwareChannel } from '../firmware/firmware-catalog.service';
@@ -32,6 +32,8 @@ export interface DeviceRenderInput {
 /** Phase 11 — versioned Grandstream configuration generation. */
 @Injectable()
 export class ConfigGeneratorService {
+  private readonly logger = new Logger(ConfigGeneratorService.name);
+
   constructor(
     private readonly template: TemplateEngineService,
     private readonly store: ArtifactStoreService,
@@ -49,10 +51,25 @@ export class ConfigGeneratorService {
     provUrl: string;
     firmwareVersion: string;
   }> {
-    const sipPassword = await this.vault.resolveDeskSipPassword(input.sipEndpointId);
+    this.logger.log(
+      JSON.stringify({
+        event: 'provisioning.generate.enter',
+        deviceId: input.deviceId,
+        mac: input.mac,
+        configVersion: input.configVersion,
+      }),
+    );
+
+    let sipPassword = await this.vault.resolveDeskSipPassword(input.sipEndpointId);
     if (!sipPassword) {
-      throw new Error('Desk SIP credential missing');
+      sipPassword = this.vault.issueDeskSip({
+        sipEndpointId: input.sipEndpointId,
+        authUsername: input.authUsername,
+        realm: input.realm,
+      }).password;
     }
+    const provHttp =
+      (await this.vault.resolveProvHttp(input.mac)) ?? (await this.vault.issueProvHttp(input.mac));
     const adminPassword =
       this.vault.resolveAdminPassword(input.deviceId) ??
       this.vault.issueAdminPassword(input.deviceId);
@@ -102,6 +119,8 @@ export class ConfigGeneratorService {
       language: input.language,
       firmwareUrl,
       provServerUrl,
+      provHttpUsername: provHttp.username,
+      provHttpPassword: provHttp.password,
       tlsValidate: String(this.config.get('PROV_TLS_VALIDATE') ?? 'true').toLowerCase() !== 'false',
       transport: input.transport,
       srtpEnabled: input.srtpEnabled,
@@ -115,7 +134,7 @@ export class ConfigGeneratorService {
       xml,
     });
 
-    return {
+    const result = {
       xml,
       artifactHash,
       objectKey,
@@ -124,6 +143,16 @@ export class ConfigGeneratorService {
       provUrl: provServerUrl,
       firmwareVersion,
     };
+    this.logger.log(
+      JSON.stringify({
+        event: 'provisioning.generate.exit',
+        deviceId: input.deviceId,
+        mac: input.mac,
+        configVersion: input.configVersion,
+        artifactHash,
+      }),
+    );
+    return result;
   }
 
   private sipServer(realm: string): string {

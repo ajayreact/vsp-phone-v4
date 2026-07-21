@@ -1,6 +1,7 @@
 import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
+import { requestIdMiddleware } from '../common/errors/request-id.middleware';
 import { ProvEdgeModule } from '../modules/provisioning/prov-edge.module';
 import { loadProvHttpsOptions } from '../app/tls.options';
 
@@ -22,6 +23,7 @@ export async function bootstrapProvEdge(): Promise<void> {
   const baseUrl =
     config.get<string>('PROV_PUBLIC_BASE_URL') || `https://prov.localhost:${port}`;
 
+  app.use(requestIdMiddleware);
   app.enableShutdownHooks();
   await app.listen(port, '0.0.0.0');
 

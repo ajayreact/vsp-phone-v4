@@ -59,8 +59,8 @@ export function ExtensionQuickActionsMenu({
     { id: 'reboot-desk-phone', label: 'Reboot Desk Phone', icon: <RotateCcw className="h-4 w-4" />, onSelect: handlers.onRebootDeskPhone },
     { id: 'disable-extension', label: 'Disable Extension', icon: <PowerOff className="h-4 w-4" />, onSelect: handlers.onDisableExtension, destructive: true },
     { id: 'enable-extension', label: 'Enable Extension', icon: <Power className="h-4 w-4" />, onSelect: handlers.onEnableExtension },
-    { id: 'archive-extension', label: 'Archive Extension', icon: <Archive className="h-4 w-4" />, onSelect: handlers.onArchiveExtension, destructive: true },
-    { id: 'unarchive-extension', label: 'Restore Extension', icon: <ArchiveRestore className="h-4 w-4" />, onSelect: handlers.onUnarchiveExtension },
+    { id: 'archive-extension', label: 'Deactivate Extension', icon: <Archive className="h-4 w-4" />, onSelect: handlers.onArchiveExtension, destructive: true },
+    { id: 'unarchive-extension', label: 'Reactivate Extension', icon: <ArchiveRestore className="h-4 w-4" />, onSelect: handlers.onUnarchiveExtension },
   ];
 
   const visible = new Set<string>(['open-softphone', 'copy-extension']);

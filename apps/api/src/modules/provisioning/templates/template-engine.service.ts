@@ -21,6 +21,8 @@ export interface RenderContext {
   language: string;
   firmwareUrl: string;
   provServerUrl: string;
+  provHttpUsername: string;
+  provHttpPassword: string;
   tlsValidate: boolean;
   transport?: string;
   srtpEnabled?: boolean;
@@ -68,7 +70,7 @@ export class TemplateEngineService {
   }
 
   private renderGrandstream(ctx: RenderContext): string {
-    const tls = ctx.tlsValidate ? '1' : '0';
+    const tlsValidate = ctx.tlsValidate ? '1' : '0';
     return `<?xml version="1.0" encoding="UTF-8"?>
 <gs_provisioning version="1">
   <mac>${ctx.mac}</mac>
@@ -77,7 +79,10 @@ export class TemplateEngineService {
   <P1>${escapeXml(ctx.adminPassword)}</P1>
   <P136>${ctx.language}</P136>
   <P64>${escapeXml(ctx.timezone)}</P64>
-  <P212>${tls}</P212>
+  <P212>2</P212>
+  <P8463>${tlsValidate}</P8463>
+  <P1360>${escapeXml(ctx.provHttpUsername)}</P1360>
+  <P1361>${escapeXml(ctx.provHttpPassword)}</P1361>
   <P237>${escapeXml(ctx.provServerUrl)}</P237>
   <P192>${escapeXml(ctx.firmwareUrl)}</P192>
   <Account1>

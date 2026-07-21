@@ -1,4 +1,4 @@
-import { UnauthorizedException } from '@nestjs/common';
+import { Logger, UnauthorizedException } from '@nestjs/common';
 import { ExecutionContext } from '@nestjs/common/interfaces';
 import { ProvMacAuthGuard } from './prov-mac-auth.guard';
 
@@ -37,7 +37,8 @@ describe('ProvMacAuthGuard', () => {
     expect(req).toMatchObject({ provMac: mac, provDeviceId: 'd1', provTenantId: 't1' });
   });
 
-  it('rejects when provisioning credentials are missing after restart', async () => {
+  it('rejects and logs when provisioning credentials are missing after restart', async () => {
+    const warn = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
     const vault = {
       resolveProvHttp: jest.fn().mockResolvedValue(null),
     };
@@ -49,5 +50,24 @@ describe('ProvMacAuthGuard', () => {
     const { context } = buildContext(`Basic ${Buffer.from(`${mac}:x`).toString('base64')}`);
 
     await expect(guard.canActivate(context)).rejects.toBeInstanceOf(UnauthorizedException);
+    expect(vault.resolveProvHttp).toHaveBeenCalledWith(mac);
+    expect(warn).toHaveBeenCalledTimes(1);
+    const logged = JSON.parse(String(warn.mock.calls[0]?.[0])) as {
+      event: string;
+      mac: string;
+      deviceId: string;
+      tenantId: string;
+      requestId: string;
+    };
+    expect(logged).toMatchObject({
+      event: 'provisioning.credentials.missing',
+      mac,
+      deviceId: 'd1',
+      tenantId: 't1',
+    });
+    expect(logged.requestId).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+    );
+    warn.mockRestore();
   });
 });

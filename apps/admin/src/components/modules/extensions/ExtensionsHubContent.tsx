@@ -26,11 +26,20 @@ import { ModuleAccessGate } from '../shared/ModuleShell';
 import { ExtensionConfigureModal } from './ExtensionConfigureModal';
 import { ExtensionHubStats } from './ExtensionHubStats';
 import { ExtensionStatusChip } from './ExtensionStatusChip';
+import {
+  matchesHubLifecycleFilter,
+  type HubLifecycleFilter,
+} from '../../../lib/extensions/hub-lifecycle-filter';
 
 type HubFilter = 'all' | 'online' | 'offline' | 'no-device' | 'configured' | 'pending';
 
-const FILTER_OPTIONS: { id: HubFilter; label: string }[] = [
+const LIFECYCLE_FILTER_OPTIONS: { id: HubLifecycleFilter; label: string }[] = [
+  { id: 'active', label: 'Active' },
   { id: 'all', label: 'All' },
+  { id: 'archived', label: 'Archived' },
+];
+
+const FILTER_OPTIONS: { id: HubFilter; label: string }[] = [
   { id: 'online', label: 'Online' },
   { id: 'offline', label: 'Offline' },
   { id: 'configured', label: 'Configured' },
@@ -98,6 +107,7 @@ export function ExtensionsHubContent() {
   const router = useRouter();
 
   const [search, setSearch] = useState('');
+  const [lifecycleFilter, setLifecycleFilter] = useState<HubLifecycleFilter>('active');
   const [filter, setFilter] = useState<HubFilter>('all');
   const [configureRow, setConfigureRow] = useState<ExtensionHubRow | null>(null);
   const [configureTab, setConfigureTab] = useState<ConfigureTabId>('general');
@@ -115,8 +125,13 @@ export function ExtensionsHubContent() {
 
   const rows = useMemo(() => {
     const all = query.data ?? [];
-    return all.filter((row) => matchesSearch(row, search) && matchesFilter(row, filter));
-  }, [query.data, search, filter]);
+    return all.filter(
+      (row) =>
+        matchesHubLifecycleFilter(row, lifecycleFilter) &&
+        matchesSearch(row, search) &&
+        matchesFilter(row, filter),
+    );
+  }, [query.data, search, filter, lifecycleFilter]);
 
   const openConfigure = useCallback((row: ExtensionHubRow, tab: ConfigureTabId = 'general') => {
     setConfigureTab(tab);
@@ -320,6 +335,24 @@ export function ExtensionsHubContent() {
                 onChange={(e) => setSearch(e.target.value)}
                 aria-label="Search extensions"
               />
+            </div>
+
+            <div
+              className="flex flex-wrap gap-2"
+              role="group"
+              aria-label="Extension lifecycle"
+            >
+              {LIFECYCLE_FILTER_OPTIONS.map((f) => (
+                <Button
+                  key={f.id}
+                  size="sm"
+                  variant={lifecycleFilter === f.id ? 'default' : 'outline'}
+                  aria-pressed={lifecycleFilter === f.id}
+                  onClick={() => setLifecycleFilter(f.id)}
+                >
+                  {f.label}
+                </Button>
+              ))}
             </div>
 
             <div

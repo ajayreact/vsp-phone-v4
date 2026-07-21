@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { DeviceStatus, ProvisioningStatus } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import type { JwtPayload } from '../../auth/jwt.util';
@@ -24,6 +24,8 @@ import { tenantScope } from '../utils/tenant.util';
 
 @Injectable()
 export class TenantDeviceProvisioningService {
+  private readonly logger = new Logger(TenantDeviceProvisioningService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: EnterpriseAuditService,
@@ -76,6 +78,9 @@ export class TenantDeviceProvisioningService {
   }
 
   async reprovision(tenantId: string, userId: string, deviceId: string) {
+    this.logger.log(
+      JSON.stringify({ event: 'provisioning.reprovision.service.enter', tenantId, deviceId, userId }),
+    );
     await this.requireDevice(tenantId, deviceId);
     const result = await this.orchestrator.reprovision(tenantId, deviceId);
 
@@ -96,6 +101,15 @@ export class TenantDeviceProvisioningService {
       metadata: result,
     });
 
+    this.logger.log(
+      JSON.stringify({
+        event: 'provisioning.reprovision.service.exit',
+        tenantId,
+        deviceId,
+        configVersion: result.configVersion,
+        artifactHash: result.artifactHash,
+      }),
+    );
     return result;
   }
 

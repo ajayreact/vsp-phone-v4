@@ -13,6 +13,7 @@ import {
 } from '../../carrier-admin/services/users-admin.service';
 import { EnterpriseAuditService } from '../../enterprise-observability/audit/enterprise-audit.service';
 import { PrismaService } from '../../telecom/prisma/prisma.service';
+import { defaultExtensionDisplayName } from '../utils/extension-auto-provision.util';
 import { auditPbxMutation } from '../utils/tenant-pbx-audit';
 import { newPublicId, tenantScope } from '../utils/tenant.util';
 
@@ -260,13 +261,37 @@ export class TenantUsersService {
   }
 
   async softDelete(tenantId: string, actorId: string, id: string): Promise<void> {
-    await this.requireUser(tenantId, id);
+    const user = await this.prisma.user.findFirst({
+      where: { id, tenantId, deletedAt: null },
+      include: {
+        profile: { select: { displayName: true, firstName: true, lastName: true } },
+      },
+    });
+    if (!user) throw new NotFoundException('User not found');
+
+    const displayName = this.resolveUserDisplayName(user.profile);
 
     await this.prisma.$transaction(async (tx) => {
-      await tx.line.updateMany({
+      const lines = await tx.line.findMany({
         where: { tenantId, userId: id, deletedAt: null },
-        data: { userId: null, updatedBy: actorId },
+        include: { extension: { select: { extension: true } } },
       });
+
+      for (const line of lines) {
+        const data: { userId: null; updatedBy: string; name?: string } = {
+          userId: null,
+          updatedBy: actorId,
+        };
+        if (
+          displayName &&
+          line.name.trim() === displayName &&
+          line.extension?.extension
+        ) {
+          data.name = defaultExtensionDisplayName(line.extension.extension);
+        }
+        await tx.line.update({ where: { id: line.id }, data });
+      }
+
       await tx.user.update({
         where: { id },
         data: {
@@ -367,6 +392,21 @@ export class TenantUsersService {
     }
 
     return this.requireRecord(tenantId, userId);
+  }
+
+  private resolveUserDisplayName(
+    profile: {
+      displayName: string | null;
+      firstName: string | null;
+      lastName: string | null;
+    } | null,
+  ): string | null {
+    if (!profile) return null;
+    const explicit = profile.displayName?.trim();
+    if (explicit) return explicit;
+    const first = profile.firstName?.trim();
+    if (!first) return null;
+    return `${first} ${profile.lastName?.trim() ?? ''}`.trim();
   }
 
   private async requireUser(tenantId: string, id: string) {
