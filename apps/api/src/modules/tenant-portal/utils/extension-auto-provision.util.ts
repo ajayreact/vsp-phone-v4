@@ -111,3 +111,9 @@ export function tombstoneExtensionNumber(extension: string, extensionId: string)
   const idPart = extensionId.replace(/-/g, '').slice(0, 12);
   return `${extension}__del__${idPart}`;
 }
+
+export {
+  canonicalExtensionNumber,
+  parseTombstoneExtensionNumber,
+  phoneNeedsExtensionRepair,
+} from './extension-did-invariant.util';

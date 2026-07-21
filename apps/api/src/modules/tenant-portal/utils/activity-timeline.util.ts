@@ -14,6 +14,7 @@ const ACTION_LABELS: Record<string, string> = {
   'pbx.extension.rename': 'Extension Renamed',
   'pbx.extension.update': 'Extension Updated',
   'pbx.extension.delete': 'Extension Deleted',
+  'pbx.extension.reset': 'Extension Reset',
   'pbx.extension.disable': 'Extension Disabled',
   'pbx.extension.enable': 'Extension Enabled',
   'pbx.extension.archive': 'Extension Archived',

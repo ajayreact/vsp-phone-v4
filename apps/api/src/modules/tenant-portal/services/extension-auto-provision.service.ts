@@ -17,8 +17,10 @@ import { PrismaService } from '../../telecom/prisma/prisma.service';
 import { auditPbxMutation } from '../utils/tenant-pbx-audit';
 import {
   DEFAULT_EXTENSION_START,
+  canonicalExtensionNumber,
   defaultExtensionDisplayName,
   nextAvailableExtensionNumber,
+  phoneNeedsExtensionRepair,
   tenantAdvisoryLockKeys,
 } from '../utils/extension-auto-provision.util';
 import {
@@ -318,14 +320,15 @@ export class ExtensionAutoProvisionService {
   }
 
   /**
-   * Backfill: tenant DIDs with no extension get the next free extension (100…).
-   * Idempotent — safe to call from hub list for tenants provisioned before Extension-First.
+   * One DID ↔ One Extension invariant: every tenant phone number has a live extension row.
+   * Restores soft-deleted extensions when history exists; otherwise creates a Needs Setup stub.
+   * Idempotent — safe before Extension Hub loads.
    */
-  async syncOrphanDidsToExtensions(
+  async ensureTenantDidExtensionPairs(
     tenantId: string,
     actorUserId?: string,
-  ): Promise<{ created: number }> {
-    if (!this.prisma.connected) return { created: 0 };
+  ): Promise<{ repaired: number; created: number; restored: number }> {
+    if (!this.prisma.connected) return { repaired: 0, created: 0, restored: 0 };
 
     const phones = await this.prisma.phoneNumber.findMany({
       where: { tenantId, deletedAt: null },
@@ -333,91 +336,356 @@ export class ExtensionAutoProvisionService {
       orderBy: { createdAt: 'asc' },
       take: 500,
     });
-    if (!phones.length) return { created: 0 };
+    if (!phones.length) return { repaired: 0, created: 0, restored: 0 };
 
+    let repaired = 0;
     let created = 0;
+    let restored = 0;
+
     for (const phone of phones) {
-      if (phone.lineId) {
-        const linked = await this.prisma.extension.findFirst({
-          where: { tenantId, lineId: phone.lineId, deletedAt: null },
-          select: { id: true },
-        });
-        if (linked) continue;
+      const live = phone.lineId
+        ? await this.prisma.extension.findFirst({
+            where: { tenantId, lineId: phone.lineId, deletedAt: null },
+            select: { id: true },
+          })
+        : null;
+
+      if (!phoneNeedsExtensionRepair({ lineId: phone.lineId, hasLiveExtension: Boolean(live) })) {
+        continue;
       }
-
-      // Never re-create after unassign/reassign — any historical route or assignment means skip.
-      const previouslyWired = await this.prisma.inboundRoute.findFirst({
-        where: { phoneNumberId: phone.id },
-        select: { id: true },
-      });
-      if (previouslyWired) continue;
-
-      // Prior line binding (even ended) means this DID was already provisioned — do not duplicate.
-      const priorLineBinding = await this.prisma.numberAssignment.findFirst({
-        where: { phoneNumberId: phone.id, lineId: { not: null } },
-        select: { id: true },
-      });
-      if (priorLineBinding) continue;
 
       await this.prisma.$transaction(
         async (tx) => {
           await this.lockTenantExtensionAllocation(tx, tenantId);
+
+          const restoredExt = await this.tryRestoreExtensionForPhone(
+            tx,
+            tenantId,
+            phone.id,
+            phone.lineId,
+            actorUserId,
+          );
+          if (restoredExt) {
+            await this.bindPhoneToExtensionLine(tx, {
+              tenantId,
+              phone,
+              extension: restoredExt,
+              actorUserId,
+            });
+            restored += 1;
+            repaired += 1;
+            return;
+          }
+
           const extensionNumber = await this.allocateNextExtensionNumber(
             tenantId,
             DEFAULT_EXTENSION_START,
             tx,
           );
-          const ext = await this.ensureFullyProvisionedExtension(
+          const ext = await this.ensureExtensionLineForDid(
             tenantId,
             extensionNumber,
             actorUserId,
             { phoneNumberId: phone.id },
             tx,
           );
-
-          await assertCanBindDidToLine(tx, {
+          await this.bindPhoneToExtensionLine(tx, {
             tenantId,
-            phoneNumberId: phone.id,
-            lineId: ext.lineId,
+            phone,
+            extension: ext,
+            actorUserId,
           });
-
-          await tx.phoneNumber.update({
-            where: { id: phone.id },
-            data: { lineId: ext.lineId, updatedBy: actorUserId },
-          });
-          await markLineActiveOnDidAttach(tx, ext.lineId, actorUserId);
-
-          await tx.inboundRoute.create({
-            data: {
-              id: randomUUID(),
-              tenantId,
-              name: `DID ${phone.number}`,
-              phoneNumberId: phone.id,
-              priority: 100,
-              enabled: true,
-              createdBy: actorUserId,
-              destinationType: RouteDestinationType.EXTENSION,
-              destinationLineId: ext.lineId,
-              destinationExtensionId: ext.id,
-            },
-          });
-
-          await tx.numberAssignment.create({
-            data: {
-              id: randomUUID(),
-              tenantId,
-              phoneNumberId: phone.id,
-              lineId: ext.lineId,
-              effectiveFrom: new Date(),
-              createdBy: actorUserId,
-            },
-          });
+          created += 1;
+          repaired += 1;
         },
         { timeout: 60_000 },
       );
-      created += 1;
     }
 
-    return { created };
+    return { repaired, created, restored };
+  }
+
+  /** @deprecated Use ensureTenantDidExtensionPairs */
+  async syncOrphanDidsToExtensions(
+    tenantId: string,
+    actorUserId?: string,
+  ): Promise<{ created: number }> {
+    const result = await this.ensureTenantDidExtensionPairs(tenantId, actorUserId);
+    return { created: result.created + result.restored };
+  }
+
+  private async tryRestoreExtensionForPhone(
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+    phoneNumberId: string,
+    currentLineId: string | null,
+    actorUserId?: string,
+  ) {
+    const lineIds = new Set<string>();
+    if (currentLineId) lineIds.add(currentLineId);
+
+    const assignments = await tx.numberAssignment.findMany({
+      where: { tenantId, phoneNumberId, lineId: { not: null } },
+      orderBy: { effectiveFrom: 'desc' },
+      take: 5,
+      select: { lineId: true },
+    });
+    for (const a of assignments) {
+      if (a.lineId) lineIds.add(a.lineId);
+    }
+
+    const routes = await tx.inboundRoute.findMany({
+      where: { tenantId, phoneNumberId, destinationLineId: { not: null } },
+      orderBy: { createdAt: 'desc' },
+      take: 5,
+      select: { destinationLineId: true },
+    });
+    for (const r of routes) {
+      if (r.destinationLineId) lineIds.add(r.destinationLineId);
+    }
+
+    for (const lineId of lineIds) {
+      const ext = await tx.extension.findFirst({
+        where: { tenantId, lineId },
+      });
+      if (!ext) continue;
+
+      if (ext.deletedAt) {
+        return this.restoreSoftDeletedExtension(tx, tenantId, ext, actorUserId);
+      }
+      if (ext.deletedAt === null) {
+        const line = await tx.line.findFirst({ where: { id: lineId, tenantId } });
+        if (line?.deletedAt) {
+          await tx.line.update({
+            where: { id: lineId },
+            data: {
+              deletedAt: null,
+              deletedBy: null,
+              status: LineStatus.ACTIVE,
+              updatedBy: actorUserId,
+            },
+          });
+        }
+        return ext;
+      }
+    }
+
+    return null;
+  }
+
+  private async restoreSoftDeletedExtension(
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+    ext: Extension,
+    actorUserId?: string,
+  ): Promise<Extension> {
+    const preferred = canonicalExtensionNumber(ext.extension) ?? ext.extension;
+    const conflict = await tx.extension.findFirst({
+      where: {
+        tenantId,
+        extension: preferred,
+        deletedAt: null,
+        id: { not: ext.id },
+      },
+      select: { id: true },
+    });
+    const extensionNumber = conflict
+      ? await this.allocateNextExtensionNumber(tenantId, DEFAULT_EXTENSION_START, tx)
+      : preferred;
+    const displayName = this.defaultDisplayName(extensionNumber);
+
+    await tx.line.update({
+      where: { id: ext.lineId },
+      data: {
+        deletedAt: null,
+        deletedBy: null,
+        status: LineStatus.ACTIVE,
+        userId: null,
+        name: displayName,
+        updatedBy: actorUserId,
+      },
+    });
+
+    await tx.callPolicy.updateMany({
+      where: { lineId: ext.lineId, tenantId },
+      data: { deletedAt: null, deletedBy: null, inboundEnabled: true, outboundEnabled: true },
+    });
+    await tx.recordingPolicy.updateMany({
+      where: { lineId: ext.lineId, tenantId },
+      data: {
+        deletedAt: null,
+        deletedBy: null,
+        recordingEnabled: false,
+        recordInbound: false,
+        recordOutbound: false,
+      },
+    });
+    await tx.callerID.updateMany({
+      where: { lineId: ext.lineId, tenantId },
+      data: { deletedAt: null, deletedBy: null, callerIdName: displayName },
+    });
+    await tx.voicemail.updateMany({
+      where: { lineId: ext.lineId, tenantId },
+      data: { deletedAt: null, deletedBy: null, lineId: ext.lineId, name: displayName },
+    });
+
+    return tx.extension.update({
+      where: { id: ext.id },
+      data: {
+        deletedAt: null,
+        deletedBy: null,
+        archivedAt: null,
+        extension: extensionNumber,
+        description: null,
+        departmentId: null,
+        updatedBy: actorUserId,
+      },
+    });
+  }
+
+  private async bindPhoneToExtensionLine(
+    tx: Prisma.TransactionClient,
+    params: {
+      tenantId: string;
+      phone: { id: string; number: string; lineId: string | null };
+      extension: Extension;
+      actorUserId?: string;
+    },
+  ): Promise<void> {
+    const { tenantId, phone, extension, actorUserId } = params;
+
+    await assertCanBindDidToLine(tx, {
+      tenantId,
+      phoneNumberId: phone.id,
+      lineId: extension.lineId,
+    });
+
+    await tx.phoneNumber.update({
+      where: { id: phone.id },
+      data: { lineId: extension.lineId, updatedBy: actorUserId },
+    });
+    await markLineActiveOnDidAttach(tx, extension.lineId, actorUserId);
+
+    await tx.callerID.updateMany({
+      where: { lineId: extension.lineId, tenantId, deletedAt: null },
+      data: { phoneNumberId: phone.id, callerIdName: defaultExtensionDisplayName(extension.extension), updatedBy: actorUserId },
+    });
+
+    const openAssignment = await tx.numberAssignment.findFirst({
+      where: {
+        tenantId,
+        phoneNumberId: phone.id,
+        effectiveTo: null,
+        deletedAt: null,
+      },
+    });
+    if (!openAssignment) {
+      await tx.numberAssignment.create({
+        data: {
+          id: randomUUID(),
+          tenantId,
+          phoneNumberId: phone.id,
+          lineId: extension.lineId,
+          effectiveFrom: new Date(),
+          createdBy: actorUserId,
+        },
+      });
+    } else if (openAssignment.lineId !== extension.lineId) {
+      await tx.numberAssignment.update({
+        where: { id: openAssignment.id },
+        data: { lineId: extension.lineId, updatedBy: actorUserId },
+      });
+    }
+
+    const liveRoute = await tx.inboundRoute.findFirst({
+      where: { tenantId, phoneNumberId: phone.id, deletedAt: null },
+    });
+    if (liveRoute) {
+      await tx.inboundRoute.update({
+        where: { id: liveRoute.id },
+        data: {
+          enabled: true,
+          destinationType: RouteDestinationType.EXTENSION,
+          destinationLineId: extension.lineId,
+          destinationExtensionId: extension.id,
+          updatedBy: actorUserId,
+        },
+      });
+    } else {
+      await tx.inboundRoute.create({
+        data: {
+          id: randomUUID(),
+          tenantId,
+          name: `DID ${phone.number}`,
+          phoneNumberId: phone.id,
+          priority: 100,
+          enabled: true,
+          createdBy: actorUserId,
+          destinationType: RouteDestinationType.EXTENSION,
+          destinationLineId: extension.lineId,
+          destinationExtensionId: extension.id,
+        },
+      });
+    }
+
+    await this.lineSip.resolveOrCreateForLine(
+      { tenantId, lineId: extension.lineId, actorUserId },
+      tx,
+    );
+  }
+
+  /**
+   * Extension + line + policies + voicemail + SIP for a DID. No devices (Needs Setup).
+   */
+  async ensureExtensionLineForDid(
+    tenantId: string,
+    extension: string,
+    actorUserId?: string,
+    options: EnsureExtensionOptions = {},
+    tx?: Prisma.TransactionClient,
+  ): Promise<Extension> {
+    const extNumber = extension.trim();
+    if (!extNumber) throw new BadRequestException('Extension number is required');
+
+    const run = async (client: Prisma.TransactionClient) => {
+      const ext = await this.ensureExtension(tenantId, extNumber, actorUserId, options, client);
+
+      if (options.phoneNumberId) {
+        await client.callerID.updateMany({
+          where: { lineId: ext.lineId, tenantId, deletedAt: null },
+          data: { phoneNumberId: options.phoneNumberId, updatedBy: actorUserId },
+        });
+      }
+
+      const existingVm = await client.voicemail.findFirst({
+        where: { lineId: ext.lineId, tenantId, deletedAt: null },
+      });
+      if (!existingVm) {
+        await client.voicemail.create({
+          data: {
+            id: randomUUID(),
+            publicId: newPublicId('vm'),
+            tenantId,
+            lineId: ext.lineId,
+            name: this.defaultDisplayName(ext.extension),
+            mailboxType: VoicemailMailboxType.PERSONAL,
+            mailboxNumber: ext.extension,
+            status: VoicemailStatus.ACTIVE,
+            language: 'en',
+            emailAttach: true,
+            createdBy: actorUserId,
+          },
+        });
+      }
+
+      await this.lineSip.resolveOrCreateForLine(
+        { tenantId, lineId: ext.lineId, actorUserId },
+        client,
+      );
+
+      return ext;
+    };
+
+    return tx ? run(tx) : this.prisma.$transaction(run);
   }
 }

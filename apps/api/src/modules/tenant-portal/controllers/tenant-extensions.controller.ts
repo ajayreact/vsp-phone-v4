@@ -188,7 +188,9 @@ export class TenantExtensionsController {
 
   @Delete(':id')
   @RequireAnyPermission(PERMISSIONS.TENANT_EXTENSIONS_MANAGE, PERMISSIONS.TENANT_ADMIN)
-  @ApiOperation({ summary: 'Soft-delete extension' })
+  @ApiOperation({
+    summary: 'Reset extension to Needs Setup (retains extension number, DID, line, and history)',
+  })
   remove(@Param('id') id: string, @Req() req: Request) {
     const user = getJwtUser(req);
     return this.extensions.remove(user.tenantId, user.sub, id);

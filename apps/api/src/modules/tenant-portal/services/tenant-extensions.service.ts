@@ -9,6 +9,8 @@ import {
   ProvisioningStatus,
   RouteDestinationType,
   SIPEndpointStatus,
+  VoicemailMailboxType,
+  VoicemailStatus,
 } from '@prisma/client';
 import { randomBytes, randomUUID } from 'node:crypto';
 import QRCode from 'qrcode';
@@ -30,7 +32,6 @@ import {
 import {
   extensionNeedsBusinessSetup,
   defaultExtensionDisplayName,
-  tombstoneExtensionNumber,
 } from '../utils/extension-auto-provision.util';
 import {
   lineNameMatchesUserOwnedLabels,
@@ -191,13 +192,12 @@ export class TenantExtensionsService {
     const lifecycle = parseHubLifecycleScope(lifecycleRaw);
     if (!this.prisma.connected) return [];
 
-    // Ensure every tenant DID has an extension (100, 101, …) with SIP/device stub.
-    // Never fail the hub page if orphan sync hits a data conflict — list still works.
+    // One DID ↔ One Extension: repair orphan bindings before hub renders.
     try {
-      await this.autoProvision.syncOrphanDidsToExtensions(tenantId);
+      await this.autoProvision.ensureTenantDidExtensionPairs(tenantId);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      this.logger.warn(`syncOrphanDidsToExtensions failed tenant=${tenantId}: ${msg}`);
+      this.logger.warn(`ensureTenantDidExtensionPairs failed tenant=${tenantId}: ${msg}`);
     }
 
     try {
@@ -482,119 +482,206 @@ export class TenantExtensionsService {
     return this.getById(tenantId, id);
   }
 
+  /**
+   * Logical reset — retains extension number, line, DID, SIP endpoint, and history.
+   * Clears user, devices, and business configuration back to Needs Setup defaults.
+   */
   async remove(tenantId: string, userId: string, id: string) {
     const existing = await this.require(tenantId, id);
     const lineId = existing.lineId;
-    const now = new Date();
+    const displayName = defaultExtensionDisplayName(existing.extension);
 
-    const { sipEndpointIds } = await this.provisioningCleanup.releaseDevicesOnLine(
-      tenantId,
-      lineId,
-      userId,
-    );
+    await this.provisioningCleanup.releaseDevicesOnLine(tenantId, lineId, userId);
+
+    const phones = await this.prisma.phoneNumber.findMany({
+      where: { lineId, tenantId, deletedAt: null },
+      select: { id: true, number: true },
+    });
 
     await this.prisma.$transaction(async (tx) => {
-      const phones = await tx.phoneNumber.findMany({
-        where: { lineId, tenantId, deletedAt: null },
-        select: { id: true },
-      });
-      const phoneIds = phones.map((p) => p.id);
-
-      if (phoneIds.length) {
-        await tx.numberAssignment.updateMany({
-          where: { phoneNumberId: { in: phoneIds }, effectiveTo: null, deletedAt: null },
-          data: { effectiveTo: now, updatedBy: userId },
-        });
-        await tx.inboundRoute.updateMany({
-          where: {
-            tenantId,
-            deletedAt: null,
-            OR: [
-              { phoneNumberId: { in: phoneIds } },
-              { destinationExtensionId: existing.id },
-              { destinationLineId: lineId },
-            ],
-          },
-          data: { deletedAt: now, updatedBy: userId, enabled: false },
-        });
-        await tx.phoneNumber.updateMany({
-          where: { id: { in: phoneIds }, tenantId },
-          data: { lineId: null, updatedBy: userId },
-        });
-      } else {
-        await tx.inboundRoute.updateMany({
-          where: {
-            tenantId,
-            deletedAt: null,
-            OR: [{ destinationExtensionId: existing.id }, { destinationLineId: lineId }],
-          },
-          data: { deletedAt: now, updatedBy: userId, enabled: false },
-        });
-      }
-
-      await tx.presence.updateMany({
-        where: { lineId, tenantId, deletedAt: null },
-        data: { deviceId: null, updatedBy: userId },
-      });
-
-      if (sipEndpointIds.length) {
-        await tx.sIPEndpoint.updateMany({
-          where: { id: { in: sipEndpointIds }, tenantId, deletedAt: null },
-          data: { deletedAt: now, deletedBy: userId },
-        });
-      }
-
-      await tx.voicemail.updateMany({
-        where: { lineId, tenantId, deletedAt: null },
-        data: { deletedAt: now, deletedBy: userId, lineId: null },
-      });
-      await tx.callerID.updateMany({
-        where: { lineId, tenantId, deletedAt: null },
-        data: { deletedAt: now, deletedBy: userId, phoneNumberId: null },
-      });
-      await tx.callPolicy.updateMany({
-        where: { lineId, tenantId, deletedAt: null },
-        data: { deletedAt: now, deletedBy: userId },
-      });
-      await tx.recordingPolicy.updateMany({
-        where: { lineId, tenantId, deletedAt: null },
-        data: { deletedAt: now, deletedBy: userId },
-      });
-      await tx.lineTelephonySettings.updateMany({
-        where: { lineId, tenantId, deletedAt: null },
-        data: { deletedAt: now },
-      });
-      await tx.presence.updateMany({
-        where: { lineId, tenantId, deletedAt: null },
-        data: { deletedAt: now, deletedBy: userId },
-      });
-
       await tx.line.update({
         where: { id: lineId },
-        data: { deletedAt: now, deletedBy: userId },
+        data: {
+          userId: null,
+          name: displayName,
+          status: LineStatus.ACTIVE,
+          deletedAt: null,
+          deletedBy: null,
+          updatedBy: userId,
+        },
       });
 
-      // Free @@unique([tenantId, extension]) so the number can be reused.
       await tx.extension.update({
         where: { id: existing.id },
         data: {
-          extension: tombstoneExtensionNumber(existing.extension, existing.id),
-          deletedAt: now,
-          deletedBy: userId,
+          archivedAt: null,
+          description: null,
+          departmentId: null,
+          deletedAt: null,
+          deletedBy: null,
+          updatedBy: userId,
         },
       });
+
+      await tx.presence.updateMany({
+        where: { lineId, tenantId, deletedAt: null },
+        data: { deviceId: null, status: PresenceStatus.OFFLINE, updatedBy: userId },
+      });
+
+      await tx.deviceAssignment.updateMany({
+        where: { lineId, tenantId, effectiveTo: null, deletedAt: null },
+        data: { effectiveTo: new Date(), updatedBy: userId },
+      });
+
+      for (const phone of phones) {
+        await tx.inboundRoute.updateMany({
+          where: {
+            tenantId,
+            deletedAt: null,
+            OR: [{ phoneNumberId: phone.id }, { destinationExtensionId: existing.id }, { destinationLineId: lineId }],
+          },
+          data: {
+            enabled: true,
+            destinationType: RouteDestinationType.EXTENSION,
+            destinationLineId: lineId,
+            destinationExtensionId: existing.id,
+            updatedBy: userId,
+          },
+        });
+
+        const liveRoute = await tx.inboundRoute.findFirst({
+          where: { tenantId, phoneNumberId: phone.id, deletedAt: null },
+        });
+        if (!liveRoute) {
+          await tx.inboundRoute.create({
+            data: {
+              id: randomUUID(),
+              tenantId,
+              name: `DID ${phone.number}`,
+              phoneNumberId: phone.id,
+              priority: 100,
+              enabled: true,
+              createdBy: userId,
+              destinationType: RouteDestinationType.EXTENSION,
+              destinationLineId: lineId,
+              destinationExtensionId: existing.id,
+            },
+          });
+        }
+      }
+
+      const vm = await tx.voicemail.findFirst({
+        where: { lineId, tenantId, deletedAt: null },
+      });
+      if (vm) {
+        await tx.voicemail.update({
+          where: { id: vm.id },
+          data: {
+            name: displayName,
+            mailboxNumber: existing.extension,
+            status: VoicemailStatus.ACTIVE,
+            emailAttach: true,
+            updatedBy: userId,
+          },
+        });
+      } else {
+        await tx.voicemail.create({
+          data: {
+            id: randomUUID(),
+            publicId: newPublicId('vm'),
+            tenantId,
+            lineId,
+            name: displayName,
+            mailboxType: VoicemailMailboxType.PERSONAL,
+            mailboxNumber: existing.extension,
+            status: VoicemailStatus.ACTIVE,
+            language: 'en',
+            emailAttach: true,
+            createdBy: userId,
+          },
+        });
+      }
+
+      if (phones.length) {
+        await tx.callerID.updateMany({
+          where: { lineId, tenantId, deletedAt: null },
+          data: {
+            callerIdName: displayName,
+            phoneNumberId: phones[0].id,
+            updatedBy: userId,
+          },
+        });
+      } else {
+        await tx.callerID.updateMany({
+          where: { lineId, tenantId, deletedAt: null },
+          data: { callerIdName: displayName, updatedBy: userId },
+        });
+      }
+
+      await tx.callPolicy.updateMany({
+        where: { lineId, tenantId },
+        data: {
+          inboundEnabled: true,
+          outboundEnabled: true,
+          deletedAt: null,
+          deletedBy: null,
+          updatedBy: userId,
+        },
+      });
+
+      await tx.recordingPolicy.updateMany({
+        where: { lineId, tenantId },
+        data: {
+          recordingEnabled: false,
+          recordInbound: false,
+          recordOutbound: false,
+          deletedAt: null,
+          deletedBy: null,
+          updatedBy: userId,
+        },
+      });
+
+      await tx.lineTelephonySettings.updateMany({
+        where: { lineId, tenantId },
+        data: {
+          callForwardEnabled: false,
+          followMeEnabled: false,
+          findMeEnabled: false,
+          dndEnabled: false,
+          deletedAt: null,
+        },
+      });
+
+      const lineRow = await tx.line.findFirst({
+        where: { id: lineId, tenantId },
+        select: { sipEndpointId: true },
+      });
+      if (lineRow?.sipEndpointId) {
+        await tx.sIPEndpoint.updateMany({
+          where: { id: lineRow.sipEndpointId, tenantId },
+          data: {
+            deletedAt: null,
+            deletedBy: null,
+            registrationStatus: SIPEndpointStatus.UNREGISTERED,
+            lastRegisteredAt: null,
+            updatedBy: userId,
+          },
+        });
+      }
+
+      await this.lineSip.resolveOrCreateForLine({ tenantId, lineId, actorUserId: userId }, tx);
     });
 
     await auditPbxMutation(this.audit, {
       tenantId,
       actorUserId: userId,
-      action: 'pbx.extension.delete',
+      action: 'pbx.extension.reset',
       entityType: 'Extension',
       entityId: id,
-      metadata: { extension: existing.extension, lineId, cleaned: true },
+      metadata: { extension: existing.extension, lineId, didPreserved: phones.length > 0 },
     });
 
-    return { ok: true };
+    return { ok: true, reset: true };
   }
 
   async bulkImport(tenantId: string, userId: string, dto: BulkImportExtensionsDto) {

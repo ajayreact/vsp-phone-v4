@@ -1009,17 +1009,17 @@ export function ExtensionConfigureModal({
     ],
   );
 
-  const confirmDeleteExtension = async () => {
+  const confirmResetExtension = async () => {
     if (!row?.id) return;
     setError(null);
     try {
       await deleteExt.mutateAsync(row.id);
       setDeleteConfirmOpen(false);
-      toast.success('Extension deleted');
+      toast.success('Extension reset to Needs Setup');
       onSaved?.();
       onClose();
     } catch (e: unknown) {
-      const message = formatApiErrorForDisplay(e, 'Delete extension failed');
+      const message = formatApiErrorForDisplay(e, 'Reset extension failed');
       setError(message);
       toast.error(message);
     }
@@ -1176,10 +1176,10 @@ export function ExtensionConfigureModal({
                   </select>
                 </Field>
                 <div className="sm:col-span-2 mt-2 rounded-xl border border-destructive/30 bg-destructive/5 p-4">
-                  <h3 className="text-sm font-semibold text-destructive">Delete Extension</h3>
+                  <h3 className="text-sm font-semibold text-destructive">Reset Extension</h3>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    Permanently removes this extension, its line, devices, and routing. Phone numbers are released back
-                    to inventory.
+                    Clears assigned user, devices, and configuration back to Needs Setup. The extension
+                    number and phone number stay assigned.
                   </p>
                   <Button
                     variant="destructive"
@@ -1188,7 +1188,7 @@ export function ExtensionConfigureModal({
                     disabled={deleteExt.isPending || saving}
                     onClick={() => setDeleteConfirmOpen(true)}
                   >
-                    Delete Extension
+                    Reset Extension
                   </Button>
                 </div>
               </div>
@@ -1905,10 +1905,10 @@ export function ExtensionConfigureModal({
       <Modal
         open={deleteConfirmOpen}
         onClose={() => setDeleteConfirmOpen(false)}
-        title="Delete extension?"
+        title="Reset extension?"
         description={
           row
-            ? `This will permanently delete extension ${row.extension} (${row.displayName}). This action cannot be undone.`
+            ? `This will reset extension ${row.extension} (${row.displayName}) to Needs Setup. The extension number and assigned phone number will be kept.`
             : undefined
         }
         footer={
@@ -1916,8 +1916,8 @@ export function ExtensionConfigureModal({
             <Button variant="ghost" onClick={() => setDeleteConfirmOpen(false)} disabled={deleteExt.isPending}>
               Cancel
             </Button>
-            <Button variant="destructive" onClick={() => void confirmDeleteExtension()} disabled={deleteExt.isPending}>
-              {deleteExt.isPending ? 'Deleting…' : 'Delete Extension'}
+            <Button variant="destructive" onClick={() => void confirmResetExtension()} disabled={deleteExt.isPending}>
+              {deleteExt.isPending ? 'Resetting…' : 'Reset Extension'}
             </Button>
           </div>
         }
