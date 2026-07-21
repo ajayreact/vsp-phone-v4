@@ -16,9 +16,13 @@ export class TenantSearchController {
   @Get()
   @RequirePermission(PERMISSIONS.TENANT_DASHBOARD_READ)
   @ApiOperation({ summary: 'Global tenant portal search' })
-  async query(@Query('q') q: string | undefined, @Req() req: Request) {
+  async query(
+    @Query('q') q: string | undefined,
+    @Query('lifecycle') lifecycle: string | undefined,
+    @Req() req: Request,
+  ) {
     const user = getJwtUser(req);
-    const data = await this.search.search(user.tenantId, q ?? '');
+    const data = await this.search.search(user.tenantId, q ?? '', lifecycle);
     return { data };
   }
 }

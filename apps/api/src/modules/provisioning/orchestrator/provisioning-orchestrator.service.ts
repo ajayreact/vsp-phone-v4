@@ -14,6 +14,7 @@ import { ConfigGeneratorService, type DeviceRenderInput } from '../generator/con
 import { ProvisioningRedisService } from '../redis/provisioning-redis.service';
 import { ArtifactStoreService } from '../store/artifact-store.service';
 import { isValidMac, normalizeMac } from '../vault/provisioning-vault.service';
+import { resolveLineDisplayName } from './resolve-line-display-name.util';
 
 export interface MacLookupResult {
   tenantId: string;
@@ -268,7 +269,7 @@ export class ProvisioningOrchestratorService {
       sipEndpointId: device.sipEndpoint.id,
       authUsername: device.sipEndpoint.authUsername,
       aor: device.sipEndpoint.aor,
-      displayName: device.line.user.username ?? device.line.user.email ?? device.line.name,
+      displayName: resolveLineDisplayName(device.line),
       realm,
       configVersion: Number(meta.configVersion ?? '0'),
       firmwareChannel: (meta.firmwareChannel as FirmwareChannel) || 'stable',

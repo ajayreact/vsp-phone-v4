@@ -72,7 +72,11 @@ export function useResetTenantDevice() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: deviceRepository.resetDevice,
-    onSuccess: () => invalidateDeviceQueries(qc),
+    onSuccess: () => {
+      invalidateDeviceQueries(qc);
+      void qc.invalidateQueries({ queryKey: ['tenant', 'extensionHub'] });
+      void qc.invalidateQueries({ queryKey: ['tenant', 'extensions', 'detail'] });
+    },
   });
 }
 
@@ -121,7 +125,11 @@ export function useReprovisionDevice() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: deviceRepository.reprovision,
-    onSuccess: () => invalidateDeviceQueries(qc),
+    onSuccess: () => {
+      invalidateDeviceQueries(qc);
+      void qc.invalidateQueries({ queryKey: ['tenant', 'extensionHub'] });
+      void qc.invalidateQueries({ queryKey: ['tenant', 'extensions', 'detail'] });
+    },
   });
 }
 

@@ -74,16 +74,21 @@ export const tenantRepository = {
     return httpGet<Record<string, unknown>>(`/v1/tenant/extensions/${id}`, { signal });
   },
 
-  listExtensionHub(search?: string) {
-    const q = search ? `?search=${encodeURIComponent(search)}` : '';
+  listExtensionHub(search?: string, lifecycle: import('../extensions/hub-lifecycle-filter').HubLifecycleFilter = 'active') {
+    const params = new URLSearchParams();
+    if (search) params.set('search', search);
+    params.set('lifecycle', lifecycle);
+    const q = `?${params.toString()}`;
     return httpGet<{ data: import('../hooks/queries/use-extension-hub').ExtensionHubRow[] }>(
       `/v1/tenant/extensions/hub${q}`,
     ).then(normalizeList);
   },
 
-  getExtensionHubStats(): Promise<import('../hooks/queries/use-extension-hub').ExtensionHubStats> {
+  getExtensionHubStats(
+    lifecycle: import('../extensions/hub-lifecycle-filter').HubLifecycleFilter = 'active',
+  ): Promise<import('../hooks/queries/use-extension-hub').ExtensionHubStats> {
     return httpGet<import('../hooks/queries/use-extension-hub').ExtensionHubStats>(
-      '/v1/tenant/extensions/hub/stats',
+      `/v1/tenant/extensions/hub/stats?lifecycle=${lifecycle}`,
     );
   },
 
@@ -255,9 +260,12 @@ export const tenantRepository = {
     return httpPost<Record<string, unknown>>(`/v1/tenant/dids/${id}/assign`, payload);
   },
 
-  search(q: string): Promise<{ id: string; type: string; label: string; subtitle: string; href: string }[]> {
+  search(
+    q: string,
+    lifecycle: import('../extensions/hub-lifecycle-filter').HubLifecycleFilter = 'active',
+  ): Promise<{ id: string; type: string; label: string; subtitle: string; href: string }[]> {
     return httpGet<{ data: { id: string; type: string; label: string; subtitle: string; href: string }[] }>(
-      `/v1/tenant/search?q=${encodeURIComponent(q)}`,
+      `/v1/tenant/search?q=${encodeURIComponent(q)}&lifecycle=${lifecycle}`,
     ).then(normalizeList);
   },
 

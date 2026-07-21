@@ -40,8 +40,8 @@ export function useAssignDid() {
 
 export function useTenantSearch(query: string, enabled: boolean) {
   return useQuery({
-    queryKey: queryKeys.tenant.search(query),
-    queryFn: () => tenantRepository.search(query),
+    queryKey: queryKeys.tenant.search(query, 'active'),
+    queryFn: () => tenantRepository.search(query, 'active'),
     enabled: enabled && query.length >= 2,
   });
 }

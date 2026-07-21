@@ -38,6 +38,11 @@ import { DeviceProvisioningCleanupService } from '../../provisioning/cleanup/dev
 import { auditPbxMutation } from '../utils/tenant-pbx-audit';
 import { formatExtensionLabel, formatRelativeTime } from '../utils/format-extension-label';
 import { newPublicId, tenantScope } from '../utils/tenant.util';
+import {
+  computeExtensionHubStats,
+  extensionLifecyclePrismaWhere,
+  parseHubLifecycleScope,
+} from '../utils/extension-hub-lifecycle.util';
 
 export type ExtensionHubStatus =
   | 'Registered'
@@ -52,6 +57,7 @@ export type ExtensionHubStats = {
   assignedDids: number;
   registeredDevices: number;
   offlineDevices: number;
+  onlineExtensions: number;
   unassignedExtensions: number;
   mobileApps: number;
   deskPhones: number;
@@ -172,7 +178,12 @@ export class TenantExtensionsService {
     }));
   }
 
-  async listHub(tenantId: string, search?: string): Promise<ExtensionHubRow[]> {
+  async listHub(
+    tenantId: string,
+    search?: string,
+    lifecycleRaw?: string,
+  ): Promise<ExtensionHubRow[]> {
+    const lifecycle = parseHubLifecycleScope(lifecycleRaw);
     if (!this.prisma.connected) return [];
 
     // Ensure every tenant DID has an extension (100, 101, …) with SIP/device stub.
@@ -184,7 +195,10 @@ export class TenantExtensionsService {
       this.logger.warn(`syncOrphanDidsToExtensions failed tenant=${tenantId}: ${msg}`);
     }
 
-    const where: Record<string, unknown> = tenantScope(tenantId);
+    const where: Record<string, unknown> = {
+      ...tenantScope(tenantId),
+      ...extensionLifecyclePrismaWhere(lifecycle),
+    };
     if (search?.trim()) {
       where.OR = [
         { extension: { contains: search.trim(), mode: 'insensitive' } },
@@ -205,25 +219,9 @@ export class TenantExtensionsService {
     return rows.map((row) => this.toHubRow(row, lastCallMap.get(row.lineId) ?? null));
   }
 
-  async hubStats(tenantId: string): Promise<ExtensionHubStats> {
-    const rows = await this.listHub(tenantId);
-    return {
-      totalExtensions: rows.length,
-      assignedDids: rows.filter((r) => (r.dids?.length ?? 0) > 0 || Boolean(r.did)).length,
-      registeredDevices: rows.filter((r) => r.status === 'Registered').length,
-      offlineDevices: rows.filter((r) => r.device && r.status !== 'Registered').length,
-      // Needs Setup: business config incomplete (exclude Inactive / no-DID lines)
-      unassignedExtensions: rows.filter((r) =>
-        extensionNeedsBusinessSetup({
-          extension: r.extension,
-          displayName: r.displayName,
-          hasLinkedUser: Boolean(r.linkedUser),
-          status: r.status,
-        }),
-      ).length,
-      mobileApps: rows.filter((r) => r.hasMobileApp).length,
-      deskPhones: rows.filter((r) => r.hasDeskPhone).length,
-    };
+  async hubStats(tenantId: string, lifecycleRaw?: string): Promise<ExtensionHubStats> {
+    const rows = await this.listHub(tenantId, undefined, lifecycleRaw);
+    return computeExtensionHubStats(rows);
   }
 
   async getById(tenantId: string, id: string) {

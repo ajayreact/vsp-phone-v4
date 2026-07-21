@@ -1,7 +1,7 @@
 'use client';
 
-import { useMemo } from 'react';
-import { useExtensionHub, useExtensionHubStats } from '../../../lib/hooks/queries/use-extension-hub';
+import { useExtensionHubStats } from '../../../lib/hooks/queries/use-extension-hub';
+import type { HubLifecycleFilter } from '../../../lib/extensions/hub-lifecycle-filter';
 import { Skeleton } from '../../ui/Skeleton';
 
 function Stat({ label, value }: { label: string; value: number }) {
@@ -14,16 +14,10 @@ function Stat({ label, value }: { label: string; value: number }) {
 }
 
 /** Compact inline summary — not a card grid. */
-export function ExtensionHubStats() {
-  const statsQuery = useExtensionHubStats();
-  const hubQuery = useExtensionHub();
+export function ExtensionHubStats({ lifecycle = 'active' }: { lifecycle?: HubLifecycleFilter }) {
+  const statsQuery = useExtensionHubStats(lifecycle);
 
-  const onlineCount = useMemo(
-    () => (hubQuery.data ?? []).filter((r) => r.onlineStatus === 'Online').length,
-    [hubQuery.data],
-  );
-
-  if (statsQuery.isLoading || hubQuery.isLoading) {
+  if (statsQuery.isLoading) {
     return <Skeleton className="mb-4 h-9 w-full max-w-2xl rounded-lg" />;
   }
 
@@ -39,7 +33,7 @@ export function ExtensionHubStats() {
       <span className="hidden text-border sm:inline" aria-hidden="true">
         |
       </span>
-      <Stat label="online" value={onlineCount} />
+      <Stat label="online" value={s.onlineExtensions} />
       <Stat label="offline" value={s.offlineDevices} />
       <Stat label="needs setup" value={s.unassignedExtensions} />
       <Stat label="with DID" value={s.assignedDids} />

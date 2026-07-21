@@ -27,7 +27,6 @@ import { ExtensionConfigureModal } from './ExtensionConfigureModal';
 import { ExtensionHubStats } from './ExtensionHubStats';
 import { ExtensionStatusChip } from './ExtensionStatusChip';
 import {
-  matchesHubLifecycleFilter,
   type HubLifecycleFilter,
 } from '../../../lib/extensions/hub-lifecycle-filter';
 
@@ -119,19 +118,14 @@ export function ExtensionsHubContent() {
   const [newName, setNewName] = useState('');
   const [createError, setCreateError] = useState<string | null>(null);
 
-  const query = useExtensionHub();
+  const query = useExtensionHub(undefined, lifecycleFilter);
   const restartReg = useExtensionRestartRegistration();
   const createExt = useCreateTenantExtension();
 
   const rows = useMemo(() => {
     const all = query.data ?? [];
-    return all.filter(
-      (row) =>
-        matchesHubLifecycleFilter(row, lifecycleFilter) &&
-        matchesSearch(row, search) &&
-        matchesFilter(row, filter),
-    );
-  }, [query.data, search, filter, lifecycleFilter]);
+    return all.filter((row) => matchesSearch(row, search) && matchesFilter(row, filter));
+  }, [query.data, search, filter]);
 
   const openConfigure = useCallback((row: ExtensionHubRow, tab: ConfigureTabId = 'general') => {
     setConfigureTab(tab);
@@ -320,7 +314,7 @@ export function ExtensionsHubContent() {
             }
           />
 
-          <ExtensionHubStats />
+          <ExtensionHubStats lifecycle={lifecycleFilter} />
 
           <div className="mb-4 space-y-3">
             <div className="relative max-w-lg">

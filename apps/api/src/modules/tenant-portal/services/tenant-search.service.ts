@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../telecom/prisma/prisma.service';
+import { extensionLifecyclePrismaWhere, parseHubLifecycleScope } from '../utils/extension-hub-lifecycle.util';
 import { tenantScope } from '../utils/tenant.util';
 
 export type TenantSearchResult = {
@@ -14,10 +15,11 @@ export type TenantSearchResult = {
 export class TenantSearchService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async search(tenantId: string, query: string): Promise<TenantSearchResult[]> {
+  async search(tenantId: string, query: string, lifecycleRaw?: string): Promise<TenantSearchResult[]> {
     const q = query.trim();
     if (!q || q.length < 2 || !this.prisma.connected) return [];
 
+    const lifecycle = parseHubLifecycleScope(lifecycleRaw);
     const scope = tenantScope(tenantId);
     const contains = { contains: q, mode: 'insensitive' as const };
 
@@ -28,7 +30,12 @@ export class TenantSearchService {
         take: 8,
       }),
       this.prisma.extension.findMany({
-        where: { ...scope, deletedAt: null, OR: [{ extension: contains }, { line: { name: contains } }] },
+        where: {
+          ...scope,
+          deletedAt: null,
+          ...extensionLifecyclePrismaWhere(lifecycle),
+          OR: [{ extension: contains }, { line: { name: contains } }],
+        },
         include: { line: { include: { user: { include: { profile: true } } } } },
         take: 8,
       }),

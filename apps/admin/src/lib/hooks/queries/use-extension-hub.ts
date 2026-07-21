@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '../../query/query-keys';
 import { tenantRepository } from '../../repositories/tenant.repository';
+import type { HubLifecycleFilter } from '../../extensions/hub-lifecycle-filter';
 
 export type ExtensionHubStatus =
   | 'Registered'
@@ -17,6 +18,7 @@ export type ExtensionHubStats = {
   assignedDids: number;
   registeredDevices: number;
   offlineDevices: number;
+  onlineExtensions: number;
   unassignedExtensions: number;
   mobileApps: number;
   deskPhones: number;
@@ -75,18 +77,18 @@ export type ExtensionMobileQrResult = {
 
 const HUB_POLL_MS = 15_000;
 
-export function useExtensionHub(search?: string) {
+export function useExtensionHub(search?: string, lifecycle: HubLifecycleFilter = 'active') {
   return useQuery({
-    queryKey: queryKeys.tenant.extensionHub(search),
-    queryFn: () => tenantRepository.listExtensionHub(search),
+    queryKey: queryKeys.tenant.extensionHub(search, lifecycle),
+    queryFn: () => tenantRepository.listExtensionHub(search, lifecycle),
     refetchInterval: HUB_POLL_MS,
   });
 }
 
-export function useExtensionHubStats() {
+export function useExtensionHubStats(lifecycle: HubLifecycleFilter = 'active') {
   return useQuery({
-    queryKey: queryKeys.tenant.extensionHubStats(),
-    queryFn: () => tenantRepository.getExtensionHubStats(),
+    queryKey: queryKeys.tenant.extensionHubStats(lifecycle),
+    queryFn: () => tenantRepository.getExtensionHubStats(lifecycle),
     refetchInterval: HUB_POLL_MS,
   });
 }

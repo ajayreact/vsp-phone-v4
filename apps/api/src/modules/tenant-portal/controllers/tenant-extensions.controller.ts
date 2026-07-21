@@ -48,17 +48,21 @@ export class TenantExtensionsController {
   @Get('hub/stats')
   @RequirePermission(PERMISSIONS.TENANT_EXTENSIONS_READ)
   @ApiOperation({ summary: 'Extension hub KPI statistics' })
-  async hubStats(@Req() req: Request) {
+  async hubStats(@Query('lifecycle') lifecycle: string | undefined, @Req() req: Request) {
     const user = getJwtUser(req);
-    return this.extensions.hubStats(user.tenantId);
+    return this.extensions.hubStats(user.tenantId, lifecycle);
   }
 
   @Get('hub')
   @RequirePermission(PERMISSIONS.TENANT_EXTENSIONS_READ)
   @ApiOperation({ summary: 'Extension hub rows with DID, device, status, and display names' })
-  async listHub(@Query('search') search: string | undefined, @Req() req: Request) {
+  async listHub(
+    @Query('search') search: string | undefined,
+    @Query('lifecycle') lifecycle: string | undefined,
+    @Req() req: Request,
+  ) {
     const user = getJwtUser(req);
-    const data = await this.extensions.listHub(user.tenantId, search);
+    const data = await this.extensions.listHub(user.tenantId, search, lifecycle);
     return { data };
   }
 
