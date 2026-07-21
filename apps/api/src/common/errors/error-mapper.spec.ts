@@ -53,4 +53,11 @@ describe('error-mapper', () => {
     expect(mapped.code).toBe('INVALID_MAC_ADDRESS');
     expect(mapped.field).toBe('macAddress');
   });
+
+  it('maps desk SIP missing to PROVISIONING_FAILED instead of leaking secret wording', () => {
+    const mapped = mapException(new Error('Desk SIP credential missing'));
+    expect(mapped.status).toBe(400);
+    expect(mapped.code).toBe('PROVISIONING_FAILED');
+    expect(mapped.message).toBe('Unable to generate provisioning configuration. Please try again.');
+  });
 });

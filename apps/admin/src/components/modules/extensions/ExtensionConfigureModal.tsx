@@ -354,6 +354,11 @@ export function ExtensionConfigureModal({
     () => devices.find((d) => String(d.deviceType) === 'DESK_PHONE') ?? null,
     [devices],
   );
+  const deskActionDeviceId = deskPhoneDevice?.id
+    ? String(deskPhoneDevice.id)
+    : row?.device?.id
+      ? String(row.device.id)
+      : null;
   const nonDeskDevices = useMemo(
     () => devices.filter((d) => String(d.deviceType) !== 'DESK_PHONE'),
     [devices],
@@ -925,9 +930,10 @@ export function ExtensionConfigureModal({
           .catch((e: unknown) => toast.error(formatApiErrorForDisplay(e, 'Restart registration failed')));
       },
       onReProvisionDevice: () => {
-        if (!row?.device?.id) return;
+        if (!deskActionDeviceId) return;
+        setError(null);
         void reprovision
-          .mutateAsync(row.device.id)
+          .mutateAsync(deskActionDeviceId)
           .then(() => {
             toast.success('Provision Successful');
             onSaved?.();
@@ -935,9 +941,10 @@ export function ExtensionConfigureModal({
           .catch((e: unknown) => toast.error(formatApiErrorForDisplay(e, 'Re-provision failed')));
       },
       onRebootDeskPhone: () => {
-        if (!row?.device?.id) return;
+        if (!deskActionDeviceId) return;
+        setError(null);
         void reboot
-          .mutateAsync(row.device.id)
+          .mutateAsync(deskActionDeviceId)
           .then(() => toast.success('Reboot Command Sent'))
           .catch((e: unknown) => toast.error(formatApiErrorForDisplay(e, 'Reboot failed')));
       },
@@ -996,6 +1003,7 @@ export function ExtensionConfigureModal({
       archiveExt,
       unarchiveExt,
       onSaved,
+      deskActionDeviceId,
     ],
   );
 
@@ -1500,52 +1508,55 @@ export function ExtensionConfigureModal({
                       <div className="flex flex-wrap gap-2 sm:col-span-2">
                         <Button
                           variant="outline"
-                          disabled={!row.device?.id || reprovision.isPending}
-                          onClick={() =>
-                            row.device?.id &&
+                          disabled={!deskDevice?.id || reprovision.isPending}
+                          onClick={() => {
+                            if (!deskDevice?.id) return;
+                            setError(null);
                             void reprovision
-                              .mutateAsync(row.device.id)
+                              .mutateAsync(String(deskDevice.id))
                               .then(() => {
                                 onSaved?.();
                                 toast.success('Provision Successful');
                               })
                               .catch((e: unknown) =>
                                 toast.error(formatApiErrorForDisplay(e, 'Regenerate config failed')),
-                              )
-                          }
+                              );
+                          }}
                         >
                           Regenerate Config
                         </Button>
                         <Button
                           variant="outline"
-                          disabled={!row.device?.id || reprovision.isPending}
-                          onClick={() =>
-                            row.device?.id &&
+                          disabled={!deskDevice?.id || reprovision.isPending}
+                          onClick={() => {
+                            if (!deskDevice?.id) return;
+                            setError(null);
                             void reprovision
-                              .mutateAsync(row.device.id)
+                              .mutateAsync(String(deskDevice.id))
                               .then(() => {
                                 onSaved?.();
                                 toast.success('Re-Provision Successful');
                               })
                               .catch((e: unknown) =>
                                 toast.error(formatApiErrorForDisplay(e, 'Re-provision failed')),
-                              )
-                          }
+                              );
+                          }}
                         >
                           Re-Provision
                         </Button>
                         <Button
                           variant="outline"
-                          disabled={!row.device?.id || reboot.isPending}
-                          onClick={() =>
-                            row.device?.id &&
+                          disabled={!deskDevice?.id || reboot.isPending}
+                          onClick={() => {
+                            if (!deskDevice?.id) return;
+                            setError(null);
                             void reboot
-                              .mutateAsync(row.device.id)
+                              .mutateAsync(String(deskDevice.id))
                               .then(() => toast.success('Reboot Command Sent'))
                               .catch((e: unknown) =>
                                 toast.error(formatApiErrorForDisplay(e, 'Reboot failed')),
-                              )
-                          }
+                              );
+                          }}
                         >
                           Reboot Device
                         </Button>

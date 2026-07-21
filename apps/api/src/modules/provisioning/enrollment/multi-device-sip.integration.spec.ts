@@ -105,7 +105,7 @@ describe('multi-device SIP enroll (integration)', () => {
     const lineSip = new LineSipEndpointService(prisma as never, config);
 
     const vault = {
-      resolveDeskSipPassword: jest.fn().mockReturnValue('existing-secret'),
+      resolveDeskSipPassword: jest.fn().mockResolvedValue('existing-secret'),
       issueDeskSip: jest.fn().mockReturnValue({ password: 'x', version: 'v1' }),
       resolveProvHttp: jest.fn().mockResolvedValue(null),
       issueProvHttp: jest.fn().mockResolvedValue({ username: 'mac', password: 'p', version: 'pv1' }),

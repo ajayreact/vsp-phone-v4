@@ -29,6 +29,10 @@ export class ProvisioningRedisService {
     return `vsp:prov:mac:${mac}`;
   }
 
+  deskSipCredKey(sipEndpointId: string): string {
+    return `vsp:prov:desk-sip:${sipEndpointId.toLowerCase()}`;
+  }
+
   provHttpCredKey(mac: string): string {
     return `vsp:prov:http:${mac}`;
   }

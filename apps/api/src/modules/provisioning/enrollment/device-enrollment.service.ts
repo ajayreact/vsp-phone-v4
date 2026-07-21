@@ -171,7 +171,7 @@ export class DeviceEnrollmentService {
     const aor = endpoint.aor;
     // Do not rotate shared endpoint password when attaching another device.
     let deskSecretVersion = 'shared';
-    if (!this.vault.resolveDeskSipPassword(sipEndpointId)) {
+    if (!(await this.vault.resolveDeskSipPassword(sipEndpointId))) {
       deskSecretVersion = this.vault.issueDeskSip({ sipEndpointId, authUsername, realm }).version;
     }
     const provHttp = (await this.vault.resolveProvHttp(mac)) ?? (await this.vault.issueProvHttp(mac));

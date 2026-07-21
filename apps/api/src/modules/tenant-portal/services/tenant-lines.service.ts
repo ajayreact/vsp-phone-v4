@@ -270,14 +270,18 @@ export class TenantLinesService {
       orderBy: [{ isPrimary: 'desc' }, { updatedAt: 'desc' }],
     });
 
-    return this.toSipCredentialsView(sipEndpoint, primaryDevice?.transport ?? null);
+    return this.toSipCredentialsView(
+      sipEndpoint,
+      primaryDevice?.transport ?? null,
+      Boolean(await this.vault.resolveDeskSipPassword(sipEndpoint.id)),
+    );
   }
 
   /** Reveal the current plaintext SIP password once (never fetched eagerly by the UI). */
   async revealSipPassword(tenantId: string, actorUserId: string, lineId: string) {
     await this.require(tenantId, lineId);
     const sipEndpoint = await this.lineSip.resolveOrCreateForLine({ tenantId, lineId });
-    let password = this.vault.resolveDeskSipPassword(sipEndpoint.id);
+    let password = await this.vault.resolveDeskSipPassword(sipEndpoint.id);
     if (!password) {
       password = this.vault.issueDeskSip({
         sipEndpointId: sipEndpoint.id,
@@ -323,6 +327,7 @@ export class TenantLinesService {
   private toSipCredentialsView(
     sipEndpoint: { id: string; authUsername: string; aor: string },
     transport: string | null,
+    hasPassword = false,
   ): SipCredentialsView {
     const domain = this.realmFromAor(sipEndpoint.aor);
     return {
@@ -331,7 +336,7 @@ export class TenantLinesService {
       domain,
       outboundProxy: this.registrarHost || domain,
       transport: transport ?? 'UDP',
-      hasPassword: Boolean(this.vault.resolveDeskSipPassword(sipEndpoint.id)),
+      hasPassword: Boolean(hasPassword),
     };
   }
 

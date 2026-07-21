@@ -49,9 +49,9 @@ export class ConfigGeneratorService {
     provUrl: string;
     firmwareVersion: string;
   }> {
-    const sipPassword = this.vault.resolveDeskSipPassword(input.sipEndpointId);
+    const sipPassword = await this.vault.resolveDeskSipPassword(input.sipEndpointId);
     if (!sipPassword) {
-      throw new Error('Desk SIP secret missing');
+      throw new Error('Desk SIP credential missing');
     }
     const adminPassword =
       this.vault.resolveAdminPassword(input.deviceId) ??

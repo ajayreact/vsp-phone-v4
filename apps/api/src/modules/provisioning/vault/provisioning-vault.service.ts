@@ -9,6 +9,7 @@ import {
   encryptProvHttpPassword,
 } from './prov-http-credential.crypto';
 import type { StoredProvHttpCred } from './prov-http-credential.types';
+import type { StoredDeskSipCred } from './desk-sip-credential.types';
 
 export interface DeskSipSecret {
   password: string;
@@ -50,13 +51,20 @@ export class ProvisioningVaultService {
   }): DeskSipSecret {
     const password = randomBytes(16).toString('base64url');
     const version = `desk-${Date.now()}`;
-    this.deskSip.set(params.sipEndpointId.toLowerCase(), { password, version });
+    const key = params.sipEndpointId.toLowerCase();
+    this.deskSip.set(key, { password, version });
     this.sipVault.registerPersistentCredential({
       sipEndpointId: params.sipEndpointId,
       authUsername: params.authUsername,
       realm: params.realm,
       password,
       version,
+    });
+    void this.persistDeskSip(params.sipEndpointId, {
+      password,
+      version,
+      authUsername: params.authUsername,
+      realm: params.realm,
     });
     return { password, version };
   }
@@ -106,8 +114,10 @@ export class ProvisioningVaultService {
   }
 
   revokeDeskSip(sipEndpointId: string): void {
-    this.deskSip.delete(sipEndpointId.toLowerCase());
+    const key = sipEndpointId.toLowerCase();
+    this.deskSip.delete(key);
     this.sipVault.revokePersistentCredential(sipEndpointId);
+    void this.redis.del(this.redis.deskSipCredKey(sipEndpointId));
   }
 
   async revokeProvHttp(mac: string): Promise<void> {
@@ -120,8 +130,67 @@ export class ProvisioningVaultService {
     this.adminPw.delete(deviceId.toLowerCase());
   }
 
-  resolveDeskSipPassword(sipEndpointId: string): string | null {
-    return this.deskSip.get(sipEndpointId.toLowerCase())?.password ?? null;
+  async resolveDeskSipPassword(sipEndpointId: string): Promise<string | null> {
+    const key = sipEndpointId.toLowerCase();
+    const cached = this.deskSip.get(key);
+    if (cached) return cached.password;
+
+    const rehydrated = await this.loadDeskSipFromRedis(sipEndpointId);
+    if (!rehydrated) return null;
+
+    this.deskSip.set(key, rehydrated);
+    this.logger.log(
+      JSON.stringify({
+        event: 'provisioning.desk_sip.rehydrated',
+        sipEndpointId: key,
+        version: rehydrated.version,
+      }),
+    );
+    return rehydrated.password;
+  }
+
+  private async persistDeskSip(
+    sipEndpointId: string,
+    cred: { password: string; version: string; authUsername: string; realm: string },
+  ): Promise<void> {
+    const payload: StoredDeskSipCred = {
+      passwordEnc: encryptProvHttpPassword(cred.password, this.provHttpKey),
+      version: cred.version,
+      authUsername: cred.authUsername,
+      realm: cred.realm,
+      createdAt: new Date().toISOString(),
+    };
+    await this.redis.set(this.redis.deskSipCredKey(sipEndpointId), JSON.stringify(payload));
+  }
+
+  private async loadDeskSipFromRedis(sipEndpointId: string): Promise<DeskSipSecret | null> {
+    const raw = await this.redis.get(this.redis.deskSipCredKey(sipEndpointId));
+    if (!raw) return null;
+
+    try {
+      const stored = JSON.parse(raw) as StoredDeskSipCred;
+      if (!stored.passwordEnc || !stored.version || !stored.authUsername || !stored.realm) {
+        return null;
+      }
+      const password = decryptProvHttpPassword(stored.passwordEnc, this.provHttpKey);
+      this.sipVault.registerPersistentCredential({
+        sipEndpointId,
+        authUsername: stored.authUsername,
+        realm: stored.realm,
+        password,
+        version: stored.version,
+      });
+      return { password, version: stored.version };
+    } catch (err) {
+      this.logger.warn(
+        JSON.stringify({
+          event: 'provisioning.desk_sip.rehydrate_failed',
+          sipEndpointId: sipEndpointId.toLowerCase(),
+          message: err instanceof Error ? err.message : String(err),
+        }),
+      );
+      return null;
+    }
   }
 
   private async persistProvHttp(mac: string, cred: ProvHttpCred): Promise<void> {

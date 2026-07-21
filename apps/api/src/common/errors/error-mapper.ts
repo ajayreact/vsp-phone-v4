@@ -117,7 +117,7 @@ const MESSAGE_RULES: MessageRule[] = [
     status: HttpStatus.CONFLICT,
   },
   {
-    match: /Configuration artifact missing|Unable to generate|provision.*failed/i,
+    match: /Configuration artifact missing|Unable to generate|provision.*failed|Desk SIP credential missing/i,
     code: 'PROVISIONING_FAILED',
     message: 'Unable to generate provisioning configuration. Please try again.',
     status: HttpStatus.BAD_REQUEST,
@@ -342,6 +342,11 @@ function mapUnknownError(exception: unknown): MappedApiError {
       : typeof exception === 'string'
         ? exception
         : 'Unknown error';
+
+  const ruled = applyMessageRules(raw, HttpStatus.INTERNAL_SERVER_ERROR);
+  if (ruled.code !== 'INTERNAL_ERROR' || ruled.status !== HttpStatus.INTERNAL_SERVER_ERROR) {
+    return ruled;
+  }
 
   if (LEAK_PATTERNS.some((p) => p.test(raw))) {
     return {

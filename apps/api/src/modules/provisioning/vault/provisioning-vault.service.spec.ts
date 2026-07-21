@@ -7,6 +7,7 @@ describe('ProvisioningVaultService prov HTTP persistence', () => {
   function buildService(store = new Map<string, string>()) {
     const redis = {
       provHttpCredKey: (m: string) => `vsp:prov:http:${m}`,
+      deskSipCredKey: (id: string) => `vsp:prov:desk-sip:${id.toLowerCase()}`,
       get: jest.fn(async (key: string) => store.get(key) ?? null),
       set: jest.fn(async (key: string, value: string) => {
         store.set(key, value);
@@ -61,5 +62,21 @@ describe('ProvisioningVaultService prov HTTP persistence', () => {
 
     expect(store.has(`vsp:prov:http:${mac}`)).toBe(false);
     expect(await vault.resolveProvHttp(mac)).toBeNull();
+  });
+
+  it('persists desk SIP on issue and rehydrates after memory loss', async () => {
+    const { vault, store } = buildService();
+    const sipEndpointId = '44444444-4444-4444-4444-444444444444';
+
+    vault.issueDeskSip({
+      sipEndpointId,
+      authUsername: '101',
+      realm: 'acme.sip.vsp.internal',
+    });
+
+    expect(store.has(`vsp:prov:desk-sip:${sipEndpointId}`)).toBe(true);
+    (vault as unknown as { deskSip: Map<string, unknown> }).deskSip.clear();
+
+    await expect(vault.resolveDeskSipPassword(sipEndpointId)).resolves.toEqual(expect.any(String));
   });
 });
