@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Prisma, SIPEndpointStatus, type SIPEndpoint } from '@prisma/client';
+import { LineStatus, Prisma, SIPEndpointStatus, type SIPEndpoint } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { PrismaService } from '../../telecom/prisma/prisma.service';
 import { newPublicId } from '../utils/tenant.util';
@@ -34,16 +34,30 @@ export class LineSipEndpointService {
     params: ResolveLineSipEndpointParams,
     client: DbClient = this.prisma,
   ): Promise<SIPEndpoint> {
-    const line = await client.line.findFirst({
-      where: { id: params.lineId, tenantId: params.tenantId, deletedAt: null },
-      include: {
-        extension: true,
-        tenant: { select: { slug: true } },
-        sipEndpoint: true,
-      },
+    const lineInclude = {
+      extension: true,
+      tenant: { select: { slug: true } },
+      sipEndpoint: true,
+    } as const;
+
+    let line = await client.line.findFirst({
+      where: { id: params.lineId, tenantId: params.tenantId },
+      include: lineInclude,
     });
     if (!line?.extension) {
       throw new NotFoundException('Line with extension required');
+    }
+    if (line.deletedAt) {
+      line = await client.line.update({
+        where: { id: line.id },
+        data: {
+          deletedAt: null,
+          deletedBy: null,
+          status: LineStatus.ACTIVE,
+          updatedBy: params.actorUserId,
+        },
+        include: lineInclude,
+      });
     }
 
     if (line.sipEndpoint && !line.sipEndpoint.deletedAt) {

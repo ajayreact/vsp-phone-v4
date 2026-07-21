@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import {
   DeviceStatus,
   DeviceType,
@@ -47,6 +47,8 @@ export {
 
 @Injectable()
 export class ExtensionAutoProvisionService {
+  private readonly logger = new Logger(ExtensionAutoProvisionService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: EnterpriseAuditService,
@@ -354,51 +356,64 @@ export class ExtensionAutoProvisionService {
         continue;
       }
 
-      await this.prisma.$transaction(
-        async (tx) => {
-          await this.lockTenantExtensionAllocation(tx, tenantId);
+      try {
+        await this.prisma.$transaction(
+          async (tx) => {
+            await this.lockTenantExtensionAllocation(tx, tenantId);
 
-          const restoredExt = await this.tryRestoreExtensionForPhone(
-            tx,
-            tenantId,
-            phone.id,
-            phone.lineId,
-            actorUserId,
-          );
-          if (restoredExt) {
+            const restoredExt = await this.tryRestoreExtensionForPhone(
+              tx,
+              tenantId,
+              phone.id,
+              phone.lineId,
+              actorUserId,
+            );
+            if (restoredExt) {
+              await this.bindPhoneToExtensionLine(tx, {
+                tenantId,
+                phone,
+                extension: restoredExt,
+                actorUserId,
+              });
+              restored += 1;
+              repaired += 1;
+              return;
+            }
+
+            const extensionNumber = await this.allocateNextExtensionNumber(
+              tenantId,
+              DEFAULT_EXTENSION_START,
+              tx,
+            );
+            const ext = await this.ensureExtensionLineForDid(
+              tenantId,
+              extensionNumber,
+              actorUserId,
+              { phoneNumberId: phone.id },
+              tx,
+            );
             await this.bindPhoneToExtensionLine(tx, {
               tenantId,
               phone,
-              extension: restoredExt,
+              extension: ext,
               actorUserId,
             });
-            restored += 1;
+            created += 1;
             repaired += 1;
-            return;
-          }
+          },
+          { timeout: 60_000 },
+        );
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        this.logger.warn(
+          `DID extension repair failed tenant=${tenantId} phone=${phone.number} id=${phone.id}: ${msg}`,
+        );
+      }
+    }
 
-          const extensionNumber = await this.allocateNextExtensionNumber(
-            tenantId,
-            DEFAULT_EXTENSION_START,
-            tx,
-          );
-          const ext = await this.ensureExtensionLineForDid(
-            tenantId,
-            extensionNumber,
-            actorUserId,
-            { phoneNumberId: phone.id },
-            tx,
-          );
-          await this.bindPhoneToExtensionLine(tx, {
-            tenantId,
-            phone,
-            extension: ext,
-            actorUserId,
-          });
-          created += 1;
-          repaired += 1;
-        },
-        { timeout: 60_000 },
+    if (repaired > 0) {
+      this.logger.log(
+        `DID extension repair tenant=${tenantId} repaired=${repaired} restored=${restored} created=${created}`,
       );
     }
 
@@ -422,12 +437,13 @@ export class ExtensionAutoProvisionService {
     actorUserId?: string,
   ) {
     const lineIds = new Set<string>();
+    const extensionIds = new Set<string>();
     if (currentLineId) lineIds.add(currentLineId);
 
     const assignments = await tx.numberAssignment.findMany({
-      where: { tenantId, phoneNumberId, lineId: { not: null } },
+      where: { tenantId, phoneNumberId, deletedAt: null },
       orderBy: { effectiveFrom: 'desc' },
-      take: 5,
+      take: 10,
       select: { lineId: true },
     });
     for (const a of assignments) {
@@ -435,42 +451,69 @@ export class ExtensionAutoProvisionService {
     }
 
     const routes = await tx.inboundRoute.findMany({
-      where: { tenantId, phoneNumberId, destinationLineId: { not: null } },
+      where: { tenantId, phoneNumberId },
       orderBy: { createdAt: 'desc' },
-      take: 5,
-      select: { destinationLineId: true },
+      take: 10,
+      select: { destinationLineId: true, destinationExtensionId: true },
     });
     for (const r of routes) {
       if (r.destinationLineId) lineIds.add(r.destinationLineId);
+      if (r.destinationExtensionId) extensionIds.add(r.destinationExtensionId);
+    }
+
+    const extViaAssignment = await tx.extension.findFirst({
+      where: {
+        tenantId,
+        line: { numberAssignments: { some: { phoneNumberId, deletedAt: null } } },
+      },
+      orderBy: { updatedAt: 'desc' },
+    });
+    if (extViaAssignment) {
+      extensionIds.add(extViaAssignment.id);
+      lineIds.add(extViaAssignment.lineId);
+    }
+
+    for (const extensionId of extensionIds) {
+      const ext = await tx.extension.findFirst({ where: { id: extensionId, tenantId } });
+      if (!ext) continue;
+      const restored = await this.reconcileExtensionForRepair(tx, tenantId, ext, actorUserId);
+      if (restored) return restored;
     }
 
     for (const lineId of lineIds) {
-      const ext = await tx.extension.findFirst({
-        where: { tenantId, lineId },
-      });
+      const ext = await tx.extension.findFirst({ where: { tenantId, lineId } });
       if (!ext) continue;
-
-      if (ext.deletedAt) {
-        return this.restoreSoftDeletedExtension(tx, tenantId, ext, actorUserId);
-      }
-      if (ext.deletedAt === null) {
-        const line = await tx.line.findFirst({ where: { id: lineId, tenantId } });
-        if (line?.deletedAt) {
-          await tx.line.update({
-            where: { id: lineId },
-            data: {
-              deletedAt: null,
-              deletedBy: null,
-              status: LineStatus.ACTIVE,
-              updatedBy: actorUserId,
-            },
-          });
-        }
-        return ext;
-      }
+      const restored = await this.reconcileExtensionForRepair(tx, tenantId, ext, actorUserId);
+      if (restored) return restored;
     }
 
     return null;
+  }
+
+  private async reconcileExtensionForRepair(
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+    ext: Extension,
+    actorUserId?: string,
+  ): Promise<Extension | null> {
+    if (ext.deletedAt) {
+      return this.restoreSoftDeletedExtension(tx, tenantId, ext, actorUserId);
+    }
+
+    const line = await tx.line.findFirst({ where: { id: ext.lineId, tenantId } });
+    if (!line) return null;
+    if (line.deletedAt) {
+      await tx.line.update({
+        where: { id: line.id },
+        data: {
+          deletedAt: null,
+          deletedBy: null,
+          status: LineStatus.ACTIVE,
+          updatedBy: actorUserId,
+        },
+      });
+    }
+    return ext;
   }
 
   private async restoreSoftDeletedExtension(

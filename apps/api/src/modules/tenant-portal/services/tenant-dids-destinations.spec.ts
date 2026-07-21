@@ -10,7 +10,7 @@ describe('TenantDidsService.listDestinations (One DID ↔ One Extension)', () =>
       extension: { findMany: extensionFindMany },
       line: { findMany: jest.fn() },
     };
-    return new TenantDidsService(prisma as never, {} as never);
+    return new TenantDidsService(prisma as never, {} as never, {} as never);
   }
 
   beforeEach(() => {

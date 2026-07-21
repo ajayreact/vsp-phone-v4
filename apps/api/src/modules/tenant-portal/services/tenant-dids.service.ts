@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { RouteDestinationType } from '@prisma/client';
@@ -18,6 +19,7 @@ import {
 } from '../utils/did-extension-binding';
 import { auditPbxMutation } from '../utils/tenant-pbx-audit';
 import { tenantScope } from '../utils/tenant.util';
+import { ExtensionAutoProvisionService } from './extension-auto-provision.service';
 
 const didInclude = {
   line: {
@@ -40,13 +42,23 @@ const didInclude = {
 
 @Injectable()
 export class TenantDidsService {
+  private readonly logger = new Logger(TenantDidsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: EnterpriseAuditService,
+    private readonly autoProvision: ExtensionAutoProvisionService,
   ) {}
 
   async list(tenantId: string, search?: string) {
     if (!this.prisma.connected) return [];
+
+    try {
+      await this.autoProvision.ensureTenantDidExtensionPairs(tenantId);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      this.logger.warn(`ensureTenantDidExtensionPairs failed tenant=${tenantId}: ${msg}`);
+    }
 
     const where: Record<string, unknown> = tenantScope(tenantId);
     if (search?.trim()) {
