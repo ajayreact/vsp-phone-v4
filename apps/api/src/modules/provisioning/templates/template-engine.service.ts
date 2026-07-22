@@ -24,6 +24,8 @@ export interface RenderContext {
   provServerUrl: string;
   provHttpUsername: string;
   provHttpPassword: string;
+  /** When false, phone uses MAC-in-URL only (no HTTP Basic on prov edge). */
+  embedProvHttpCredentials?: boolean;
   tlsValidate: boolean;
   transport?: string;
   srtpEnabled?: boolean;
@@ -82,8 +84,8 @@ export class TemplateEngineService {
     <P64>${escapeXml(ctx.timezone)}</P64>
     <P212>2</P212>
     <P8463>${tlsValidate}</P8463>
-    <P1360>${escapeXml(ctx.provHttpUsername)}</P1360>
-    <P1361>${escapeXml(ctx.provHttpPassword)}</P1361>
+    <P1360>${ctx.embedProvHttpCredentials ? escapeXml(ctx.provHttpUsername) : ''}</P1360>
+    <P1361>${ctx.embedProvHttpCredentials ? escapeXml(ctx.provHttpPassword) : ''}</P1361>
     <P237>${escapeXml(ctx.provServerUrl)}</P237>
     <P192>${escapeXml(ctx.firmwareUrl)}</P192>
     <P271>1</P271>

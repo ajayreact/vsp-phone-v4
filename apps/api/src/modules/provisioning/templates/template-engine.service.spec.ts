@@ -52,9 +52,15 @@ describe('TemplateEngineService.render Grandstream', () => {
     expect(xml).toContain('<P47>sip.vspphone.com</P47>');
     expect(xml).toContain('<P4010>5060</P4010>');
     expect(xml).toContain('<P130>0</P130>');
+    expect(xml).toContain('<P1360></P1360>');
+    expect(xml).toContain('<P1361></P1361>');
+    expect(xml).toContain('<P237>https://prov.vspphone.com/gs/ec74d751e3e7/cfg.xml</P237>');
+  });
+
+  it('embeds prov HTTP credentials when embedProvHttpCredentials is true', () => {
+    const xml = renderGrandstream({ embedProvHttpCredentials: true });
     expect(xml).toContain('<P1360>ec74d751e3e7</P1360>');
     expect(xml).toContain('<P1361>prov-secret</P1361>');
-    expect(xml).toContain('<P237>https://prov.vspphone.com/gs/ec74d751e3e7/cfg.xml</P237>');
   });
 
   it('maps TLS transport to P130=2 and port 5061', () => {

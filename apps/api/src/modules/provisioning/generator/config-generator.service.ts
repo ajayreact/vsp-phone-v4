@@ -107,6 +107,9 @@ export class ConfigGeneratorService {
       configuredPort: Number(this.config.get('SIP_PORT') ?? '5060'),
     });
 
+    const embedProvHttpCredentials =
+      String(this.config.get('PROV_EMBED_HTTP_CREDENTIALS') ?? 'false').toLowerCase() === 'true';
+
     const xml = this.template.render({
       mac: input.mac,
       deviceName: input.deviceName,
@@ -128,6 +131,7 @@ export class ConfigGeneratorService {
       provServerUrl,
       provHttpUsername: provHttp.username,
       provHttpPassword: provHttp.password,
+      embedProvHttpCredentials,
       tlsValidate: String(this.config.get('PROV_TLS_VALIDATE') ?? 'true').toLowerCase() !== 'false',
       transport: input.transport,
       srtpEnabled: input.srtpEnabled,

@@ -52,6 +52,29 @@ export class ProvMacAuthGuard implements CanActivate {
       throw new UnauthorizedException('Unknown device');
     }
 
+    const macInUrl = pathResolution.mac?.toLowerCase() === mac.toLowerCase();
+
+    if (!authUsername) {
+      // Zero-touch: enrolled device + MAC embedded in canonical provisioning URL.
+      if (macInUrl) {
+        this.logger.log(
+          JSON.stringify({
+            event: 'provisioning.auth.mac_url',
+            mac,
+            deviceId: lookup.deviceId,
+            tenantId: lookup.tenantId,
+            requestId,
+            requestedPath: requestPath,
+          }),
+        );
+        (req as Request & { provMac: string; provDeviceId: string; provTenantId: string }).provMac = mac;
+        (req as Request & { provDeviceId: string }).provDeviceId = lookup.deviceId;
+        (req as Request & { provTenantId: string }).provTenantId = lookup.tenantId;
+        return true;
+      }
+      throw new UnauthorizedException('Basic auth required');
+    }
+
     const cred = await this.vault.resolveProvHttp(mac);
     if (!cred) {
       this.logger.warn(
@@ -66,9 +89,6 @@ export class ProvMacAuthGuard implements CanActivate {
       throw new UnauthorizedException('Provisioning credentials missing');
     }
 
-    if (!authUsername) {
-      throw new UnauthorizedException('Basic auth required');
-    }
     const header = req.headers.authorization ?? '';
     const decoded = Buffer.from(header.slice(6), 'base64').toString('utf8');
     const sep = decoded.indexOf(':');

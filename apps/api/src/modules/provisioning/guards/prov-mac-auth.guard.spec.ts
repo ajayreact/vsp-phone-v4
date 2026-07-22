@@ -21,6 +21,32 @@ describe('ProvMacAuthGuard', () => {
     return { context, req };
   }
 
+  it('allows cfg download without Basic auth when MAC is in canonical URL', async () => {
+    const vault = { resolveProvHttp: jest.fn() };
+    const orchestrator = {
+      lookupMac: jest.fn().mockResolvedValue({ tenantId: 't1', deviceId: 'd1', mac }),
+      quarantineUnknownMac: jest.fn(),
+    };
+    const guard = new ProvMacAuthGuard(vault as never, orchestrator as never);
+    const { context, req } = buildContext(`/gs/${mac}/cfg.xml`);
+
+    await expect(guard.canActivate(context)).resolves.toBe(true);
+    expect(vault.resolveProvHttp).not.toHaveBeenCalled();
+    expect(req).toMatchObject({ provMac: mac, provDeviceId: 'd1', provTenantId: 't1' });
+  });
+
+  it('requires Basic auth for native model filename without MAC in path', async () => {
+    const vault = { resolveProvHttp: jest.fn() };
+    const orchestrator = {
+      lookupMac: jest.fn().mockResolvedValue({ tenantId: 't1', deviceId: 'd1', mac }),
+      quarantineUnknownMac: jest.fn(),
+    };
+    const guard = new ProvMacAuthGuard(vault as never, orchestrator as never);
+    const { context } = buildContext('/gs/cfggrp2601.xml');
+
+    await expect(guard.canActivate(context)).rejects.toBeInstanceOf(UnauthorizedException);
+  });
+
   it('allows cfg download when credentials were rehydrated from Redis', async () => {
     const password = 'rehydrated-password';
     const vault = {
