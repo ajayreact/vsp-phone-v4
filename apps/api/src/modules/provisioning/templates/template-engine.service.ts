@@ -32,7 +32,7 @@ export interface RenderContext {
 /** Phase 11 + Phase 3 — multi-vendor provisioning template engine. */
 @Injectable()
 export class TemplateEngineService {
-  readonly platformTemplateVersion = '1.1.0';
+  readonly platformTemplateVersion = '1.2.0';
 
   constructor(private readonly config: ConfigService) {}
 
@@ -74,31 +74,31 @@ export class TemplateEngineService {
     const tlsValidate = ctx.tlsValidate ? '1' : '0';
     const transport = ctx.grandstreamTransport ?? 0;
     return `<?xml version="1.0" encoding="UTF-8"?>
-<gs_provisioning version="1">
+<gs_provision version="1">
   <mac>${ctx.mac}</mac>
-  <config_version>${ctx.configVersion}</config_version>
-  <template_version>${ctx.templateVersion}</template_version>
-  <P1>${escapeXml(ctx.adminPassword)}</P1>
-  <P136>${ctx.language}</P136>
-  <P64>${escapeXml(ctx.timezone)}</P64>
-  <P212>2</P212>
-  <P8463>${tlsValidate}</P8463>
-  <P1360>${escapeXml(ctx.provHttpUsername)}</P1360>
-  <P1361>${escapeXml(ctx.provHttpPassword)}</P1361>
-  <P237>${escapeXml(ctx.provServerUrl)}</P237>
-  <P192>${escapeXml(ctx.firmwareUrl)}</P192>
-  <Account1>
-    <Account1Active>1</Account1Active>
-    <AccountName>${escapeXml(ctx.displayName)}</AccountName>
-    <Account1Register>1</Account1Register>
-    <Account1UserID>${escapeXml(ctx.sipUsername)}</Account1UserID>
-    <Account1Password>${escapeXml(ctx.sipPassword)}</Account1Password>
-    <Account1SIPServer>${escapeXml(ctx.sipServer)}</Account1SIPServer>
-    <Account1SIPServerPort>${ctx.sipPort}</Account1SIPServerPort>
-    <Account1Transport>${transport}</Account1Transport>
-    <Account1DisplayName>${escapeXml(ctx.displayName)}</Account1DisplayName>
-  </Account1>
-</gs_provisioning>`;
+  <config version="1">
+    <P1>${escapeXml(ctx.adminPassword)}</P1>
+    <P136>${ctx.language}</P136>
+    <P64>${escapeXml(ctx.timezone)}</P64>
+    <P212>2</P212>
+    <P8463>${tlsValidate}</P8463>
+    <P1360>${escapeXml(ctx.provHttpUsername)}</P1360>
+    <P1361>${escapeXml(ctx.provHttpPassword)}</P1361>
+    <P237>${escapeXml(ctx.provServerUrl)}</P237>
+    <P192>${escapeXml(ctx.firmwareUrl)}</P192>
+    <P271>1</P271>
+    <P270>${escapeXml(ctx.displayName)}</P270>
+    <P31>1</P31>
+    <P35>${escapeXml(ctx.sipUsername)}</P35>
+    <P36>${escapeXml(ctx.sipUsername)}</P36>
+    <P34>${escapeXml(ctx.sipPassword)}</P34>
+    <P47>${escapeXml(ctx.sipServer)}</P47>
+    <P4010>${ctx.sipPort}</P4010>
+    <P40>${ctx.sipPort}</P40>
+    <P130>${transport}</P130>
+    <P3>${escapeXml(ctx.displayName)}</P3>
+  </config>
+</gs_provision>`;
   }
 
   private renderYealink(ctx: RenderContext): string {
