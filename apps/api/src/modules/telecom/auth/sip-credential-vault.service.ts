@@ -1,6 +1,12 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { computeHa1 } from '../auth/sip-digest.crypto';
+import {
+  decryptProvHttpPassword,
+  deriveProvHttpCredentialKey,
+} from '../../provisioning/vault/prov-http-credential.crypto';
+import type { StoredDeskSipCred } from '../../provisioning/vault/desk-sip-credential.types';
+import { TelecomRedisService } from '../redis/telecom-redis.service';
 
 export interface SipCredentialRecord {
   sipEndpointId: string;
@@ -28,8 +34,19 @@ export class SipCredentialVaultService implements OnModuleInit {
   private map = new Map<string, { ha1?: string; password?: string; version: string }>();
   /** Phase 10 — short-lived enroll credentials (memory; Redis is source of truth for revoke TTL) */
   private enroll = new Map<string, EnrollEntry>();
+  private readonly provHttpKey: Buffer;
 
-  constructor(private readonly config: ConfigService) {}
+  constructor(
+    private readonly config: ConfigService,
+    private readonly redis: TelecomRedisService,
+  ) {
+    const secret =
+      this.config.get<string>('PROV_HTTP_CREDENTIAL_KEY') ||
+      this.config.get<string>('JWT_SECRET') ||
+      this.config.get<string>('DEV_JWT_SECRET') ||
+      'dev-only-prov-http-credential-key';
+    this.provHttpKey = deriveProvHttpCredentialKey(secret);
+  }
 
   onModuleInit(): void {
     const raw = this.config.get<string>('SIP_VAULT_JSON', '');
@@ -82,25 +99,36 @@ export class SipCredentialVaultService implements OnModuleInit {
       this.enroll.delete(enrollKey);
     }
 
-    const byId = this.map.get(params.sipEndpointId.toLowerCase());
-    const byUserRealm = this.map.get(
-      `${params.authUsername}@${params.realm}`.toLowerCase(),
-    );
-    const entry = byId ?? byUserRealm;
-
-    if (entry?.ha1) {
+    const userRealmKey = `${params.authUsername}@${params.realm}`.toLowerCase();
+    const byUserRealm = this.map.get(userRealmKey);
+    if (byUserRealm?.ha1) {
       return {
         sipEndpointId: params.sipEndpointId,
-        ha1: entry.ha1.toLowerCase(),
-        passwordVersion: entry.version,
+        ha1: byUserRealm.ha1.toLowerCase(),
+        passwordVersion: byUserRealm.version,
+      };
+    }
+    if (byUserRealm?.password) {
+      return {
+        sipEndpointId: params.sipEndpointId,
+        ha1: computeHa1(params.authUsername, params.realm, byUserRealm.password),
+        passwordVersion: byUserRealm.version,
       };
     }
 
-    if (entry?.password) {
+    const byId = this.map.get(params.sipEndpointId.toLowerCase());
+    if (byId?.password) {
       return {
         sipEndpointId: params.sipEndpointId,
-        ha1: computeHa1(params.authUsername, params.realm, entry.password),
-        passwordVersion: entry.version,
+        ha1: computeHa1(params.authUsername, params.realm, byId.password),
+        passwordVersion: byId.version,
+      };
+    }
+    if (byId?.ha1) {
+      return {
+        sipEndpointId: params.sipEndpointId,
+        ha1: byId.ha1.toLowerCase(),
+        passwordVersion: byId.version,
       };
     }
 
@@ -157,16 +185,66 @@ export class SipCredentialVaultService implements OnModuleInit {
     realm: string;
     password: string;
     version: string;
+    /** Desk phones: retain password so HA1 matches Kamailio challenge realm (SIP_REGISTRAR_HOST). */
+    retainPassword?: boolean;
   }): void {
+    const idKey = params.sipEndpointId.toLowerCase();
+    const userRealmKey = `${params.authUsername}@${params.realm}`.toLowerCase();
     const ha1 = computeHa1(params.authUsername, params.realm, params.password);
-    this.map.set(params.sipEndpointId.toLowerCase(), {
-      ha1,
-      version: params.version,
-    });
-    this.map.set(`${params.authUsername}@${params.realm}`.toLowerCase(), {
-      ha1,
-      version: params.version,
-    });
+    const retain = params.retainPassword !== false;
+
+    if (retain) {
+      this.map.set(idKey, { password: params.password, version: params.version });
+    } else {
+      this.map.set(idKey, { ha1, version: params.version });
+    }
+    this.map.set(userRealmKey, { ha1, version: params.version });
+  }
+
+  /** Load desk SIP password from Redis when API restarted before REGISTER auth. */
+  async rehydrateDeskCredential(sipEndpointId: string): Promise<boolean> {
+    const idKey = sipEndpointId.toLowerCase();
+    if (this.map.has(idKey)) {
+      return true;
+    }
+
+    const raw = await this.redis.get(`vsp:prov:desk-sip:${idKey}`);
+    if (!raw) {
+      return false;
+    }
+
+    try {
+      const stored = JSON.parse(raw) as StoredDeskSipCred;
+      if (!stored.passwordEnc || !stored.version || !stored.authUsername || !stored.realm) {
+        return false;
+      }
+      const password = decryptProvHttpPassword(stored.passwordEnc, this.provHttpKey);
+      this.registerPersistentCredential({
+        sipEndpointId,
+        authUsername: stored.authUsername,
+        realm: stored.realm,
+        password,
+        version: stored.version,
+        retainPassword: true,
+      });
+      this.logger.log(
+        JSON.stringify({
+          event: 'telecom.vault.desk_sip.rehydrated',
+          sipEndpointId: idKey,
+          version: stored.version,
+        }),
+      );
+      return true;
+    } catch (err) {
+      this.logger.warn(
+        JSON.stringify({
+          event: 'telecom.vault.desk_sip.rehydrate_failed',
+          sipEndpointId: idKey,
+          message: err instanceof Error ? err.message : String(err),
+        }),
+      );
+      return false;
+    }
   }
 
   revokePersistentCredential(sipEndpointId: string): void {

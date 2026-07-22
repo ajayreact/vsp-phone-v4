@@ -11,6 +11,7 @@ Operator-owned reverse proxy. The application stack listens on localhost; nginx 
 | `app.vspphone.com` | `http://127.0.0.1:3001` | Operations Center (`ops` portal) |
 | `tenant.vspphone.com` | `http://127.0.0.1:3001` | Tenant Portal (`tenant` portal) |
 | `prov.vspphone.com` | `https://127.0.0.1:3444` | NestJS prov-edge (`/health`, `/gs/{mac}/cfg.xml`) |
+| `sip.vspphone.com` | **not nginx** — direct Kamailio `:5060/5061` | Desk phone REGISTER (UDP/TCP/TLS) |
 | `vspphone.com` / `www` | 301 → `app.vspphone.com` | — |
 
 **Provisioning status “fetch failed”:** Platform Admin probes `GET {PROV_PUBLIC_BASE_URL}/health` (default `https://prov.vspphone.com/health`). That requires (1) DNS A for `prov.vspphone.com`, (2) this nginx vhost + LE cert, (3) API publishing `3444`. Path is `/health` — **not** `/api/health`.

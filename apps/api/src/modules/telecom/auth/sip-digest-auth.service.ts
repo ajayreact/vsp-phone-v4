@@ -19,6 +19,7 @@ import {
   hasActiveAssignment,
   pickRegistrableDevice,
 } from '../sip/sip-endpoint-devices.util';
+import { isAcceptedDigestRealm } from '../sip/sip-realm.util';
 
 const AUTH_CACHE_TTL_SEC = 30;
 
@@ -38,6 +39,7 @@ export class SipDigestAuthService {
   private readonly logger = new Logger(SipDigestAuthService.name);
   private readonly maxExpires: number;
   private readonly platformDomain: string;
+  private readonly registrarHost: string;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -48,6 +50,7 @@ export class SipDigestAuthService {
   ) {
     this.maxExpires = Number(config.get('SIP_DEFAULT_EXPIRES_SEC') ?? 3600);
     this.platformDomain = config.get<string>('SIP_PLATFORM_DOMAIN', 'vsp.internal');
+    this.registrarHost = (config.get<string>('SIP_REGISTRAR_HOST') || '').trim();
   }
 
   async authenticate(
@@ -129,13 +132,13 @@ export class SipDigestAuthService {
       return deny('tenant_inactive');
     }
 
-    const expectedRealm = this.expectedRealm(endpoint.tenant.slug);
-    const epHost = extractHost(endpoint.aor);
-    const realmLc = dto.realm.toLowerCase();
-    const realmOk =
-      realmLc === expectedRealm.toLowerCase() ||
-      realmLc === this.platformDomain.toLowerCase() ||
-      (epHost !== null && realmLc === epHost.toLowerCase());
+    const realmOk = isAcceptedDigestRealm({
+      realm: dto.realm,
+      tenantSlug: endpoint.tenant.slug,
+      platformDomain: this.platformDomain,
+      endpointAor: endpoint.aor,
+      registrarHost: this.registrarHost || undefined,
+    });
 
     if (!realmOk) {
       return deny('realm_mismatch');
@@ -159,6 +162,8 @@ export class SipDigestAuthService {
     if (activeAssignment && activeAssignment.tenantId !== endpoint.tenantId) {
       return deny('tenant_isolation_violation');
     }
+
+    await this.vault.rehydrateDeskCredential(endpoint.id);
 
     const cred = await this.vault.resolveHa1({
       sipEndpointId: endpoint.id,
@@ -207,10 +212,6 @@ export class SipDigestAuthService {
     return allow;
   }
 
-  private expectedRealm(tenantSlug: string): string {
-    return `${tenantSlug}.sip.${this.platformDomain}`;
-  }
-
   private async emitAuthFailed(dto: AuthenticateRequestDto, reason: string): Promise<void> {
     const payload: RegistrationAuthFailedPayload = {
       eventId: randomUUID(),
@@ -228,10 +229,4 @@ export class SipDigestAuthService {
 
 function normalizeAor(aor: string): string {
   return aor.trim().replace(/^<|>$/g, '');
-}
-
-function extractHost(aorOrUri: string): string | null {
-  const m = aorOrUri.match(/sip:([^;>@]+@)?([^;>\s]+)/i);
-  if (!m) return null;
-  return (m[2] ?? '').split(':')[0] || null;
 }

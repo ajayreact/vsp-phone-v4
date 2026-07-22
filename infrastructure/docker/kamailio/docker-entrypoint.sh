@@ -45,6 +45,16 @@ else
   echo "[kamailio] WARNING: TELECOM_SERVICE_AUTH_TOKEN unset — NestJS auth header omitted (lab only)"
 fi
 
+# RC1 — advertise shared registrar FQDN for desk phones (alias in Record-Route / domain handling)
+SIP_REGISTRAR_HOST="${SIP_REGISTRAR_HOST:-}"
+if [ -n "${SIP_REGISTRAR_HOST}" ]; then
+  REG_HOST=$(printf '%s' "${SIP_REGISTRAR_HOST}" | sed 's|^[a-zA-Z]*://||' | cut -d: -f1 | sed 's|/$||')
+  if [ -n "${REG_HOST}" ]; then
+    sed -i "s|alias=\"localhost\"|alias=\"localhost\"\nalias=\"${REG_HOST}\"|" "${CFG}"
+    echo "[kamailio] SIP registrar alias=${REG_HOST}"
+  fi
+fi
+
 # Remediation H-06 — usrloc persistence mode
 case "${USRLOC_MODE}" in
   postgres)
