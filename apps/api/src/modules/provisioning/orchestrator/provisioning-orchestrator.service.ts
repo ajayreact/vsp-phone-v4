@@ -143,7 +143,15 @@ export class ProvisioningOrchestratorService {
     return { artifactHash: match.artifactHash, configVersion: targetConfigVersion };
   }
 
-  async serveConfig(macRaw: string, meta: { srcIp?: string; userAgent?: string }): Promise<string> {
+  async serveConfig(
+    macRaw: string,
+    meta: {
+      srcIp?: string;
+      userAgent?: string;
+      requestedUri?: string;
+      normalizedUri?: string;
+    },
+  ): Promise<string> {
     const lookup = await this.lookupMac(macRaw);
     if (!lookup) {
       await this.quarantineUnknownMac(macRaw, meta);

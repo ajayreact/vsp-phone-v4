@@ -1,13 +1,15 @@
-import { Logger, UnauthorizedException } from '@nestjs/common';
+import { Logger, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { ExecutionContext } from '@nestjs/common/interfaces';
 import { ProvMacAuthGuard } from './prov-mac-auth.guard';
 
 describe('ProvMacAuthGuard', () => {
   const mac = 'ec74d751e3e7';
 
-  function buildContext(authHeader?: string) {
+  function buildContext(path: string, authHeader?: string) {
     const req = {
-      params: { mac },
+      path,
+      url: path,
+      params: {},
       headers: authHeader ? { authorization: authHeader } : {},
       ip: '10.0.0.1',
     };
@@ -30,11 +32,57 @@ describe('ProvMacAuthGuard', () => {
     };
     const guard = new ProvMacAuthGuard(vault as never, orchestrator as never);
     const basic = Buffer.from(`${mac}:${password}`).toString('base64');
-    const { context, req } = buildContext(`Basic ${basic}`);
+    const { context, req } = buildContext(`/gs/${mac}/cfg.xml`, `Basic ${basic}`);
 
     await expect(guard.canActivate(context)).resolves.toBe(true);
     expect(vault.resolveProvHttp).toHaveBeenCalledWith(mac);
     expect(req).toMatchObject({ provMac: mac, provDeviceId: 'd1', provTenantId: 't1' });
+  });
+
+  it('allows Grandstream directory-style path using MAC from path prefix', async () => {
+    const password = 'rehydrated-password';
+    const vault = {
+      resolveProvHttp: jest.fn().mockResolvedValue({ username: mac, password, version: 'prov-1' }),
+    };
+    const orchestrator = {
+      lookupMac: jest.fn().mockResolvedValue({ tenantId: 't1', deviceId: 'd1', mac }),
+      quarantineUnknownMac: jest.fn(),
+    };
+    const guard = new ProvMacAuthGuard(vault as never, orchestrator as never);
+    const basic = Buffer.from(`${mac}:${password}`).toString('base64');
+    const { context, req } = buildContext(`/gs/${mac}/cfg.xml/cfg${mac}.xml`, `Basic ${basic}`);
+
+    await expect(guard.canActivate(context)).resolves.toBe(true);
+    expect(req).toMatchObject({ provMac: mac });
+  });
+
+  it('allows native cfggrp2601.xml using Basic auth username as MAC', async () => {
+    const password = 'rehydrated-password';
+    const vault = {
+      resolveProvHttp: jest.fn().mockResolvedValue({ username: mac, password, version: 'prov-1' }),
+    };
+    const orchestrator = {
+      lookupMac: jest.fn().mockResolvedValue({ tenantId: 't1', deviceId: 'd1', mac }),
+      quarantineUnknownMac: jest.fn(),
+    };
+    const guard = new ProvMacAuthGuard(vault as never, orchestrator as never);
+    const basic = Buffer.from(`${mac}:${password}`).toString('base64');
+    const { context, req } = buildContext('/gs/cfggrp2601.xml', `Basic ${basic}`);
+
+    await expect(guard.canActivate(context)).resolves.toBe(true);
+    expect(req).toMatchObject({ provMac: mac });
+  });
+
+  it('returns 404 for unknown gs paths', async () => {
+    const vault = { resolveProvHttp: jest.fn() };
+    const orchestrator = {
+      lookupMac: jest.fn(),
+      quarantineUnknownMac: jest.fn(),
+    };
+    const guard = new ProvMacAuthGuard(vault as never, orchestrator as never);
+    const { context } = buildContext('/gs/not-provisioning');
+
+    await expect(guard.canActivate(context)).rejects.toBeInstanceOf(NotFoundException);
   });
 
   it('rejects and logs when provisioning credentials are missing after restart', async () => {
@@ -47,7 +95,7 @@ describe('ProvMacAuthGuard', () => {
       quarantineUnknownMac: jest.fn(),
     };
     const guard = new ProvMacAuthGuard(vault as never, orchestrator as never);
-    const { context } = buildContext(`Basic ${Buffer.from(`${mac}:x`).toString('base64')}`);
+    const { context } = buildContext(`/gs/${mac}/cfg.xml`, `Basic ${Buffer.from(`${mac}:x`).toString('base64')}`);
 
     await expect(guard.canActivate(context)).rejects.toBeInstanceOf(UnauthorizedException);
     expect(vault.resolveProvHttp).toHaveBeenCalledWith(mac);

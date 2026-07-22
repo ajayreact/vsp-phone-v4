@@ -3,12 +3,18 @@ import {
   ExecutionContext,
   Injectable,
   Logger,
+  NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import type { Request } from 'express';
 import { resolveRequestId } from '../../../common/errors/request-id.middleware';
 import { ProvisioningOrchestratorService } from '../orchestrator/provisioning-orchestrator.service';
-import { isValidMac, normalizeMac, ProvisioningVaultService } from '../vault/provisioning-vault.service';
+import {
+  extractBasicAuthUsername,
+  resolveGrandstreamProvPath,
+  resolveProvMacFromRequest,
+} from '../url/grandstream-prov-path.util';
+import { ProvisioningVaultService } from '../vault/provisioning-vault.service';
 
 /** HTTP Basic auth for Grandstream prov edge (ADR-042). */
 @Injectable()
@@ -23,9 +29,17 @@ export class ProvMacAuthGuard implements CanActivate {
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const req = context.switchToHttp().getRequest<Request>();
     const requestId = resolveRequestId(req);
-    const macParam = String(req.params.mac ?? '');
-    const mac = normalizeMac(macParam);
-    if (!isValidMac(mac)) {
+    const requestPath = req.path || req.url;
+    const pathResolution = resolveGrandstreamProvPath(requestPath);
+    if (requestPath.startsWith('/gs/') && !pathResolution.style) {
+      throw new NotFoundException('Unknown provisioning path');
+    }
+
+    const authUsername = extractBasicAuthUsername(req.headers.authorization);
+    const routeMacParam = req.params.mac;
+    const routeMac = Array.isArray(routeMacParam) ? routeMacParam[0] : routeMacParam;
+    const mac = resolveProvMacFromRequest(requestPath, routeMac, authUsername ?? undefined);
+    if (!mac) {
       throw new UnauthorizedException('Invalid MAC');
     }
 
@@ -52,13 +66,13 @@ export class ProvMacAuthGuard implements CanActivate {
       throw new UnauthorizedException('Provisioning credentials missing');
     }
 
-    const header = req.headers.authorization ?? '';
-    if (!header.startsWith('Basic ')) {
+    if (!authUsername) {
       throw new UnauthorizedException('Basic auth required');
     }
+    const header = req.headers.authorization ?? '';
     const decoded = Buffer.from(header.slice(6), 'base64').toString('utf8');
     const sep = decoded.indexOf(':');
-    const username = sep >= 0 ? decoded.slice(0, sep) : decoded;
+    const username = authUsername;
     const password = sep >= 0 ? decoded.slice(sep + 1) : '';
     if (username.toLowerCase() !== cred.username || password !== cred.password) {
       throw new UnauthorizedException('Invalid provisioning credentials');
