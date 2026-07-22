@@ -106,4 +106,17 @@ describe('ProvEdgeController — Grandstream compatibility', () => {
     );
     expect(orchestrator.serveConfig).not.toHaveBeenCalled();
   });
+
+  it.each([
+    '/gs/random.txt',
+    '/gs/foo/bar',
+    '/gs/cfginvalid.xml',
+    '/gs/../../test',
+  ])('rejects invalid path %s with 404', async (path) => {
+    const { req, res } = mockReqRes(path, 'Grandstream GRP2601 1.0.24.14');
+    await expect(controller.downloadGrandstreamConfig(req, res)).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+    expect(orchestrator.serveConfig).not.toHaveBeenCalled();
+  });
 });

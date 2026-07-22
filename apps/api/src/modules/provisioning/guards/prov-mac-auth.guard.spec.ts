@@ -85,6 +85,64 @@ describe('ProvMacAuthGuard', () => {
     await expect(guard.canActivate(context)).rejects.toBeInstanceOf(NotFoundException);
   });
 
+  describe('rejects invalid gs paths with 404 before auth lookup', () => {
+    const password = 'rehydrated-password';
+    const basic = `Basic ${Buffer.from(`${mac}:${password}`).toString('base64')}`;
+
+    function buildGuard() {
+      const vault = { resolveProvHttp: jest.fn() };
+      const orchestrator = {
+        lookupMac: jest.fn(),
+        quarantineUnknownMac: jest.fn(),
+      };
+      return {
+        guard: new ProvMacAuthGuard(vault as never, orchestrator as never),
+        orchestrator,
+      };
+    }
+
+    it.each([
+      '/gs/random.txt',
+      '/gs/foo/bar',
+      '/gs/cfginvalid.xml',
+      '/gs/../../test',
+    ])('%s', async (path) => {
+      const { guard, orchestrator } = buildGuard();
+      const { context } = buildContext(path, basic);
+
+      await expect(guard.canActivate(context)).rejects.toBeInstanceOf(NotFoundException);
+      expect(orchestrator.lookupMac).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('allows valid gs paths to reach auth (200 path when creds valid)', () => {
+    const password = 'rehydrated-password';
+    const basic = `Basic ${Buffer.from(`${mac}:${password}`).toString('base64')}`;
+
+    function buildGuard() {
+      const vault = {
+        resolveProvHttp: jest.fn().mockResolvedValue({ username: mac, password, version: 'prov-1' }),
+      };
+      const orchestrator = {
+        lookupMac: jest.fn().mockResolvedValue({ tenantId: 't1', deviceId: 'd1', mac }),
+        quarantineUnknownMac: jest.fn(),
+      };
+      return new ProvMacAuthGuard(vault as never, orchestrator as never);
+    }
+
+    it.each([
+      `/gs/cfg${mac}.xml`,
+      '/gs/cfggrp2601.xml',
+      '/gs/cfg.xml',
+      `/gs/${mac}/cfg.xml`,
+    ])('%s', async (path) => {
+      const guard = buildGuard();
+      const { context } = buildContext(path, basic);
+
+      await expect(guard.canActivate(context)).resolves.toBe(true);
+    });
+  });
+
   it('rejects and logs when provisioning credentials are missing after restart', async () => {
     const warn = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
     const vault = {

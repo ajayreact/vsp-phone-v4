@@ -92,6 +92,36 @@ describe('grandstream-prov-path', () => {
       const result = resolveGrandstreamProvPath(`/gs/${mac}/cfg.xml?ts=1`);
       expect(result.requestedPath).toBe(`/gs/${mac}/cfg.xml`);
     });
+
+    describe('valid Grandstream provisioning paths (must normalize)', () => {
+      it.each([
+        [`/gs/cfg${mac}.xml`, 'native-mac', canonical],
+        ['/gs/cfggrp2601.xml', 'native-model', '/gs/cfggrp2601.xml'],
+        ['/gs/cfg.xml', 'native-generic', '/gs/cfg.xml'],
+        [`/gs/${mac}/cfg.xml`, 'legacy', canonical],
+      ])('%s → %s', (path, expectedStyle, expectedNormalized) => {
+        const result = resolveGrandstreamProvPath(path);
+        expect(result.style).toBe(expectedStyle);
+        expect(result.normalizedPath).toBe(expectedNormalized);
+      });
+    });
+
+    describe('invalid paths (must not normalize)', () => {
+      it.each([
+        '/gs/random.txt',
+        '/gs/foo/bar',
+        '/gs/cfginvalid.xml',
+        '/gs/../../test',
+        '/gs/ec74d751e3e7',
+        '/gs/ec74d751e3e7/cfg.xml/random.txt',
+        '/gs/cfg.xml.evil',
+        '/gs/cfgnotahexmac12.xml',
+      ])('%s', (path) => {
+        const result = resolveGrandstreamProvPath(path);
+        expect(result.style).toBeNull();
+        expect(result.mac).toBeNull();
+      });
+    });
   });
 
   describe('resolveProvMacFromRequest', () => {
