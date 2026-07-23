@@ -11,6 +11,17 @@ import type { Request } from 'express';
 import { PrismaService } from '../../telecom/prisma/prisma.service';
 import { SecurityAuditService } from '../audit/security-audit.service';
 
+/** Kamailio REGISTER plane — tenant resolved from AOR in handler, not body tenantId. */
+export function isKamailioAorResolvedTelecomPath(path: string): boolean {
+  const p = path.split('?')[0] ?? path;
+  return (
+    p.endsWith('/auth/sip-digest') ||
+    p.endsWith('/authenticate') ||
+    p.endsWith('/register') ||
+    p.endsWith('/unregister')
+  );
+}
+
 /** Phase 16 — tenant/line ownership checks before telecom handlers execute. */
 @Injectable()
 export class TelecomAuthorizationService {
@@ -81,6 +92,11 @@ export class TelecomAuthorizationInterceptor implements NestInterceptor {
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     const req = context.switchToHttp().getRequest<Request>();
     if (req.method !== 'POST') return next.handle();
+
+    const path = req.originalUrl || req.url || '';
+    if (isKamailioAorResolvedTelecomPath(path)) {
+      return next.handle();
+    }
 
     const body = (req.body ?? {}) as Record<string, unknown>;
     const tenantId = typeof body.tenantId === 'string' ? body.tenantId : undefined;
