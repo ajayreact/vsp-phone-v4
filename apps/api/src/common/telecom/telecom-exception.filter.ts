@@ -89,14 +89,31 @@ export class TelecomExceptionFilter implements ExceptionFilter {
       details,
     };
 
-    this.logger.warn(
-      JSON.stringify({
-        event: 'telecom.error',
-        ...payload,
-        path: req.originalUrl || req.url,
-        method: req.method,
-      }),
-    );
+    const path = req.originalUrl || req.url || '';
+    const logPayload: Record<string, unknown> = {
+      event: 'telecom.error',
+      ...payload,
+      path,
+      method: req.method,
+    };
+    if (path.includes('auth/sip-digest')) {
+      logPayload.exception =
+        exception instanceof Error
+          ? exception.name
+          : exception instanceof HttpException
+            ? 'HttpException'
+            : typeof exception;
+      logPayload.exceptionMessage =
+        exception instanceof HttpException
+          ? JSON.stringify(exception.getResponse())
+          : exception instanceof Error
+            ? exception.message
+            : String(exception);
+      if (exception instanceof Error && exception.stack) {
+        logPayload.stack = exception.stack.split('\n').slice(0, 12);
+      }
+    }
+    this.logger.warn(JSON.stringify(logPayload));
 
     if (requestId) {
       res.setHeader(TELECOM_HEADERS.REQUEST_ID, requestId);

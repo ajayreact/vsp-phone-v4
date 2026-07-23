@@ -106,7 +106,28 @@ async function bootstrap() {
     app.use(requestIdMiddleware);
 
     const bodyLimit = configService.get<string>('REQUEST_BODY_MAX_BYTES') ?? '1mb';
-    app.use(json({ limit: bodyLimit }));
+    app.use(
+      json({
+        limit: bodyLimit,
+        verify: (req, _res, buf) => {
+          const url = req.url ?? '';
+          if (!url.includes('auth/sip-digest')) {
+            return;
+          }
+          // eslint-disable-next-line no-console
+          console.warn(
+            JSON.stringify({
+              event: 'rc1.sip-digest.raw_body',
+              url,
+              callId: req.headers[TELECOM_HEADERS.SIP_CALL_ID],
+              requestId: req.headers[TELECOM_HEADERS.REQUEST_ID],
+              bytes: buf.length,
+              preview: buf.subarray(0, 512).toString('utf8'),
+            }),
+          );
+        },
+      }),
+    );
     app.use(urlencoded({ extended: true, limit: bodyLimit }));
     // TEMP [vsp-pipeline]: wrap ValidationPipe to time login DTO validation.
     const basePipe = new ValidationPipe({

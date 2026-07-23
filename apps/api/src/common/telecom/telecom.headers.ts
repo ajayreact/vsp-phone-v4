@@ -6,6 +6,7 @@ export const TELECOM_HEADERS = {
   PLATFORM_UUID: 'x-vsp-platform-uuid',
   IDEMPOTENCY_KEY: 'idempotency-key',
   SERVICE_AUTH: 'x-vsp-service-auth',
+  SIP_CALL_ID: 'x-sip-call-id',
 } as const;
 
 export type TelecomHeaderName =

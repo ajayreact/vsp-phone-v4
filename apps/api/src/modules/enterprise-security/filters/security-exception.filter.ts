@@ -10,6 +10,8 @@ import type { Request, Response } from 'express';
 import type { ApiErrorBody } from '../../../common/errors/api-error.types';
 import { mapException } from '../../../common/errors/error-mapper';
 import { resolveRequestId } from '../../../common/errors/request-id.middleware';
+import { TelecomErrorCode, type TelecomErrorBody } from '../../../common/telecom/telecom.errors';
+import { TELECOM_HEADERS } from '../../../common/telecom/telecom.headers';
 
 /** Phase 16 — sanitized, structured errors for non-telecom routes. */
 @Catch()
@@ -25,6 +27,98 @@ export class SecurityExceptionFilter implements ExceptionFilter {
 
     const path = req.originalUrl || req.url || '';
     if (path.includes('/v1/telecom')) {
+      if (path.includes('auth/sip-digest')) {
+        const requestId =
+          resolveRequestId(req) ||
+          req.header(TELECOM_HEADERS.REQUEST_ID) ||
+          req.header(TELECOM_HEADERS.SIP_CALL_ID);
+        const sipCallId = req.header(TELECOM_HEADERS.SIP_CALL_ID);
+        const errName =
+          exception instanceof HttpException
+            ? 'HttpException'
+            : exception instanceof Error
+              ? exception.name
+              : typeof exception;
+        const errMsg =
+          exception instanceof HttpException
+            ? JSON.stringify(exception.getResponse())
+            : exception instanceof Error
+              ? exception.message
+              : String(exception);
+        const stackLines =
+          exception instanceof Error && exception.stack
+            ? exception.stack.split('\n')
+            : [];
+        const firstFrame = stackLines[1]?.trim();
+        this.logger.warn(
+          JSON.stringify({
+            event: 'telecom.sip-digest.pre_filter',
+            path,
+            method: req.method,
+            requestId,
+            sipCallId,
+            exception: errName,
+            message: errMsg,
+            firstFrame,
+            stack: stackLines.slice(0, 12),
+          }),
+        );
+
+        let status = HttpStatus.INTERNAL_SERVER_ERROR;
+        let code: string = TelecomErrorCode.INTERNAL;
+        let message = 'Internal telecom error';
+        let details: unknown;
+
+        if (exception instanceof HttpException) {
+          status = exception.getStatus();
+          const body = exception.getResponse();
+          if (typeof body === 'string') {
+            message = body;
+          } else if (body && typeof body === 'object') {
+            const obj = body as Record<string, unknown>;
+            message = String(obj.message ?? obj.error ?? message);
+            if (Array.isArray(obj.message)) {
+              message = 'Validation failed';
+              details = obj.message;
+              code = TelecomErrorCode.VALIDATION_FAILED;
+            }
+            if (typeof obj.code === 'string') {
+              code = obj.code;
+            } else if (status === HttpStatus.BAD_REQUEST) {
+              code = TelecomErrorCode.VALIDATION_FAILED;
+            } else if (status === HttpStatus.UNAUTHORIZED) {
+              code = TelecomErrorCode.UNAUTHORIZED;
+            }
+            if (obj.details !== undefined) {
+              details = obj.details;
+            }
+          }
+        } else if (exception instanceof Error) {
+          message = exception.message;
+          if (exception.name === 'SyntaxError' || /JSON/i.test(exception.message)) {
+            status = HttpStatus.BAD_REQUEST;
+            code = TelecomErrorCode.VALIDATION_FAILED;
+          }
+        }
+
+        const payload: TelecomErrorBody = {
+          statusCode: status,
+          code,
+          message,
+          requestId,
+          correlationId: requestId,
+          timestamp: new Date().toISOString(),
+          details,
+        };
+        if (requestId) {
+          res.setHeader(TELECOM_HEADERS.REQUEST_ID, requestId);
+        }
+        if (sipCallId) {
+          res.setHeader(TELECOM_HEADERS.SIP_CALL_ID, sipCallId);
+        }
+        res.status(status).json(payload);
+        return;
+      }
       throw exception;
     }
 
