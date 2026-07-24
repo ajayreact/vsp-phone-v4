@@ -978,15 +978,20 @@ export class RoutingService {
     tenantHint?: string,
   ): Promise<ResolvedLineCtx | null> {
     const aor = aorOrUri ? normalizeAor(extractAor(aorOrUri) ?? aorOrUri) : undefined;
-
-    // Prefer SIPEndpoint by AoR
-    if (aor) {
-      const ep = await this.prisma.sIPEndpoint.findFirst({
-        where: {
-          deletedAt: null,
-          aor: { equals: aor, mode: 'insensitive' },
-          ...(tenantHint ? { tenantId: tenantHint } : {}),
+    const tenantFilter = tenantHint ? { tenantId: tenantHint } : {};
+    const endpointInclude = {
+      line: {
+        include: {
+          callPolicy: true,
+          callerId: { include: { phoneNumber: true } },
+          extension: true,
+          devices: { include: { sipEndpoint: true } },
         },
+      },
+      devices: {
+        where: { deletedAt: null },
+        orderBy: [{ isPrimary: 'desc' as const }, { updatedAt: 'desc' as const }],
+        take: 5,
         include: {
           line: {
             include: {
@@ -996,35 +1001,77 @@ export class RoutingService {
               devices: { include: { sipEndpoint: true } },
             },
           },
-          devices: {
-            where: { deletedAt: null },
-            take: 1,
-            include: {
-              line: {
-                include: {
-                  callPolicy: true,
-                  callerId: { include: { phoneNumber: true } },
-                  extension: true,
-                  devices: { include: { sipEndpoint: true } },
-                },
-              },
-            },
-          },
         },
-      });
-      const line = ep?.line ?? ep?.devices[0]?.line;
+      },
+    };
+
+    const lineFromEndpoint = (
+      ep: {
+        aor: string;
+        line: Parameters<RoutingService['toLineCtx']>[0] | null;
+        devices: Array<{ line: Parameters<RoutingService['toLineCtx']>[0] | null }>;
+      },
+    ): ResolvedLineCtx | null => {
+      const line =
+        ep.line ??
+        ep.devices.find((d) => d.line && d.line.status === LineStatus.ACTIVE)?.line ??
+        null;
       if (line && line.status === LineStatus.ACTIVE) {
-        return this.toLineCtx(line, ep!.aor);
+        return this.toLineCtx(line, ep.aor);
+      }
+      return null;
+    };
+
+    // 1) Prefer SIPEndpoint by exact AoR (canonical DB AoR)
+    if (aor) {
+      const ep = await this.prisma.sIPEndpoint.findFirst({
+        where: {
+          deletedAt: null,
+          aor: { equals: aor, mode: 'insensitive' },
+          ...tenantFilter,
+        },
+        include: endpointInclude,
+      });
+      const ctx = ep ? lineFromEndpoint(ep) : null;
+      if (ctx) return ctx;
+    }
+
+    // 2) Phone From/REGISTER uses SIP_REGISTRAR_HOST (sip:100@sip.vspphone.com) while
+    //    sip_endpoints.aor stores tenant realm (sip:100@vsp-internal.sip.vspphone.com).
+    //    Same fallback as RegistrationService.resolveEndpoint — match authUsername.
+    const username = userPart || (aor ? extractUserPart(aor) : null);
+    if (username) {
+      const epByUser = await this.prisma.sIPEndpoint.findFirst({
+        where: {
+          deletedAt: null,
+          authUsername: username,
+          ...tenantFilter,
+        },
+        include: endpointInclude,
+      });
+      const ctx = epByUser ? lineFromEndpoint(epByUser) : null;
+      if (ctx) {
+        this.logger.log(
+          JSON.stringify({
+            event: 'telecom.route.caller_resolved_by_auth_username',
+            authUsername: username,
+            requestAor: aor,
+            canonicalAor: epByUser?.aor,
+            lineId: ctx.lineId,
+            tenantId: ctx.tenantId,
+          }),
+        );
+        return ctx;
       }
     }
 
-    // Extension match (internal dialing)
-    if (userPart && /^\d{2,8}$/.test(userPart)) {
+    // 3) Extension match (internal dialing)
+    if (username && /^\d{2,8}$/.test(username)) {
       const ext = await this.prisma.extension.findFirst({
         where: {
           deletedAt: null,
-          extension: userPart,
-          ...(tenantHint ? { tenantId: tenantHint } : {}),
+          extension: username,
+          ...tenantFilter,
         },
         include: {
           line: {
