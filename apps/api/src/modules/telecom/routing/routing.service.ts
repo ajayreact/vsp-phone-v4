@@ -1005,13 +1005,13 @@ export class RoutingService {
       },
     };
 
-    const lineFromEndpoint = (
-      ep: {
-        aor: string;
-        line: Parameters<RoutingService['toLineCtx']>[0] | null;
-        devices: Array<{ line: Parameters<RoutingService['toLineCtx']>[0] | null }>;
-      },
-    ): ResolvedLineCtx | null => {
+    const lineFromEndpoint = (ep: {
+      aor: string;
+      line: (Parameters<RoutingService['toLineCtx']>[0] & { status: LineStatus }) | null;
+      devices: Array<{
+        line: (Parameters<RoutingService['toLineCtx']>[0] & { status: LineStatus }) | null;
+      }>;
+    }): ResolvedLineCtx | null => {
       const line =
         ep.line ??
         ep.devices.find((d) => d.line && d.line.status === LineStatus.ACTIVE)?.line ??
