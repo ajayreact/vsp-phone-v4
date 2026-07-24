@@ -34,7 +34,7 @@ console.log('RC3 Telecom Infrastructure Validation\n');
 console.log('--- RTPengine ---');
 mustExist('infrastructure/docker/Dockerfile.rtpengine', 'Dockerfile.rtpengine');
 fileContains('infrastructure/docker/Dockerfile.rtpengine', 'RTPENGINE_REQUIRE_DAEMON', 'prod build arg');
-fileContains('infrastructure/docker/rtpengine/install-or-stub.sh', 'dfx.at/rtpengine', 'dfx.at repo fallback');
+fileContains('infrastructure/docker/rtpengine/install-or-stub.sh', 'rtpengine.dfx.at', 'dfx.at repo fallback');
 fileContains('infrastructure/docker/rtpengine/healthcheck.sh', 'RTPENGINE_REQUIRE_DAEMON', 'prod health rejects stub');
 fileContains('infrastructure/rtpengine/rtpengine.conf', 'recording-method = proc', 'recording enabled');
 

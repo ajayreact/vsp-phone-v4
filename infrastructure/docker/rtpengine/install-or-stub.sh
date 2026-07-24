@@ -13,6 +13,11 @@ install_real_daemon() {
     echo "[rtpengine] installed rtpengine-daemon"
     return 0
   fi
+  if apt-get install -y --no-install-recommends rtpengine 2>/dev/null; then
+    echo "real" > /etc/rtpengine/.backend
+    echo "[rtpengine] installed rtpengine metapackage"
+    return 0
+  fi
   if apt-get install -y --no-install-recommends ngcp-rtpengine-daemon 2>/dev/null; then
     apt-get install -y --no-install-recommends ngcp-rtpengine-utils 2>/dev/null || true
     echo "real" > /etc/rtpengine/.backend
@@ -27,9 +32,15 @@ try_apt_direct() {
 }
 
 try_dfx_repo() {
-  echo "[rtpengine] trying dfx.at bookworm repository"
-  curl -fsSL https://dfx.at/rtpengine/gpg.key | gpg --dearmor -o /etc/apt/trusted.gpg.d/dfx.at-rtpengine.gpg
-  echo "deb [signed-by=/etc/apt/trusted.gpg.d/dfx.at-rtpengine.gpg] https://dfx.at/rtpengine bookworm main" \
+  # Official URL moved: https://rtpengine.dfx.at/<REL> (old https://dfx.at/rtpengine 404s).
+  REL="${RTPENGINE_DFX_REL:-LTS}"
+  DIST=bookworm
+  echo "[rtpengine] trying rtpengine.dfx.at/${REL} ${DIST} repository"
+  curl -fsSL -o /tmp/rtpengine-dfx-repo-keyring.deb \
+    "https://rtpengine.dfx.at/latest/pool/main/r/rtpengine-dfx-repo-keyring/rtpengine-dfx-repo-keyring_1.0_all.deb"
+  dpkg -i /tmp/rtpengine-dfx-repo-keyring.deb
+  rm -f /tmp/rtpengine-dfx-repo-keyring.deb
+  echo "deb [signed-by=/usr/share/keyrings/dfx.at-rtpengine-archive-keyring.gpg] https://rtpengine.dfx.at/${REL} ${DIST} main" \
     > /etc/apt/sources.list.d/dfx.at-rtpengine.list
   apt-get update && install_real_daemon
 }
