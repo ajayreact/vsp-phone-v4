@@ -173,6 +173,7 @@ export class TelecomController {
   }
 
   @Post('route')
+  @HttpCode(200)
   @ApiOperation({
     summary: 'Route plan resolve (alias)',
     description: `Prefer POST /routing/resolve (ADR-024). Timeout ≤ ${TELECOM_TIMEOUTS_MS.route}ms.`,
@@ -183,6 +184,7 @@ export class TelecomController {
   }
 
   @Post('routing/resolve')
+  @HttpCode(200)
   @ApiOperation({
     summary: 'Route plan resolve (ADR-024) — creates CallSession',
     description: `Allocates platformUuid, persists CallSession (no sipCallId), returns FORK contacts. Timeout ≤ ${TELECOM_TIMEOUTS_MS.route}ms. Internal Line→Line only in Phase 7.`,

@@ -15,5 +15,9 @@
 # Telnyx signaling — published edge samples (expand in ops). Lab also trusts group 1.
 2 192.76.120.0 24 5060 udp telnyx_pop
 2 64.16.250.0 24 5060 udp telnyx_pop
+2 185.246.41.0 24 5060 udp telnyx_eu
 2 185.246.48.0 22 5060 udp telnyx_pop
+2 103.115.244.0 24 5060 udp telnyx_apac
 2 192.76.120.0 24 5061 tcp telnyx_pop
+2 64.16.250.0 24 5061 tcp telnyx_pop
+2 185.246.41.0 24 5061 tcp telnyx_eu
