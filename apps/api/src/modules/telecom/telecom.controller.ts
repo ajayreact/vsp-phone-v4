@@ -148,6 +148,7 @@ export class TelecomController {
   }
 
   @Post('register')
+  @HttpCode(200)
   @ApiOperation({
     summary: 'Registration accepted — usrloc/Redis sync',
     description: `Timeout ≤ ${TELECOM_TIMEOUTS_MS.register}ms. Updates Redis contact set + SIPEndpoint.lastRegisteredAt. Emits registration.created|refreshed. No Contact in Prisma.`,
@@ -158,6 +159,7 @@ export class TelecomController {
   }
 
   @Post('unregister')
+  @HttpCode(200)
   @ApiOperation({
     summary: 'Unregistration — contact removal',
     description: `Timeout ≤ ${TELECOM_TIMEOUTS_MS.unregister}ms. Emits registration.unregistered.`,

@@ -134,6 +134,13 @@ export class RegisterRequestDto {
   @Transform(({ value }) => (value === '' || value === null ? undefined : value))
   @IsUUID()
   tenantId?: string;
+
+  /** Kamailio http_connect_raw cannot set custom headers — token may arrive in JSON body. */
+  @ApiPropertyOptional({ description: 'Service auth token (Kamailio http_connect_raw path)' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(256)
+  serviceAuth?: string;
 }
 
 export class UnregisterRequestDto {
@@ -160,6 +167,13 @@ export class UnregisterRequestDto {
   @Transform(({ value }) => (value === '' || value === null ? undefined : value))
   @IsUUID()
   tenantId?: string;
+
+  /** Kamailio http_connect_raw cannot set custom headers — token may arrive in JSON body. */
+  @ApiPropertyOptional({ description: 'Service auth token (Kamailio http_connect_raw path)' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(256)
+  serviceAuth?: string;
 }
 
 export class RouteRequestDto {
