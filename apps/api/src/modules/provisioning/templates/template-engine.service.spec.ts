@@ -50,10 +50,13 @@ describe('TemplateEngineService.render Grandstream', () => {
     expect(xml).toContain('<P36>100</P36>');
     expect(xml).toContain('<P34>sip-secret</P34>');
     expect(xml).toContain('<P47>sip.vspphone.com</P47>');
-    expect(xml).toContain('<P4010>5060</P4010>');
+    expect(xml).toContain('<P48>sip.vspphone.com</P48>');
+    expect(xml).toContain('<P139>5060</P139>');
+    expect(xml).toContain('<P40>5060</P40>');
     expect(xml).toContain('<P130>0</P130>');
-    expect(xml).toContain('<P1360></P1360>');
-    expect(xml).toContain('<P1361></P1361>');
+    expect(xml).not.toContain('<P1360>');
+    expect(xml).not.toContain('<P1361>');
+    expect(xml).toContain('<P64>auto</P64>');
     expect(xml).toContain('<P237>https://prov.vspphone.com/gs/ec74d751e3e7/cfg.xml</P237>');
   });
 
@@ -66,6 +69,6 @@ describe('TemplateEngineService.render Grandstream', () => {
   it('maps TLS transport to P130=2 and port 5061', () => {
     const xml = renderGrandstream({ grandstreamTransport: 2, sipPort: 5061 });
     expect(xml).toContain('<P130>2</P130>');
-    expect(xml).toContain('<P4010>5061</P4010>');
+    expect(xml).toContain('<P139>5061</P139>');
   });
 });

@@ -34,7 +34,7 @@ export interface RenderContext {
 /** Phase 11 + Phase 3 — multi-vendor provisioning template engine. */
 @Injectable()
 export class TemplateEngineService {
-  readonly platformTemplateVersion = '1.2.0';
+  readonly platformTemplateVersion = '1.3.0';
 
   constructor(private readonly config: ConfigService) {}
 
@@ -75,27 +75,38 @@ export class TemplateEngineService {
   private renderGrandstream(ctx: RenderContext): string {
     const tlsValidate = ctx.tlsValidate ? '1' : '0';
     const transport = ctx.grandstreamTransport ?? 0;
+    // IANA zones (America/New_York) are not valid GRP P64 values; invalid P64 can
+    // cause firmware to skip applying later Account P-values (blank SIP Server).
+    const timezone = grandstreamTimezone(ctx.timezone);
+    const embedHttp = Boolean(ctx.embedProvHttpCredentials);
+    const httpCredLines = embedHttp
+      ? `    <P1360>${escapeXml(ctx.provHttpUsername)}</P1360>
+    <P1361>${escapeXml(ctx.provHttpPassword)}</P1361>
+`
+      : '';
+    // Do not push a firmware URL on every cfg — failed FW fetches distract apply.
+    const firmwareLine = ctx.firmwareUrl.trim()
+      ? `    <P192>${escapeXml(ctx.firmwareUrl)}</P192>
+`
+      : '';
     return `<?xml version="1.0" encoding="UTF-8"?>
 <gs_provision version="1">
   <mac>${ctx.mac}</mac>
   <config version="1">
     <P1>${escapeXml(ctx.adminPassword)}</P1>
-    <P136>${ctx.language}</P136>
-    <P64>${escapeXml(ctx.timezone)}</P64>
+    <P64>${escapeXml(timezone)}</P64>
     <P212>2</P212>
     <P8463>${tlsValidate}</P8463>
-    <P1360>${ctx.embedProvHttpCredentials ? escapeXml(ctx.provHttpUsername) : ''}</P1360>
-    <P1361>${ctx.embedProvHttpCredentials ? escapeXml(ctx.provHttpPassword) : ''}</P1361>
-    <P237>${escapeXml(ctx.provServerUrl)}</P237>
-    <P192>${escapeXml(ctx.firmwareUrl)}</P192>
-    <P271>1</P271>
+${httpCredLines}    <P237>${escapeXml(ctx.provServerUrl)}</P237>
+${firmwareLine}    <P271>1</P271>
     <P270>${escapeXml(ctx.displayName)}</P270>
     <P31>1</P31>
     <P35>${escapeXml(ctx.sipUsername)}</P35>
     <P36>${escapeXml(ctx.sipUsername)}</P36>
     <P34>${escapeXml(ctx.sipPassword)}</P34>
     <P47>${escapeXml(ctx.sipServer)}</P47>
-    <P4010>${ctx.sipPort}</P4010>
+    <P48>${escapeXml(ctx.sipServer)}</P48>
+    <P139>${ctx.sipPort}</P139>
     <P40>${ctx.sipPort}</P40>
     <P130>${transport}</P130>
     <P3>${escapeXml(ctx.displayName)}</P3>
@@ -258,6 +269,13 @@ export class TemplateEngineService {
   </Account>
 </SipDeviceConfig>`;
   }
+}
+
+/** Grandstream P64 expects offsets like EST5EDT / auto — not IANA names. */
+export function grandstreamTimezone(timezone: string): string {
+  const tz = timezone.trim();
+  if (!tz || tz.includes('/')) return 'auto';
+  return tz;
 }
 
 function escapeXml(value: string): string {

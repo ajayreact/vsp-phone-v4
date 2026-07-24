@@ -130,10 +130,10 @@ export class ProvisioningVaultService {
     this.adminPw.delete(deviceId.toLowerCase());
   }
 
-  async resolveDeskSipPassword(sipEndpointId: string): Promise<string | null> {
+  async resolveDeskSip(sipEndpointId: string): Promise<DeskSipSecret | null> {
     const key = sipEndpointId.toLowerCase();
     const cached = this.deskSip.get(key);
-    if (cached) return cached.password;
+    if (cached) return cached;
 
     const rehydrated = await this.loadDeskSipFromRedis(sipEndpointId);
     if (!rehydrated) return null;
@@ -146,7 +146,41 @@ export class ProvisioningVaultService {
         version: rehydrated.version,
       }),
     );
-    return rehydrated.password;
+    return rehydrated;
+  }
+
+  async resolveDeskSipPassword(sipEndpointId: string): Promise<string | null> {
+    const secret = await this.resolveDeskSip(sipEndpointId);
+    return secret?.password ?? null;
+  }
+
+  /**
+   * Reuse the Redis desk SIP secret across generate/reprovision so GRP phones
+   * that keep an old P34 do not get stuck on bad_digest after every rotate.
+   * Issue only when missing; always re-register HA1 for the challenge realm.
+   */
+  async ensureDeskSip(params: {
+    sipEndpointId: string;
+    authUsername: string;
+    realm: string;
+    rotate?: boolean;
+  }): Promise<DeskSipSecret & { rotated: boolean }> {
+    if (!params.rotate) {
+      const existing = await this.resolveDeskSip(params.sipEndpointId);
+      if (existing) {
+        this.sipVault.registerPersistentCredential({
+          sipEndpointId: params.sipEndpointId,
+          authUsername: params.authUsername,
+          realm: params.realm,
+          password: existing.password,
+          version: existing.version,
+          retainPassword: true,
+        });
+        return { ...existing, rotated: false };
+      }
+    }
+    const issued = this.issueDeskSip(params);
+    return { ...issued, rotated: true };
   }
 
   private async persistDeskSip(

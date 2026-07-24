@@ -79,4 +79,24 @@ describe('ProvisioningVaultService prov HTTP persistence', () => {
 
     await expect(vault.resolveDeskSipPassword(sipEndpointId)).resolves.toEqual(expect.any(String));
   });
+
+  it('ensureDeskSip reuses existing secret and re-registers for challenge realm', async () => {
+    const { vault } = buildService();
+    const sipEndpointId = '55555555-5555-5555-5555-555555555555';
+    const first = vault.issueDeskSip({
+      sipEndpointId,
+      authUsername: '100',
+      realm: 'tenant.sip.vsp.internal',
+    });
+
+    const ensured = await vault.ensureDeskSip({
+      sipEndpointId,
+      authUsername: '100',
+      realm: 'sip.vspphone.com',
+    });
+
+    expect(ensured.rotated).toBe(false);
+    expect(ensured.password).toBe(first.password);
+    expect(ensured.version).toBe(first.version);
+  });
 });

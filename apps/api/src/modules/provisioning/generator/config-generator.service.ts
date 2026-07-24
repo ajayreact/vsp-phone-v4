@@ -61,15 +61,16 @@ export class ConfigGeneratorService {
       }),
     );
 
-    // Always rotate desk SIP password on each generate so GRP cfg P34 matches vault
-    // (reusing a stale secret left phones on bad_digest after failed apply / blank SIP Server).
-    const deskSip = this.vault.issueDeskSip({
+    // Digest challenge realm is SIP_REGISTRAR_HOST (sip.vspphone.com), not tenant AoR host.
+    const sipServer = this.sipServer(input.realm);
+    // Reuse Redis desk password across generate/reprovision. Rotating every generate
+    // left phones on bad_digest when GRP downloaded XML but did not apply P34/P47.
+    const deskSip = await this.vault.ensureDeskSip({
       sipEndpointId: input.sipEndpointId,
       authUsername: input.authUsername,
-      realm: input.realm,
+      realm: sipServer,
     });
     const sipPassword = deskSip.password;
-    const sipServer = this.sipServer(input.realm);
     const provHttp =
       (await this.vault.resolveProvHttp(input.mac)) ?? (await this.vault.issueProvHttp(input.mac));
     const adminPassword =
@@ -81,9 +82,7 @@ export class ConfigGeneratorService {
     const provBase = this.template.provBaseUrl();
     const manufacturer = input.manufacturer ?? 'GRANDSTREAM';
     const vendorPath = this.template.vendorPath(manufacturer);
-    const firmwareUrl = release
-      ? this.firmware.firmwareUrl(provBase, release)
-      : `${provBase}/fw/${input.modelFamily}/stable/${input.modelFamily}-fw.bin`;
+    const firmwareUrl = release ? this.firmware.firmwareUrl(provBase, release) : '';
     const firmwareVersion = release?.version ?? 'unknown';
 
     const artifactHash = this.store.computeArtifactHash({
@@ -166,6 +165,7 @@ export class ConfigGeneratorService {
         artifactHash,
         sipServer,
         deskSipVersion: deskSip.version,
+        deskSipRotated: deskSip.rotated,
       }),
     );
     return result;
