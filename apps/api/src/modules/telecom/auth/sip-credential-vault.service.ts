@@ -8,25 +8,31 @@ import {
 import type { StoredDeskSipCred } from '../../provisioning/vault/desk-sip-credential.types';
 import { TelecomRedisService } from '../redis/telecom-redis.service';
 
+export type SipCredentialSource = 'redis' | 'enroll' | 'vault_ha1' | 'dev';
+
 export interface SipCredentialRecord {
   sipEndpointId: string;
   ha1: string;
   passwordVersion: string;
+  source: SipCredentialSource;
 }
 
 interface EnrollEntry {
   ha1: string;
+  /** Retained so HA1 can be recomputed for Kamailio challenge realm (SIP_REGISTRAR_HOST). */
+  password?: string;
   version: string;
   expiresAtMs: number;
 }
 
 /**
  * Phase 6 vault adapter (file/env backed — ADR-043 shape).
- * Production swaps this for a real Secrets Manager client without changing callers.
+ * Production swaps this for a Secrets Manager client without changing callers.
  *
- * Dev sources (first match wins):
- * 1. SIP_VAULT_JSON — JSON map: { "<sipEndpointId>| <authUsername@realm>": { "password"|"ha1": "..." } }
- * 2. SIP_DEV_PASSWORD — single lab password applied for any known endpoint when computing HA1
+ * Credential priority for digest verify:
+ * 1. Persistent desk Redis password (never shadowed by enroll when present)
+ * 2. Short-lived WebRTC/mobile enroll (only after desk, or alone if no desk secret)
+ * 3. Static HA1 / SIP_DEV_PASSWORD fallbacks
  */
 @Injectable()
 export class SipCredentialVaultService implements OnModuleInit {
@@ -81,76 +87,116 @@ export class SipCredentialVaultService implements OnModuleInit {
     }
   }
 
-  async resolveHa1(params: {
+  /** Active enroll overlay (if any) — for diagnostics / dual-verify. */
+  peekEnroll(sipEndpointId: string): { version: string; expiresAtMs: number } | null {
+    const active = this.enroll.get(sipEndpointId.toLowerCase());
+    if (!active) return null;
+    if (active.expiresAtMs <= Date.now()) {
+      this.enroll.delete(sipEndpointId.toLowerCase());
+      return null;
+    }
+    return { version: active.version, expiresAtMs: active.expiresAtMs };
+  }
+
+  /** Persistent desk secret version in memory (after rehydrate). */
+  peekPersistentVersion(sipEndpointId: string): string | null {
+    return this.map.get(sipEndpointId.toLowerCase())?.version ?? null;
+  }
+
+  /**
+   * Ordered HA1 candidates for one digest verify.
+   * Desk Redis password is always first when present so enroll cannot shadow GRP REGISTER.
+   */
+  async resolveHa1Candidates(params: {
     sipEndpointId: string;
     authUsername: string;
     realm: string;
-  }): Promise<SipCredentialRecord | null> {
-    const enrollKey = params.sipEndpointId.toLowerCase();
-    const active = this.enroll.get(enrollKey);
-    if (active && active.expiresAtMs > Date.now()) {
-      return {
-        sipEndpointId: params.sipEndpointId,
-        ha1: active.ha1,
-        passwordVersion: active.version,
-      };
-    }
-    if (active) {
-      this.enroll.delete(enrollKey);
-    }
+  }): Promise<SipCredentialRecord[]> {
+    const idKey = params.sipEndpointId.toLowerCase();
+    const candidates: SipCredentialRecord[] = [];
+    const seen = new Set<string>();
 
-    // Prefer retained desk password so HA1 matches the Kamailio challenge realm
-    // (SIP_REGISTRAR_HOST), not the tenant realm used when the secret was issued.
-    const byId = this.map.get(params.sipEndpointId.toLowerCase());
+    const push = (rec: SipCredentialRecord) => {
+      if (seen.has(rec.ha1)) return;
+      seen.add(rec.ha1);
+      candidates.push(rec);
+    };
+
+    const byId = this.map.get(idKey);
     if (byId?.password) {
-      return {
+      push({
         sipEndpointId: params.sipEndpointId,
         ha1: computeHa1(params.authUsername, params.realm, byId.password),
         passwordVersion: byId.version,
-      };
+        source: 'redis',
+      });
+    }
+
+    const enrollKey = idKey;
+    const active = this.enroll.get(enrollKey);
+    if (active && active.expiresAtMs > Date.now()) {
+      const enrollHa1 = active.password
+        ? computeHa1(params.authUsername, params.realm, active.password)
+        : active.ha1.toLowerCase();
+      push({
+        sipEndpointId: params.sipEndpointId,
+        ha1: enrollHa1,
+        passwordVersion: active.version,
+        source: 'enroll',
+      });
+    } else if (active) {
+      this.enroll.delete(enrollKey);
     }
 
     const userRealmKey = `${params.authUsername}@${params.realm}`.toLowerCase();
     const byUserRealm = this.map.get(userRealmKey);
     if (byUserRealm?.password) {
-      return {
+      push({
         sipEndpointId: params.sipEndpointId,
         ha1: computeHa1(params.authUsername, params.realm, byUserRealm.password),
         passwordVersion: byUserRealm.version,
-      };
+        source: 'redis',
+      });
     }
     if (byUserRealm?.ha1) {
-      return {
+      push({
         sipEndpointId: params.sipEndpointId,
         ha1: byUserRealm.ha1.toLowerCase(),
         passwordVersion: byUserRealm.version,
-      };
+        source: 'vault_ha1',
+      });
     }
 
     if (byId?.ha1) {
-      return {
+      push({
         sipEndpointId: params.sipEndpointId,
         ha1: byId.ha1.toLowerCase(),
         passwordVersion: byId.version,
-      };
+        source: 'vault_ha1',
+      });
     }
 
     const labPassword = (this.config.get<string>('SIP_DEV_PASSWORD') || '').trim();
     if (labPassword) {
-      this.logger.debug(
-        JSON.stringify({
-          event: 'telecom.vault.dev_password',
-          sipEndpointId: params.sipEndpointId,
-        }),
-      );
-      return {
+      push({
         sipEndpointId: params.sipEndpointId,
         ha1: computeHa1(params.authUsername, params.realm, labPassword),
         passwordVersion: 'dev',
-      };
+        source: 'dev',
+      });
     }
 
-    return null;
+    return candidates;
+  }
+
+  /** First candidate only — desk Redis wins over enroll when both exist. */
+  async resolveHa1(params: {
+    sipEndpointId: string;
+    authUsername: string;
+    realm: string;
+  }): Promise<SipCredentialRecord | null> {
+    const candidates = await this.resolveHa1Candidates(params);
+    return candidates[0] ?? null;
   }
 
   /** Register temporary enroll digest material (Phase 10 — ADR-038). */
@@ -165,13 +211,15 @@ export class SipCredentialVaultService implements OnModuleInit {
     const ha1 = computeHa1(params.authUsername, params.realm, params.password);
     this.enroll.set(params.sipEndpointId.toLowerCase(), {
       ha1,
+      password: params.password,
       version: params.version,
       expiresAtMs: Date.now() + Math.max(60, params.ttlSec) * 1000,
     });
-    this.logger.debug(
+    this.logger.log(
       JSON.stringify({
         event: 'telecom.vault.enroll_registered',
         sipEndpointId: params.sipEndpointId,
+        version: params.version,
         ttlSec: params.ttlSec,
       }),
     );

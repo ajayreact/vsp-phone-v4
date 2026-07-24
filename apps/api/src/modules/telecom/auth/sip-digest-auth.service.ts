@@ -165,25 +165,69 @@ export class SipDigestAuthService {
 
     await this.vault.rehydrateDeskCredential(endpoint.id);
 
-    const cred = await this.vault.resolveHa1({
+    const enrollPeek = this.vault.peekEnroll(endpoint.id);
+    const deskVersion = this.vault.peekPersistentVersion(endpoint.id);
+    const candidates = await this.vault.resolveHa1Candidates({
       sipEndpointId: endpoint.id,
       authUsername: endpoint.authUsername,
       realm: dto.realm,
     });
-    if (!cred) {
+    if (!candidates.length) {
       return deny('credential_unavailable');
     }
 
-    const expected = computeDigestResponse({
-      ha1: cred.ha1,
-      nonce: dto.nonce,
-      method: dto.method,
-      uri: dto.uri,
+    this.logger.log(
+      JSON.stringify({
+        event: 'telecom.auth.ha1_candidates',
+        sipEndpointId: endpoint.id,
+        username: dto.username,
+        realm: dto.realm,
+        deskVersion,
+        enrollVersion: enrollPeek?.version ?? null,
+        enrollActive: Boolean(enrollPeek),
+        candidates: candidates.map((c) => ({ source: c.source, passwordVersion: c.passwordVersion })),
+        requestId: meta.requestId,
+      }),
+    );
+
+    const matched = candidates.find((cred) => {
+      const expected = computeDigestResponse({
+        ha1: cred.ha1,
+        nonce: dto.nonce,
+        method: dto.method,
+        uri: dto.uri,
+      });
+      return safeEqualHex(expected, dto.response);
     });
 
-    if (!safeEqualHex(expected, dto.response)) {
+    if (!matched) {
+      this.logger.warn(
+        JSON.stringify({
+          event: 'telecom.auth.ha1_mismatch',
+          sipEndpointId: endpoint.id,
+          username: dto.username,
+          tried: candidates.map((c) => ({ source: c.source, passwordVersion: c.passwordVersion })),
+          requestId: meta.requestId,
+        }),
+      );
       return deny('bad_digest');
     }
+
+    this.logger.log(
+      JSON.stringify({
+        event: 'telecom.auth.ha1_selected',
+        sipEndpointId: endpoint.id,
+        username: dto.username,
+        selectedSource: matched.source,
+        passwordVersion: matched.passwordVersion,
+        enrollActive: Boolean(enrollPeek),
+        deskVersion,
+        // Proof: old resolveHa1() returned enroll first when both existed.
+        legacyWouldSelectEnroll:
+          Boolean(enrollPeek) && candidates.some((c) => c.source === 'redis'),
+        requestId: meta.requestId,
+      }),
+    );
 
     const allow: AuthenticateResponseDto = {
       allow: true,
@@ -204,6 +248,8 @@ export class SipDigestAuthService {
         tenantId: allow.tenantId,
         deviceId: allow.deviceId,
         sipEndpointId: endpoint.id,
+        selectedSource: matched.source,
+        passwordVersion: matched.passwordVersion,
         hasAssignment: hasActiveAssignment(device),
         requestId: meta.requestId,
       }),

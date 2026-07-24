@@ -66,10 +66,21 @@ describe('SipDigestAuthService', () => {
     };
     const vault = {
       rehydrateDeskCredential: jest.fn().mockResolvedValue(overrides?.rehydrate ?? true),
+      peekEnroll: jest.fn().mockReturnValue(null),
+      peekPersistentVersion: jest.fn().mockReturnValue('desk-1'),
+      resolveHa1Candidates: jest.fn().mockImplementation(async ({ realm }: { realm: string }) => [
+        {
+          sipEndpointId: endpointId,
+          ha1: computeHa1(authUsername, realm, password),
+          passwordVersion: 'desk-1',
+          source: 'redis' as const,
+        },
+      ]),
       resolveHa1: jest.fn().mockImplementation(async ({ realm }: { realm: string }) => ({
         sipEndpointId: endpointId,
         ha1: computeHa1(authUsername, realm, password),
         passwordVersion: 'desk-1',
+        source: 'redis' as const,
       })),
     };
     const redis = {
