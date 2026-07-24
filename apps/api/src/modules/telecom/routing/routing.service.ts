@@ -422,10 +422,26 @@ export class RoutingService {
       return this.rejectPlan(undefined, undefined, 403, 'CALLER_REQUIRED', meta, 'OUTBOUND');
     }
 
+    const userPart = extractUserPart(callerAor);
+    // RC1 temp: desk→PSTN validation — filter logs by userPart=100 / sip:100@
+    this.logger.log(
+      JSON.stringify({
+        event: 'telecom.route.outbound.enter',
+        requestId: meta.requestId,
+        callerAor,
+        from: dto.from,
+        cli: dto.cli ?? null,
+        extractedUserPart: userPart,
+        destUser,
+        tenantId: dto.tenantId ?? null,
+      }),
+    );
+
     const callerCtx = await this.resolveLineByAorOrExtension(
       callerAor,
-      extractUserPart(callerAor),
+      userPart,
       dto.tenantId,
+      meta.requestId,
     );
     if (!callerCtx) {
       return this.rejectPlan(dto.tenantId, undefined, 404, 'CALLER_LINE_NOT_FOUND', meta, 'OUTBOUND');
@@ -976,9 +992,11 @@ export class RoutingService {
     aorOrUri: string | undefined,
     userPart: string | null | undefined,
     tenantHint?: string,
+    requestId?: string,
   ): Promise<ResolvedLineCtx | null> {
     const aor = aorOrUri ? normalizeAor(extractAor(aorOrUri) ?? aorOrUri) : undefined;
     const tenantFilter = tenantHint ? { tenantId: tenantHint } : {};
+    const username = userPart || (aor ? extractUserPart(aor) : null);
     const endpointInclude = {
       line: {
         include: {
@@ -1007,6 +1025,7 @@ export class RoutingService {
 
     const lineFromEndpoint = (ep: {
       aor: string;
+      authUsername?: string;
       line: (Parameters<RoutingService['toLineCtx']>[0] & { status: LineStatus }) | null;
       devices: Array<{
         line: (Parameters<RoutingService['toLineCtx']>[0] & { status: LineStatus }) | null;
@@ -1022,6 +1041,14 @@ export class RoutingService {
       return null;
     };
 
+    let aorMatched = false;
+    let authUsernameMatched = false;
+    let extensionMatched = false;
+    let lookupPath: 'aor' | 'authUsername' | 'extension' | 'none' = 'none';
+    let matchedAuthUsername: string | null = null;
+    let ctx: ResolvedLineCtx | null = null;
+    let canonicalAor: string | null = null;
+
     // 1) Prefer SIPEndpoint by exact AoR (canonical DB AoR)
     if (aor) {
       const ep = await this.prisma.sIPEndpoint.findFirst({
@@ -1032,15 +1059,18 @@ export class RoutingService {
         },
         include: endpointInclude,
       });
-      const ctx = ep ? lineFromEndpoint(ep) : null;
-      if (ctx) return ctx;
+      ctx = ep ? lineFromEndpoint(ep) : null;
+      if (ctx) {
+        aorMatched = true;
+        lookupPath = 'aor';
+        matchedAuthUsername = ep?.authUsername ?? username;
+        canonicalAor = ep?.aor ?? aor;
+      }
     }
 
     // 2) Phone From/REGISTER uses SIP_REGISTRAR_HOST (sip:100@sip.vspphone.com) while
     //    sip_endpoints.aor stores tenant realm (sip:100@vsp-internal.sip.vspphone.com).
-    //    Same fallback as RegistrationService.resolveEndpoint — match authUsername.
-    const username = userPart || (aor ? extractUserPart(aor) : null);
-    if (username) {
+    if (!ctx && username) {
       const epByUser = await this.prisma.sIPEndpoint.findFirst({
         where: {
           deletedAt: null,
@@ -1049,24 +1079,17 @@ export class RoutingService {
         },
         include: endpointInclude,
       });
-      const ctx = epByUser ? lineFromEndpoint(epByUser) : null;
+      ctx = epByUser ? lineFromEndpoint(epByUser) : null;
       if (ctx) {
-        this.logger.log(
-          JSON.stringify({
-            event: 'telecom.route.caller_resolved_by_auth_username',
-            authUsername: username,
-            requestAor: aor,
-            canonicalAor: epByUser?.aor,
-            lineId: ctx.lineId,
-            tenantId: ctx.tenantId,
-          }),
-        );
-        return ctx;
+        authUsernameMatched = true;
+        lookupPath = 'authUsername';
+        matchedAuthUsername = epByUser?.authUsername ?? username;
+        canonicalAor = epByUser?.aor ?? null;
       }
     }
 
     // 3) Extension match (internal dialing)
-    if (username && /^\d{2,8}$/.test(username)) {
+    if (!ctx && username && /^\d{2,8}$/.test(username)) {
       const ext = await this.prisma.extension.findFirst({
         where: {
           deletedAt: null,
@@ -1085,11 +1108,34 @@ export class RoutingService {
         },
       });
       if (ext?.line && ext.line.status === LineStatus.ACTIVE) {
-        return this.toLineCtx(ext.line);
+        ctx = this.toLineCtx(ext.line);
+        extensionMatched = true;
+        lookupPath = 'extension';
+        matchedAuthUsername = username;
       }
     }
 
-    return null;
+    // RC1 temp: one structured line per lookup — filter desk with extractedUserPart=100
+    this.logger.log(
+      JSON.stringify({
+        event: 'telecom.route.caller_lookup',
+        requestId: requestId ?? null,
+        callerAor: aor ?? aorOrUri ?? null,
+        extractedUserPart: username,
+        authUsername: matchedAuthUsername,
+        tenantIdHint: tenantHint ?? null,
+        tenantIdResolved: ctx?.tenantId ?? null,
+        lineId: ctx?.lineId ?? null,
+        canonicalAor,
+        lookupPath,
+        aorMatched,
+        authUsernameMatched,
+        extensionMatched,
+        resolved: Boolean(ctx),
+      }),
+    );
+
+    return ctx;
   }
 
   private toLineCtx(
