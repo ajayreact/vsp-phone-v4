@@ -72,15 +72,10 @@ export class RegistrationService {
     }
 
     const aor = normalizeAor(dto.aor);
-    const endpoint = await this.prisma.sIPEndpoint.findFirst({
-      where: {
-        deletedAt: null,
-        aor: { equals: aor, mode: 'insensitive' },
-        ...(dto.tenantId ? { tenantId: dto.tenantId } : {}),
-      },
-      include: {
-        devices: devicesInclude,
-      },
+    const endpoint = await this.resolveEndpoint({
+      aor,
+      tenantId: dto.tenantId,
+      deviceId: dto.deviceId,
     });
 
     const device = pickRegistrableDevice(endpoint?.devices, dto.deviceId);
@@ -128,7 +123,10 @@ export class RegistrationService {
       deviceId: device.id,
     };
 
-    const regKey = this.redis.registrationKey(endpoint.tenantId, aor);
+    // Canonical AOR from DB — phone may REGISTER as sip:100@sip.vspphone.com while
+    // endpoint.aor is sip:100@vsp-internal.sip.vspphone.com (routing looks up the latter).
+    const canonicalAor = normalizeAor(endpoint.aor);
+    const regKey = this.redis.registrationKey(endpoint.tenantId, canonicalAor);
     const existing = await this.redis.hgetall(regKey);
     const wasEmpty = Object.keys(existing).length === 0;
     const field = this.redis.contactField(contactUri);
@@ -169,7 +167,7 @@ export class RegistrationService {
       deviceId: device.id,
       sipEndpointId: endpoint.id,
       lineId: device.lineId ?? undefined,
-      aor,
+      aor: canonicalAor,
       contact: contactUri,
       expiresAt,
       userAgent: dto.userAgent,
@@ -185,7 +183,8 @@ export class RegistrationService {
         type: eventType,
         tenantId: endpoint.tenantId,
         deviceId: device.id,
-        aor,
+        aor: canonicalAor,
+        requestAor: aor,
         multiDeviceCount,
         requestId: meta.requestId,
       }),
@@ -215,13 +214,10 @@ export class RegistrationService {
     }
 
     const aor = normalizeAor(dto.aor);
-    const endpoint = await this.prisma.sIPEndpoint.findFirst({
-      where: {
-        deletedAt: null,
-        aor: { equals: aor, mode: 'insensitive' },
-        ...(dto.tenantId ? { tenantId: dto.tenantId } : {}),
-      },
-      include: { devices: devicesInclude },
+    const endpoint = await this.resolveEndpoint({
+      aor,
+      tenantId: dto.tenantId,
+      deviceId: dto.deviceId,
     });
 
     if (!endpoint) {
@@ -234,8 +230,9 @@ export class RegistrationService {
     }
 
     const device = pickRegistrableDevice(endpoint.devices, dto.deviceId);
+    const canonicalAor = normalizeAor(endpoint.aor);
 
-    const regKey = this.redis.registrationKey(endpoint.tenantId, aor);
+    const regKey = this.redis.registrationKey(endpoint.tenantId, canonicalAor);
 
     if (dto.contact) {
       const field = this.redis.contactField(extractContactUri(dto.contact));
@@ -274,7 +271,7 @@ export class RegistrationService {
       tenantId: endpoint.tenantId,
       deviceId: device?.id ?? dto.deviceId,
       sipEndpointId: endpoint.id,
-      aor,
+      aor: canonicalAor,
       contact: dto.contact ? extractContactUri(dto.contact) : undefined,
       reason: 'client_unregister',
       ts: new Date().toISOString(),
@@ -284,7 +281,7 @@ export class RegistrationService {
     this.logger.log(
       JSON.stringify({
         event: 'telecom.reg.unregistered',
-        aor,
+        aor: canonicalAor,
         remainingCount,
         requestId: meta.requestId,
       }),
@@ -355,10 +352,66 @@ export class RegistrationService {
       idempotencyKey: meta.idempotencyKey,
     };
   }
+
+  /**
+   * Phone REGISTER AoR uses SIP_REGISTRAR_HOST (sip.vspphone.com); stored endpoint AoR uses
+   * tenant realm (vsp-internal.sip.vspphone.com). Match exact AoR, then deviceId, then authUsername.
+   */
+  private async resolveEndpoint(params: {
+    aor: string;
+    tenantId?: string;
+    deviceId?: string;
+  }) {
+    const tenantFilter = params.tenantId ? { tenantId: params.tenantId } : {};
+    const include = { devices: devicesInclude };
+
+    let endpoint = await this.prisma.sIPEndpoint.findFirst({
+      where: {
+        deletedAt: null,
+        aor: { equals: params.aor, mode: 'insensitive' },
+        ...tenantFilter,
+      },
+      include,
+    });
+
+    if (!endpoint && params.deviceId) {
+      const device = await this.prisma.device.findFirst({
+        where: { id: params.deviceId, deletedAt: null, ...tenantFilter },
+        select: { sipEndpointId: true },
+      });
+      if (device?.sipEndpointId) {
+        endpoint = await this.prisma.sIPEndpoint.findFirst({
+          where: { id: device.sipEndpointId, deletedAt: null, ...tenantFilter },
+          include,
+        });
+      }
+    }
+
+    if (!endpoint) {
+      const username = extractAorUser(params.aor);
+      if (username) {
+        endpoint = await this.prisma.sIPEndpoint.findFirst({
+          where: {
+            deletedAt: null,
+            authUsername: username,
+            ...tenantFilter,
+          },
+          include,
+        });
+      }
+    }
+
+    return endpoint;
+  }
 }
 
 function normalizeAor(aor: string): string {
   return aor.trim().replace(/^<|>$/g, '');
+}
+
+function extractAorUser(aor: string): string | null {
+  const m = aor.match(/^sip:([^@;>\s]+)@/i);
+  return m?.[1] ?? null;
 }
 
 function extractContactUri(contact: string): string {
