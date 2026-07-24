@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  HttpCode,
   Post,
   Req,
   UseFilters,
@@ -117,6 +118,7 @@ export class TelecomController {
   }
 
   @Post('authenticate')
+  @HttpCode(200)
   @ApiOperation({
     summary: 'SIP digest authentication (alias)',
     description: `Phase 5 path retained. Prefer POST /auth/sip-digest (ADR-024). Timeout ≤ ${TELECOM_TIMEOUTS_MS.authenticate}ms.`,
@@ -132,6 +134,7 @@ export class TelecomController {
   }
 
   @Post('auth/sip-digest')
+  @HttpCode(200)
   @ApiOperation({
     summary: 'SIP digest authentication (ADR-024)',
     description: `NestJS verifies HA1 from vault. Kamailio HTTP client. Timeout ≤ ${TELECOM_TIMEOUTS_MS.authenticate}ms. Idempotent cache by nonce+user. platformUuid NOT required.`,

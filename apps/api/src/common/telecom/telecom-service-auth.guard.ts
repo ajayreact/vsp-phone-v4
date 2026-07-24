@@ -24,7 +24,9 @@ export class TelecomServiceAuthGuard implements CanActivate {
   canActivate(context: ExecutionContext): boolean {
     const req = context.switchToHttp().getRequest<Request>();
     const expected = (this.config.get<string>('TELECOM_SERVICE_AUTH_TOKEN') || '').trim();
-    const provided = (req.header(TELECOM_HEADERS.SERVICE_AUTH) || '').trim();
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const fromBody = typeof body.serviceAuth === 'string' ? body.serviceAuth.trim() : '';
+    const provided = (req.header(TELECOM_HEADERS.SERVICE_AUTH) || fromBody || '').trim();
 
     if (!expected) {
       this.logger.warn(
