@@ -61,14 +61,15 @@ export class ConfigGeneratorService {
       }),
     );
 
-    let sipPassword = await this.vault.resolveDeskSipPassword(input.sipEndpointId);
-    if (!sipPassword) {
-      sipPassword = this.vault.issueDeskSip({
-        sipEndpointId: input.sipEndpointId,
-        authUsername: input.authUsername,
-        realm: input.realm,
-      }).password;
-    }
+    // Always rotate desk SIP password on each generate so GRP cfg P34 matches vault
+    // (reusing a stale secret left phones on bad_digest after failed apply / blank SIP Server).
+    const deskSip = this.vault.issueDeskSip({
+      sipEndpointId: input.sipEndpointId,
+      authUsername: input.authUsername,
+      realm: input.realm,
+    });
+    const sipPassword = deskSip.password;
+    const sipServer = this.sipServer(input.realm);
     const provHttp =
       (await this.vault.resolveProvHttp(input.mac)) ?? (await this.vault.issueProvHttp(input.mac));
     const adminPassword =
@@ -94,6 +95,8 @@ export class ConfigGeneratorService {
       firmwareChannel: input.firmwareChannel,
       siteCode: input.siteCode ?? '',
       manufacturer: String(manufacturer),
+      deskSipVersion: deskSip.version,
+      sipServer,
     });
 
     const provServerUrl =
@@ -120,7 +123,7 @@ export class ConfigGeneratorService {
       adminPassword,
       sipUsername: input.authUsername,
       sipPassword,
-      sipServer: this.sipServer(input.realm),
+      sipServer,
       sipPort: sipEndpoint.port,
       grandstreamTransport: sipEndpoint.grandstreamTransport,
       aor: input.aor,
@@ -161,6 +164,8 @@ export class ConfigGeneratorService {
         mac: input.mac,
         configVersion: input.configVersion,
         artifactHash,
+        sipServer,
+        deskSipVersion: deskSip.version,
       }),
     );
     return result;
