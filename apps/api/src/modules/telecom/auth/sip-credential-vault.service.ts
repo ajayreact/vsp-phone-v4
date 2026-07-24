@@ -99,23 +99,8 @@ export class SipCredentialVaultService implements OnModuleInit {
       this.enroll.delete(enrollKey);
     }
 
-    const userRealmKey = `${params.authUsername}@${params.realm}`.toLowerCase();
-    const byUserRealm = this.map.get(userRealmKey);
-    if (byUserRealm?.ha1) {
-      return {
-        sipEndpointId: params.sipEndpointId,
-        ha1: byUserRealm.ha1.toLowerCase(),
-        passwordVersion: byUserRealm.version,
-      };
-    }
-    if (byUserRealm?.password) {
-      return {
-        sipEndpointId: params.sipEndpointId,
-        ha1: computeHa1(params.authUsername, params.realm, byUserRealm.password),
-        passwordVersion: byUserRealm.version,
-      };
-    }
-
+    // Prefer retained desk password so HA1 matches the Kamailio challenge realm
+    // (SIP_REGISTRAR_HOST), not the tenant realm used when the secret was issued.
     const byId = this.map.get(params.sipEndpointId.toLowerCase());
     if (byId?.password) {
       return {
@@ -124,6 +109,24 @@ export class SipCredentialVaultService implements OnModuleInit {
         passwordVersion: byId.version,
       };
     }
+
+    const userRealmKey = `${params.authUsername}@${params.realm}`.toLowerCase();
+    const byUserRealm = this.map.get(userRealmKey);
+    if (byUserRealm?.password) {
+      return {
+        sipEndpointId: params.sipEndpointId,
+        ha1: computeHa1(params.authUsername, params.realm, byUserRealm.password),
+        passwordVersion: byUserRealm.version,
+      };
+    }
+    if (byUserRealm?.ha1) {
+      return {
+        sipEndpointId: params.sipEndpointId,
+        ha1: byUserRealm.ha1.toLowerCase(),
+        passwordVersion: byUserRealm.version,
+      };
+    }
+
     if (byId?.ha1) {
       return {
         sipEndpointId: params.sipEndpointId,
@@ -201,22 +204,21 @@ export class SipCredentialVaultService implements OnModuleInit {
     this.map.set(userRealmKey, { ha1, version: params.version });
   }
 
-  /** Load desk SIP password from Redis when API restarted before REGISTER auth. */
+  /**
+   * Load desk SIP password from Redis. Always refresh when Redis has a credential so
+   * provisioned GRP passwords win over stale SIP_VAULT_JSON / in-memory HA1 entries.
+   */
   async rehydrateDeskCredential(sipEndpointId: string): Promise<boolean> {
     const idKey = sipEndpointId.toLowerCase();
-    if (this.map.has(idKey)) {
-      return true;
-    }
-
     const raw = await this.redis.get(`vsp:prov:desk-sip:${idKey}`);
     if (!raw) {
-      return false;
+      return this.map.has(idKey);
     }
 
     try {
       const stored = JSON.parse(raw) as StoredDeskSipCred;
       if (!stored.passwordEnc || !stored.version || !stored.authUsername || !stored.realm) {
-        return false;
+        return this.map.has(idKey);
       }
       const password = decryptProvHttpPassword(stored.passwordEnc, this.provHttpKey);
       this.registerPersistentCredential({
@@ -243,7 +245,7 @@ export class SipCredentialVaultService implements OnModuleInit {
           message: err instanceof Error ? err.message : String(err),
         }),
       );
-      return false;
+      return this.map.has(idKey);
     }
   }
 
