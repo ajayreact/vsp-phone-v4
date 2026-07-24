@@ -11,14 +11,21 @@ import type { Request } from 'express';
 import { PrismaService } from '../../telecom/prisma/prisma.service';
 import { SecurityAuditService } from '../audit/security-audit.service';
 
-/** Kamailio REGISTER plane — tenant resolved from AOR in handler, not body tenantId. */
+/** Kamailio SIP plane — tenant resolved from AOR/DID/session in handler, not body tenantId. */
 export function isKamailioAorResolvedTelecomPath(path: string): boolean {
   const p = path.split('?')[0] ?? path;
   return (
     p.endsWith('/auth/sip-digest') ||
     p.endsWith('/authenticate') ||
     p.endsWith('/register') ||
-    p.endsWith('/unregister')
+    p.endsWith('/unregister') ||
+    p.endsWith('/routing/resolve') ||
+    p.endsWith('/route') ||
+    p.endsWith('/routing/continue') ||
+    p.endsWith('/call/start') ||
+    p.endsWith('/call/end') ||
+    p.endsWith('/call/update') ||
+    p.endsWith('/media/lifecycle')
   );
 }
 
