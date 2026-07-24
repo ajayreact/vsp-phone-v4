@@ -219,6 +219,14 @@ export class RouteRequestDto {
   @MaxLength(32)
   cli?: string;
 
+  @ApiPropertyOptional({
+    description: 'SIP digest/auth username when Authorization present (Kamailio $au); else From user',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(128)
+  authUsername?: string;
+
   @ApiPropertyOptional({ enum: ['INTERNAL', 'INBOUND', 'OUTBOUND', 'UNKNOWN'] })
   @IsOptional()
   @IsIn(['INTERNAL', 'INBOUND', 'OUTBOUND', 'UNKNOWN'])

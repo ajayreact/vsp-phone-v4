@@ -423,14 +423,18 @@ export class RoutingService {
     }
 
     const userPart = extractUserPart(callerAor);
-    // RC1 temp: desk→PSTN validation — filter logs by userPart=100 / sip:100@
+    const authUsername = (dto.authUsername || '').trim() || userPart;
+    // RC1 temp: desk→PSTN validation — filter logs by authUsername/userPart === "100"
     this.logger.log(
       JSON.stringify({
         event: 'telecom.route.outbound.enter',
         requestId: meta.requestId,
+        callId: dto.callId,
         callerAor,
         from: dto.from,
+        requestUri: dto.requestUri,
         cli: dto.cli ?? null,
+        authUsername: authUsername ?? null,
         extractedUserPart: userPart,
         destUser,
         tenantId: dto.tenantId ?? null,
@@ -439,7 +443,7 @@ export class RoutingService {
 
     const callerCtx = await this.resolveLineByAorOrExtension(
       callerAor,
-      userPart,
+      authUsername || userPart,
       dto.tenantId,
       meta.requestId,
     );
@@ -632,8 +636,12 @@ export class RoutingService {
         platformUuid,
         callSessionId,
         tenantId,
+        fromLineId: callerCtx.lineId,
         carrierCode: trunk.carrierCode,
         destinationE164,
+        lookupAuthUsername: authUsername,
+        callId: dto.callId,
+        action: 'BRIDGE_CARRIER',
         requestId: meta.requestId,
       }),
     );
