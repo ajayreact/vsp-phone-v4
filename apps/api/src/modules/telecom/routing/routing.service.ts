@@ -487,7 +487,22 @@ export class RoutingService {
       return this.rejectPlan(tenantId, callerCtx.lineId, 403, 'TENANT_INACTIVE', meta, 'OUTBOUND');
     }
 
-    const cliRaw = dto.cli ?? callerCtx.callerIdNumber;
+    // RC1 fix: prefer the line's provisioned Caller ID (callerCtx.callerIdNumber)
+    // over a caller-asserted dto.cli. Kamailio no longer sends cli for
+    // desk-originated OUTBOUND INVITEs (see kamailio.cfg route[INVITE]), so
+    // dto.cli here is only ever a legitimate explicit override; the DB-backed
+    // callerIdNumber remains the authoritative source whenever one is assigned.
+    if (!callerCtx.callerIdNumber && !dto.cli) {
+      return this.rejectPlan(
+        tenantId,
+        callerCtx.lineId,
+        403,
+        'NO_CALLER_ID_ASSIGNED',
+        meta,
+        'OUTBOUND',
+      );
+    }
+    const cliRaw = callerCtx.callerIdNumber ?? dto.cli;
     const cliResult = await this.carriers.validateCli(tenantId, cliRaw);
     if (!cliResult.ok) {
       return this.rejectPlan(
