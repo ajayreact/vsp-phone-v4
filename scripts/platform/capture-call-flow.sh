@@ -78,7 +78,8 @@ echo "Merged $LINES lines."
 echo
 echo "=== Quick milestone grep (sanity check) ==="
 for pat in "INVITE r-uri" "REGISTER aor" "100 Trying" "180" "200 OK" "\bACK\b" "\bBYE\b" "telecom.route.resolve" "telecom.route.caller_lookup" "REJECT" "rtpengine"; do
-  n=$(grep -Ec -- "$pat" "$OUT_DIR/merged.log" 2>/dev/null || echo 0)
+  n=$(grep -Ec -- "$pat" "$OUT_DIR/merged.log" 2>/dev/null)
+  [[ -z "$n" ]] && n=0
   printf "  %-28s %s\n" "$pat" "$n"
 done
 
