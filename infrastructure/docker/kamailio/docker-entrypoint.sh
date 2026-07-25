@@ -45,6 +45,21 @@ else
   echo "[kamailio] WARNING: TELECOM_SERVICE_AUTH_TOKEN unset — NestJS auth header omitted (lab only)"
 fi
 
+# RC1 — Telnyx SIP Connection is Credentials-auth (challenges outbound INVITE
+# with 407 Proxy Authentication Required). uac module's credential row answers it.
+TELNYX_USER="${TELNYX_SIP_USERNAME:-}"
+TELNYX_PASS="${TELNYX_SIP_PASSWORD:-}"
+if [ -n "${TELNYX_USER}" ] && [ -n "${TELNYX_PASS}" ]; then
+  ESC_USER=$(printf '%s' "${TELNYX_USER}" | sed 's/[\\/&|]/\\&/g')
+  ESC_PASS=$(printf '%s' "${TELNYX_PASS}" | sed 's/[\\/&|]/\\&/g')
+  sed -i "s|__TELNYX_SIP_USERNAME__|${ESC_USER}|g; s|__TELNYX_SIP_PASSWORD__|${ESC_PASS}|g" "${CFG}"
+  echo "[kamailio] Telnyx UAC credential injected (uac module will answer 407 challenges)"
+else
+  # Placeholder credential row so uac module still loads cleanly; will simply never match.
+  sed -i "s|__TELNYX_SIP_USERNAME__|unset|g; s|__TELNYX_SIP_PASSWORD__|unset|g" "${CFG}"
+  echo "[kamailio] WARNING: TELNYX_SIP_USERNAME/TELNYX_SIP_PASSWORD unset — carrier 407 challenges will NOT be answered"
+fi
+
 # RC1 — advertise shared registrar FQDN for desk phones (alias in Record-Route / domain handling)
 SIP_REGISTRAR_HOST="${SIP_REGISTRAR_HOST:-}"
 if [ -n "${SIP_REGISTRAR_HOST}" ]; then

@@ -184,6 +184,10 @@ services:
       SIP_REGISTRAR_HOST: ${SIP_REGISTRAR_HOST:-}
       NESTJS_BASE_URL: http://api:3000
       TELECOM_SERVICE_AUTH_TOKEN: ${TELECOM_SERVICE_AUTH_TOKEN:-}
+      # RC1 fix: Telnyx SIP Connection is Credentials-auth — it challenges every
+      # outbound INVITE with 407 Proxy Authentication Required. uac module answers it.
+      TELNYX_SIP_USERNAME: ${TELNYX_SIP_USERNAME:-}
+      TELNYX_SIP_PASSWORD: ${TELNYX_SIP_PASSWORD:-}
     ports:
       - '${KAMAILIO_SIP_PORT:-5060}:5060/udp'
       - '${KAMAILIO_SIP_PORT:-5060}:5060/tcp'
