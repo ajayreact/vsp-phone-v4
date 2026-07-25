@@ -21,7 +21,7 @@ if (!file) {
   process.exit(1);
 }
 
-const raw = fs.readFileSync(file, 'utf8');
+const raw = fs.readFileSync(file, 'utf8').replace(/^\uFEFF/, '');
 
 function rawFallback(reason) {
   console.log(`(Input is not parseable as JSON — ${reason}. Falling back to raw text context.)`);
@@ -46,9 +46,36 @@ try {
   process.exit(0);
 }
 
-const aors = data.AoRs || data.aors || (Array.isArray(data) ? data : null);
+// kamctl/kamcmd wrap the usrloc dump differently depending on version/RPC
+// transport (e.g. top-level {AoRs:[...]}, or JSON-RPC {result:{Domains:[{Domain:{AoRs:[...]}}]}}).
+// Rather than hardcode one path, recursively find every array whose entries
+// look like an AoR record ({Info:{AoR,Contacts}} or {AoR,Contacts} directly),
+// and merge them all — this is resilient to schema/wrapping differences.
+function findAorArrays(obj, out) {
+  if (!obj || typeof obj !== 'object') return;
+  if (Array.isArray(obj)) {
+    const looksLikeAorArray =
+      obj.length > 0 &&
+      obj.every((item) => {
+        const info = item && (item.Info || item.info || item);
+        return info && typeof info === 'object' && (info.AoR || info.aor);
+      });
+    if (looksLikeAorArray) {
+      out.push(obj);
+      return; // don't descend further into a matched AoR array
+    }
+    obj.forEach((v) => findAorArrays(v, out));
+    return;
+  }
+  for (const k of Object.keys(obj)) findAorArrays(obj[k], out);
+}
+
+const aorArrays = [];
+findAorArrays(data, aorArrays);
+const aors = aorArrays.length ? aorArrays.flat() : null;
+
 if (!aors) {
-  rawFallback('no top-level "AoRs" array found — unrecognized schema');
+  rawFallback('no AoR-shaped array found anywhere in the parsed JSON — unrecognized schema');
   process.exit(0);
 }
 
