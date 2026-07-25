@@ -1002,143 +1002,217 @@ export class RoutingService {
     tenantHint?: string,
     requestId?: string,
   ): Promise<ResolvedLineCtx | null> {
-    const aor = aorOrUri ? normalizeAor(extractAor(aorOrUri) ?? aorOrUri) : undefined;
+    const rawAor = aorOrUri ? normalizeAor(extractAor(aorOrUri) ?? aorOrUri) : undefined;
+    // Softphones often put Contact-style From (sip:user@ip:port); strip port for AoR compare.
+    const aor = rawAor ? stripSipUriPort(rawAor) : undefined;
     const tenantFilter = tenantHint ? { tenantId: tenantHint } : {};
     const username = userPart || (aor ? extractUserPart(aor) : null);
+
+    const lineInclude = {
+      callPolicy: true,
+      callerId: { include: { phoneNumber: true } },
+      extension: true,
+      devices: { include: { sipEndpoint: true } },
+    } as const;
+
     const endpointInclude = {
-      line: {
-        include: {
-          callPolicy: true,
-          callerId: { include: { phoneNumber: true } },
-          extension: true,
-          devices: { include: { sipEndpoint: true } },
-        },
-      },
+      line: { include: lineInclude },
       devices: {
         where: { deletedAt: null },
         orderBy: [{ isPrimary: 'desc' as const }, { updatedAt: 'desc' as const }],
-        take: 5,
+        take: 20,
         include: {
-          line: {
-            include: {
-              callPolicy: true,
-              callerId: { include: { phoneNumber: true } },
-              extension: true,
-              devices: { include: { sipEndpoint: true } },
-            },
+          line: { include: lineInclude },
+          assignments: {
+            where: { deletedAt: null, effectiveTo: null },
+            orderBy: { effectiveFrom: 'desc' as const },
+            take: 3,
+            select: { lineId: true, tenantId: true },
           },
         },
       },
     };
 
-    const lineFromEndpoint = (ep: {
+    type LineRow = Parameters<RoutingService['toLineCtx']>[0] & {
+      status: LineStatus;
+      deletedAt?: Date | null;
+    };
+
+    const asActiveLineCtx = (
+      line: LineRow | null | undefined,
+      preferredAor?: string,
+    ): ResolvedLineCtx | null => {
+      if (!line || line.deletedAt || line.status !== LineStatus.ACTIVE) return null;
+      return this.toLineCtx(line, preferredAor);
+    };
+
+    /**
+     * Digest auth resolves lineId as device.lineId ?? assignment.lineId.
+     * Routing must use the same graph — Line.sipEndpointId alone is insufficient.
+     */
+    const lineFromEndpoint = async (ep: {
+      id: string;
       aor: string;
       authUsername?: string;
-      line: (Parameters<RoutingService['toLineCtx']>[0] & { status: LineStatus }) | null;
+      tenantId: string;
+      line: LineRow | null;
       devices: Array<{
-        line: (Parameters<RoutingService['toLineCtx']>[0] & { status: LineStatus }) | null;
+        lineId: string | null;
+        line: LineRow | null;
+        assignments: Array<{ lineId: string | null; tenantId: string }>;
       }>;
-    }): ResolvedLineCtx | null => {
-      const line =
-        ep.line ??
-        ep.devices.find((d) => d.line && d.line.status === LineStatus.ACTIVE)?.line ??
-        null;
-      if (line && line.status === LineStatus.ACTIVE) {
-        return this.toLineCtx(line, ep.aor);
+    }): Promise<ResolvedLineCtx | null> => {
+      const direct = asActiveLineCtx(ep.line, ep.aor);
+      if (direct) return direct;
+
+      for (const d of ep.devices) {
+        const viaDevice = asActiveLineCtx(d.line, ep.aor);
+        if (viaDevice) return viaDevice;
       }
-      return null;
+
+      const assignmentLineIds = ep.devices
+        .flatMap((d) => d.assignments.map((a) => a.lineId).filter((id): id is string => Boolean(id)))
+        .filter((id, idx, arr) => arr.indexOf(id) === idx);
+
+      for (const lineId of assignmentLineIds) {
+        const line = await this.prisma.line.findFirst({
+          where: {
+            id: lineId,
+            deletedAt: null,
+            status: LineStatus.ACTIVE,
+            ...(tenantHint ? { tenantId: tenantHint } : { tenantId: ep.tenantId }),
+          },
+          include: lineInclude,
+        });
+        const viaAssign = asActiveLineCtx(line as LineRow | null, ep.aor);
+        if (viaAssign) return viaAssign;
+      }
+
+      // Last resort: Line that owns this endpoint (covers stale include / soft-delete edge)
+      const byFk = await this.prisma.line.findFirst({
+        where: {
+          sipEndpointId: ep.id,
+          deletedAt: null,
+          status: LineStatus.ACTIVE,
+          ...(tenantHint ? { tenantId: tenantHint } : { tenantId: ep.tenantId }),
+        },
+        include: lineInclude,
+      });
+      return asActiveLineCtx(byFk as LineRow | null, ep.aor);
     };
 
     let aorMatched = false;
     let authUsernameMatched = false;
     let extensionMatched = false;
-    let lookupPath: 'aor' | 'authUsername' | 'extension' | 'none' = 'none';
+    let lookupPath: 'aor' | 'authUsername' | 'extension' | 'assignment' | 'none' = 'none';
     let matchedAuthUsername: string | null = null;
     let ctx: ResolvedLineCtx | null = null;
     let canonicalAor: string | null = null;
+    let endpointFoundId: string | null = null;
+    let endpointWithoutLine = false;
 
-    // 1) Prefer SIPEndpoint by exact AoR (canonical DB AoR)
-    if (aor) {
+    // 1) Prefer SIPEndpoint by exact AoR (canonical DB AoR), then registrar-host variants
+    const aorCandidates = [aor, rawAor].filter(
+      (v, i, arr): v is string => Boolean(v) && arr.indexOf(v) === i,
+    );
+    for (const candidate of aorCandidates) {
+      if (ctx) break;
       const ep = await this.prisma.sIPEndpoint.findFirst({
         where: {
           deletedAt: null,
-          aor: { equals: aor, mode: 'insensitive' },
+          aor: { equals: candidate, mode: 'insensitive' },
           ...tenantFilter,
         },
         include: endpointInclude,
       });
-      ctx = ep ? lineFromEndpoint(ep) : null;
+      if (!ep) continue;
+      endpointFoundId = ep.id;
+      ctx = await lineFromEndpoint(ep);
       if (ctx) {
         aorMatched = true;
         lookupPath = 'aor';
-        matchedAuthUsername = ep?.authUsername ?? username;
-        canonicalAor = ep?.aor ?? aor;
+        matchedAuthUsername = ep.authUsername ?? username;
+        canonicalAor = ep.aor;
+      } else {
+        endpointWithoutLine = true;
       }
     }
 
-    // 2) Phone From/REGISTER uses SIP_REGISTRAR_HOST (sip:100@sip.vspphone.com) while
-    //    sip_endpoints.aor stores tenant realm (sip:100@vsp-internal.sip.vspphone.com).
+    // 2) Phone From uses SIP_REGISTRAR_HOST or Contact IP while DB AoR uses tenant realm.
+    //    Prefer REGISTERED endpoints when multiple tenants share the same authUsername.
     if (!ctx && username) {
       const epByUser = await this.prisma.sIPEndpoint.findFirst({
         where: {
           deletedAt: null,
-          authUsername: username,
+          authUsername: { equals: username, mode: 'insensitive' },
           ...tenantFilter,
         },
+        orderBy: [{ lastRegisteredAt: 'desc' }, { updatedAt: 'desc' }],
         include: endpointInclude,
       });
-      ctx = epByUser ? lineFromEndpoint(epByUser) : null;
-      if (ctx) {
-        authUsernameMatched = true;
-        lookupPath = 'authUsername';
-        matchedAuthUsername = epByUser?.authUsername ?? username;
-        canonicalAor = epByUser?.aor ?? null;
+      if (epByUser) {
+        endpointFoundId = epByUser.id;
+        const before = ctx;
+        ctx = await lineFromEndpoint(epByUser);
+        if (ctx) {
+          authUsernameMatched = true;
+          // Distinguish assignment-only resolution for ops logs
+          lookupPath =
+            !epByUser.line &&
+            !epByUser.devices.some((d) => d.line) &&
+            epByUser.devices.some((d) => d.assignments.some((a) => a.lineId))
+              ? 'assignment'
+              : 'authUsername';
+          matchedAuthUsername = epByUser.authUsername ?? username;
+          canonicalAor = epByUser.aor;
+          void before;
+        } else {
+          endpointWithoutLine = true;
+        }
       }
     }
 
-    // 3) Extension match (internal dialing)
+    // 3) Extension match (internal dialing / softphone username == extension)
     if (!ctx && username && /^\d{2,8}$/.test(username)) {
       const ext = await this.prisma.extension.findFirst({
         where: {
           deletedAt: null,
+          archivedAt: null,
           extension: username,
           ...tenantFilter,
+          line: { deletedAt: null, status: LineStatus.ACTIVE },
         },
         include: {
-          line: {
-            include: {
-              callPolicy: true,
-              callerId: { include: { phoneNumber: true } },
-              extension: true,
-              devices: { include: { sipEndpoint: true } },
-            },
-          },
+          line: { include: lineInclude },
         },
       });
-      if (ext?.line && ext.line.status === LineStatus.ACTIVE) {
+      if (ext?.line && ext.line.status === LineStatus.ACTIVE && !ext.line.deletedAt) {
         ctx = this.toLineCtx(ext.line);
         extensionMatched = true;
         lookupPath = 'extension';
         matchedAuthUsername = username;
+        canonicalAor = ctx.aor ?? null;
       }
     }
 
-    // RC1 temp: one structured line per lookup — filter desk with extractedUserPart=100
     this.logger.log(
       JSON.stringify({
         event: 'telecom.route.caller_lookup',
         requestId: requestId ?? null,
-        callerAor: aor ?? aorOrUri ?? null,
+        callerAor: aor ?? rawAor ?? aorOrUri ?? null,
         extractedUserPart: username,
         authUsername: matchedAuthUsername,
         tenantIdHint: tenantHint ?? null,
         tenantIdResolved: ctx?.tenantId ?? null,
         lineId: ctx?.lineId ?? null,
+        extensionId: ctx?.extension ?? null,
         canonicalAor,
         lookupPath,
         aorMatched,
         authUsernameMatched,
         extensionMatched,
+        endpointFoundId,
+        endpointWithoutLine,
         resolved: Boolean(ctx),
       }),
     );
@@ -1263,6 +1337,11 @@ export class RoutingService {
 
 function normalizeAor(aor: string): string {
   return aor.trim().toLowerCase().replace(/^<|>$/g, '');
+}
+
+/** sip:user@host:5060;x → sip:user@host (Contact/From IP-port forms). */
+function stripSipUriPort(aor: string): string {
+  return aor.replace(/@(?:\[[^\]]+\]|[^;:>\s]+):\d+/i, (m) => m.replace(/:\d+$/, ''));
 }
 
 function extractAor(header: string): string | undefined {

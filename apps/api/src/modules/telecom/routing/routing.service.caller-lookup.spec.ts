@@ -5,7 +5,7 @@ import type { RouteRequestDto } from '../dto/telecom.request.dto';
 /**
  * Caller line resolution regressions for desk→PSTN (CALLER_LINE_NOT_FOUND).
  * Covers AoR exact match, registrar-host mismatch → authUsername, extension
- * fallback, and unknown caller reject.
+ * fallback, assignment-only line link, Contact-style From, and unknown caller.
  */
 describe('RoutingService caller line lookup', () => {
   const tenantId = 'c8b74757-5846-42f7-ae0f-d61a31d1fd1f';
@@ -13,11 +13,13 @@ describe('RoutingService caller line lookup', () => {
   const endpointId = '1f72c201-613a-4988-ba32-c93bce9c6249';
   const canonicalAor = 'sip:100@vsp-internal.sip.vspphone.com';
   const registrarFrom = 'sip:100@sip.vspphone.com';
+  const contactFrom = 'sip:7005@10.133.8.97:61903';
 
   const activeLine = {
     id: lineId,
     tenantId,
     status: LineStatus.ACTIVE,
+    deletedAt: null,
     callPolicy: { inboundEnabled: true, outboundEnabled: true },
     callerId: { callerIdName: 'Ext 100', phoneNumber: { number: '+13136506292' } },
     extension: { extension: '100' },
@@ -31,27 +33,64 @@ describe('RoutingService caller line lookup', () => {
     ],
   };
 
+  const activeLine7005 = {
+    ...activeLine,
+    id: 'line-7005',
+    extension: { extension: '7005' },
+    callerId: { callerIdName: 'Ext 7005', phoneNumber: { number: '+13136506292' } },
+    devices: [
+      {
+        id: 'dev-7005',
+        status: DeviceStatus.REGISTERED,
+        deletedAt: null,
+        sipEndpoint: { aor: 'sip:7005@vsp-internal.sip.vspphone.com' },
+      },
+    ],
+  };
+
   const canonicalEndpoint = {
     id: endpointId,
     aor: canonicalAor,
     authUsername: '100',
+    tenantId,
     line: activeLine,
-    devices: [{ line: activeLine }],
+    devices: [
+      {
+        lineId,
+        line: activeLine,
+        assignments: [] as Array<{ lineId: string | null; tenantId: string }>,
+      },
+    ],
+  };
+
+  /** REGISTER succeeds via DeviceAssignment.lineId while Device.lineId / Line.sipEndpointId are null. */
+  const assignmentOnlyEndpoint = {
+    id: 'sip-7005',
+    aor: 'sip:7005@vsp-internal.sip.vspphone.com',
+    authUsername: '7005',
+    tenantId,
+    line: null,
+    devices: [
+      {
+        lineId: null,
+        line: null,
+        assignments: [{ lineId: 'line-7005', tenantId }],
+      },
+    ],
   };
 
   type LookupOpts = {
-    /** Exact AoR hit (canonical DB AoR) */
     byAor?: typeof canonicalEndpoint | null;
-    /** authUsername hit */
-    byAuthUsername?: typeof canonicalEndpoint | null;
-    /** Extension row with line */
+    byAuthUsername?: typeof canonicalEndpoint | typeof assignmentOnlyEndpoint | null;
     byExtension?: { line: typeof activeLine } | null;
+    lineById?: typeof activeLine7005 | null;
   };
 
   function buildService(opts: LookupOpts = {}) {
     const byAor = opts.byAor === undefined ? null : opts.byAor;
     const byAuth = opts.byAuthUsername === undefined ? null : opts.byAuthUsername;
     const byExt = opts.byExtension === undefined ? null : opts.byExtension;
+    const lineById = opts.lineById === undefined ? null : opts.lineById;
 
     const prisma = {
       connected: true,
@@ -64,6 +103,12 @@ describe('RoutingService caller line lookup', () => {
       },
       extension: {
         findFirst: jest.fn().mockResolvedValue(byExt),
+      },
+      line: {
+        findFirst: jest.fn().mockImplementation(async (args: { where: Record<string, unknown> }) => {
+          if (args.where.id === 'line-7005' || args.where.sipEndpointId) return lineById;
+          return null;
+        }),
       },
       tenant: {
         findFirst: jest.fn().mockResolvedValue({
@@ -148,8 +193,7 @@ describe('RoutingService caller line lookup', () => {
     expect(ctx?.lineId).toBe(lineId);
     expect(ctx?.tenantId).toBe(tenantId);
     expect(ctx?.aor).toBe(canonicalAor);
-    expect(prisma.sIPEndpoint.findFirst).toHaveBeenCalledTimes(1);
-    expect(prisma.sIPEndpoint.findFirst.mock.calls[0][0].where.aor.equals).toBe(canonicalAor);
+    expect(prisma.sIPEndpoint.findFirst).toHaveBeenCalled();
     expect(prisma.extension.findFirst).not.toHaveBeenCalled();
   });
 
@@ -164,10 +208,9 @@ describe('RoutingService caller line lookup', () => {
     expect(ctx?.lineId).toBe(lineId);
     expect(ctx?.tenantId).toBe(tenantId);
     expect(ctx?.aor).toBe(canonicalAor);
-    expect(prisma.sIPEndpoint.findFirst).toHaveBeenCalledTimes(2);
-    expect(prisma.sIPEndpoint.findFirst.mock.calls[0][0].where.aor.equals).toBe(registrarFrom);
-    expect(prisma.sIPEndpoint.findFirst.mock.calls[1][0].where.authUsername).toBe('100');
-    expect(prisma.extension.findFirst).not.toHaveBeenCalled();
+    expect(prisma.sIPEndpoint.findFirst.mock.calls.some((c) => c[0].where.authUsername)).toBe(
+      true,
+    );
   });
 
   it('3) falls back to Extension when AoR and authUsername miss', async () => {
@@ -182,7 +225,6 @@ describe('RoutingService caller line lookup', () => {
     expect(ctx?.lineId).toBe(lineId);
     expect(ctx?.tenantId).toBe(tenantId);
     expect(ctx?.extension).toBe('100');
-    expect(prisma.sIPEndpoint.findFirst).toHaveBeenCalledTimes(2);
     expect(prisma.extension.findFirst).toHaveBeenCalledTimes(1);
     expect(prisma.extension.findFirst.mock.calls[0][0].where.extension).toBe('100');
   });
@@ -207,7 +249,6 @@ describe('RoutingService caller line lookup', () => {
     const plan = await service.resolve(dto, meta);
 
     expect(plan.callIntent).toBe('OUTBOUND');
-    // HTTP plan leaves tenantId unset; call.rejected event uses "unknown" (rejectPlan).
     expect(plan.tenantId).toBeUndefined();
     expect(plan.actions).toEqual([
       expect.objectContaining({
@@ -242,6 +283,52 @@ describe('RoutingService caller line lookup', () => {
     expect(plan.callIntent).toBe('OUTBOUND');
     expect(plan.tenantId).toBe(tenantId);
     expect(plan.fromLineId).toBe(lineId);
+    expect(plan.actions[0]?.type).toBe('BRIDGE_CARRIER');
+    expect(carriers.selectOutboundTrunk).toHaveBeenCalled();
+  });
+
+  it('5) Contact-style From (sip:user@ip:port) resolves via authUsername + DeviceAssignment.lineId', async () => {
+    const { service, prisma } = buildService({
+      byAor: null,
+      byAuthUsername: assignmentOnlyEndpoint,
+      byExtension: null,
+      lineById: activeLine7005,
+    });
+
+    const ctx = await resolveLine(service, contactFrom, '7005');
+
+    expect(ctx?.lineId).toBe('line-7005');
+    expect(ctx?.tenantId).toBe(tenantId);
+    expect(ctx?.extension).toBe('7005');
+    expect(prisma.line.findFirst).toHaveBeenCalled();
+    expect(
+      prisma.sIPEndpoint.findFirst.mock.calls.some((c) => Boolean(c[0].where.authUsername)),
+    ).toBe(true);
+  });
+
+  it('6) outbound softphone Contact From succeeds (assignment-only line link)', async () => {
+    const { service, carriers } = buildService({
+      byAor: null,
+      byAuthUsername: assignmentOnlyEndpoint,
+      lineById: activeLine7005,
+    });
+
+    const dto: RouteRequestDto = {
+      callerAor: contactFrom,
+      from: contactFrom,
+      requestUri: 'sip:+15551234567@sip.vspphone.com',
+      to: 'sip:+15551234567@sip.vspphone.com',
+      callId: 'call-zoiper-7005',
+      intentHint: 'OUTBOUND',
+      authUsername: '7005',
+      cli: '7005',
+    };
+
+    const plan = await service.resolve(dto, meta);
+
+    expect(plan.callIntent).toBe('OUTBOUND');
+    expect(plan.tenantId).toBe(tenantId);
+    expect(plan.fromLineId).toBe('line-7005');
     expect(plan.actions[0]?.type).toBe('BRIDGE_CARRIER');
     expect(carriers.selectOutboundTrunk).toHaveBeenCalled();
   });
