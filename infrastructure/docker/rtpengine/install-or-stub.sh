@@ -6,20 +6,25 @@ REQUIRE="${RTPENGINE_REQUIRE_DAEMON:-0}"
 STUB_DIR=/usr/local/lib/vsp-rtpengine
 mkdir -p "${STUB_DIR}" /var/spool/rtpengine /var/log/rtpengine
 
+# Our own rtpengine.conf is COPYed into the image before this script runs, so
+# apt's conffile prompt would otherwise block a non-interactive build (no stdin).
+# --force-confdef/--force-confold: keep our pre-seeded conf, never prompt.
+APT_DPKG_OPTS="-o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold"
+
 install_real_daemon() {
-  if apt-get install -y --no-install-recommends rtpengine-daemon 2>/dev/null; then
-    apt-get install -y --no-install-recommends rtpengine-utils 2>/dev/null || true
+  if apt-get install -y --no-install-recommends ${APT_DPKG_OPTS} rtpengine-daemon 2>/dev/null; then
+    apt-get install -y --no-install-recommends ${APT_DPKG_OPTS} rtpengine-utils 2>/dev/null || true
     echo "real" > /etc/rtpengine/.backend
     echo "[rtpengine] installed rtpengine-daemon"
     return 0
   fi
-  if apt-get install -y --no-install-recommends rtpengine 2>/dev/null; then
+  if apt-get install -y --no-install-recommends ${APT_DPKG_OPTS} rtpengine 2>/dev/null; then
     echo "real" > /etc/rtpengine/.backend
     echo "[rtpengine] installed rtpengine metapackage"
     return 0
   fi
-  if apt-get install -y --no-install-recommends ngcp-rtpengine-daemon 2>/dev/null; then
-    apt-get install -y --no-install-recommends ngcp-rtpengine-utils 2>/dev/null || true
+  if apt-get install -y --no-install-recommends ${APT_DPKG_OPTS} ngcp-rtpengine-daemon 2>/dev/null; then
+    apt-get install -y --no-install-recommends ${APT_DPKG_OPTS} ngcp-rtpengine-utils 2>/dev/null || true
     echo "real" > /etc/rtpengine/.backend
     echo "[rtpengine] installed ngcp-rtpengine-daemon"
     return 0
