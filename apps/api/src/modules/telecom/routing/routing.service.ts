@@ -69,6 +69,15 @@ export class RoutingService {
   ) {}
 
   async resolve(dto: RouteRequestDto, meta: TelecomCallMeta): Promise<RouteResponseDto> {
+    // RC1 diagnostic: raw DTO as received, before any derivation/mutation.
+    this.logger.log(
+      JSON.stringify({
+        event: 'telecom.route.resolve.dto_in',
+        requestId: meta.requestId,
+        dto,
+      }),
+    );
+
     const idemHash = createHash('sha256')
       .update(`${dto.callId}|${dto.requestUri}`)
       .digest('hex')
@@ -126,7 +135,12 @@ export class RoutingService {
     }
 
     const callerCtx = callerAor
-      ? await this.resolveLineByAorOrExtension(callerAor, extractUserPart(callerAor), dto.tenantId)
+      ? await this.resolveLineByAorOrExtension(
+          callerAor,
+          (dto.authUsername || '').trim() || extractUserPart(callerAor),
+          dto.tenantId,
+          meta.requestId,
+        )
       : null;
 
     const enterprisePlan = await this.enterpriseOps.resolveFeature({
@@ -157,6 +171,7 @@ export class RoutingService {
       dto.requestUri,
       destUser,
       callerCtx?.tenantId ?? dto.tenantId,
+      meta.requestId,
     );
 
     if (!destCtx) {
@@ -1046,22 +1061,60 @@ export class RoutingService {
       return this.toLineCtx(line, preferredAor);
     };
 
+    /** Full diagnostic dump when an endpoint is found but no ACTIVE line can be derived from it. */
+    const logEndpointWithoutLine = (
+      stage: 'aor' | 'authUsername',
+      ep: {
+        id: string;
+        aor: string;
+        line: LineRow | null;
+        devices: Array<{
+          id?: string;
+          lineId: string | null;
+          line: LineRow | null;
+          assignments: Array<{ lineId: string | null; tenantId: string }>;
+        }>;
+      },
+    ) => {
+      this.logger.warn(
+        JSON.stringify({
+          event: 'telecom.route.lookup.endpoint_without_line',
+          requestId: requestId ?? null,
+          stage,
+          endpointId: ep.id,
+          endpointAor: ep.aor,
+          lineSipEndpointId: ep.line?.id ? ep.id : null,
+          lineViaFk: ep.line ? { lineId: ep.line.id, status: ep.line.status, deletedAt: ep.line.deletedAt ?? null } : null,
+          deviceIds: ep.devices.map((d) => d.id ?? null),
+          deviceLineIds: ep.devices.map((d) => d.lineId),
+          deviceLineStatuses: ep.devices.map((d) =>
+            d.line ? { lineId: d.line.id, status: d.line.status, deletedAt: d.line.deletedAt ?? null } : null,
+          ),
+          assignmentLineIds: ep.devices.flatMap((d) => d.assignments.map((a) => a.lineId)),
+        }),
+      );
+    };
+
     /**
      * Digest auth resolves lineId as device.lineId ?? assignment.lineId.
      * Routing must use the same graph — Line.sipEndpointId alone is insufficient.
      */
-    const lineFromEndpoint = async (ep: {
-      id: string;
-      aor: string;
-      authUsername?: string;
-      tenantId: string;
-      line: LineRow | null;
-      devices: Array<{
-        lineId: string | null;
+    const lineFromEndpoint = async (
+      ep: {
+        id: string;
+        aor: string;
+        authUsername?: string;
+        tenantId: string;
         line: LineRow | null;
-        assignments: Array<{ lineId: string | null; tenantId: string }>;
-      }>;
-    }): Promise<ResolvedLineCtx | null> => {
+        devices: Array<{
+          id?: string;
+          lineId: string | null;
+          line: LineRow | null;
+          assignments: Array<{ lineId: string | null; tenantId: string }>;
+        }>;
+      },
+      stage: 'aor' | 'authUsername',
+    ): Promise<ResolvedLineCtx | null> => {
       const direct = asActiveLineCtx(ep.line, ep.aor);
       if (direct) return direct;
 
@@ -1098,7 +1151,11 @@ export class RoutingService {
         },
         include: lineInclude,
       });
-      return asActiveLineCtx(byFk as LineRow | null, ep.aor);
+      const viaFk = asActiveLineCtx(byFk as LineRow | null, ep.aor);
+      if (viaFk) return viaFk;
+
+      logEndpointWithoutLine(stage, ep);
+      return null;
     };
 
     let aorMatched = false;
@@ -1111,7 +1168,7 @@ export class RoutingService {
     let endpointFoundId: string | null = null;
     let endpointWithoutLine = false;
 
-    // 1) Prefer SIPEndpoint by exact AoR (canonical DB AoR), then registrar-host variants
+    // Stage 1: SIPEndpoint by exact AoR (canonical DB AoR), then registrar-host / raw variants.
     const aorCandidates = [aor, rawAor].filter(
       (v, i, arr): v is string => Boolean(v) && arr.indexOf(v) === i,
     );
@@ -1125,9 +1182,19 @@ export class RoutingService {
         },
         include: endpointInclude,
       });
+      this.logger.log(
+        JSON.stringify({
+          event: 'telecom.route.lookup.aor',
+          requestId: requestId ?? null,
+          queryAor: candidate,
+          tenantHint: tenantHint ?? null,
+          hit: Boolean(ep),
+          endpointId: ep?.id ?? null,
+        }),
+      );
       if (!ep) continue;
       endpointFoundId = ep.id;
-      ctx = await lineFromEndpoint(ep);
+      ctx = await lineFromEndpoint(ep, 'aor');
       if (ctx) {
         aorMatched = true;
         lookupPath = 'aor';
@@ -1138,8 +1205,9 @@ export class RoutingService {
       }
     }
 
-    // 2) Phone From uses SIP_REGISTRAR_HOST or Contact IP while DB AoR uses tenant realm.
-    //    Prefer REGISTERED endpoints when multiple tenants share the same authUsername.
+    // Stage 2: Phone From uses SIP_REGISTRAR_HOST or Contact IP while DB AoR uses tenant realm.
+    //    Same authUsername the phone digest-authenticated with (Kamailio $au, else From user).
+    //    Includes DeviceAssignment.lineId fallback (stage label "assignment" in final log).
     if (!ctx && username) {
       const epByUser = await this.prisma.sIPEndpoint.findFirst({
         where: {
@@ -1150,13 +1218,34 @@ export class RoutingService {
         orderBy: [{ lastRegisteredAt: 'desc' }, { updatedAt: 'desc' }],
         include: endpointInclude,
       });
+      this.logger.log(
+        JSON.stringify({
+          event: 'telecom.route.lookup.authUsername',
+          requestId: requestId ?? null,
+          queryAuthUsername: username,
+          tenantHint: tenantHint ?? null,
+          hit: Boolean(epByUser),
+          endpointId: epByUser?.id ?? null,
+        }),
+      );
       if (epByUser) {
         endpointFoundId = epByUser.id;
-        const before = ctx;
-        ctx = await lineFromEndpoint(epByUser);
+        ctx = await lineFromEndpoint(epByUser, 'authUsername');
+        this.logger.log(
+          JSON.stringify({
+            event: 'telecom.route.lookup.assignment',
+            requestId: requestId ?? null,
+            endpointId: epByUser.id,
+            assignmentLineIds: epByUser.devices.flatMap((d) =>
+              d.assignments.map((a) => a.lineId),
+            ),
+            resolvedViaAssignment: Boolean(
+              ctx && !epByUser.line && !epByUser.devices.some((d) => d.line),
+            ),
+          }),
+        );
         if (ctx) {
           authUsernameMatched = true;
-          // Distinguish assignment-only resolution for ops logs
           lookupPath =
             !epByUser.line &&
             !epByUser.devices.some((d) => d.line) &&
@@ -1165,14 +1254,13 @@ export class RoutingService {
               : 'authUsername';
           matchedAuthUsername = epByUser.authUsername ?? username;
           canonicalAor = epByUser.aor;
-          void before;
         } else {
           endpointWithoutLine = true;
         }
       }
     }
 
-    // 3) Extension match (internal dialing / softphone username == extension)
+    // Stage 3: Extension match (internal dialing / softphone username == extension number)
     if (!ctx && username && /^\d{2,8}$/.test(username)) {
       const ext = await this.prisma.extension.findFirst({
         where: {
@@ -1186,6 +1274,17 @@ export class RoutingService {
           line: { include: lineInclude },
         },
       });
+      this.logger.log(
+        JSON.stringify({
+          event: 'telecom.route.lookup.extension',
+          requestId: requestId ?? null,
+          queryExtension: username,
+          tenantHint: tenantHint ?? null,
+          hit: Boolean(ext),
+          extensionId: ext?.id ?? null,
+          lineId: ext?.lineId ?? null,
+        }),
+      );
       if (ext?.line && ext.line.status === LineStatus.ACTIVE && !ext.line.deletedAt) {
         ctx = this.toLineCtx(ext.line);
         extensionMatched = true;
@@ -1200,8 +1299,8 @@ export class RoutingService {
         event: 'telecom.route.caller_lookup',
         requestId: requestId ?? null,
         callerAor: aor ?? rawAor ?? aorOrUri ?? null,
-        extractedUserPart: username,
-        authUsername: matchedAuthUsername,
+        requestedUserPart: username,
+        matchedAuthUsername,
         tenantIdHint: tenantHint ?? null,
         tenantIdResolved: ctx?.tenantId ?? null,
         lineId: ctx?.lineId ?? null,
