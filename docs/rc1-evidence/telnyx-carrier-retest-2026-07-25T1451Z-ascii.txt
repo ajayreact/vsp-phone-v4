@@ -1,0 +1,1733 @@
+reading from file /tmp/telnyx-carrier-retest.pcap, link-type LINUX_SLL2 (Linux cooked v2), snapshot length 262144
+Warning: interface names might be incorrect
+2026-07-25 14:51:46.299732 veth994b361 P   IP 172.19.0.6.36097 > 192.76.120.10.5060: Flags [S], seq 64138193, win 64240, options [mss 1460,sackOK,TS val 497549724 ecr 0,nop,wscale 10], length 0
+E..<.Q@.@........Lx
+...........................
+...........
+
+2026-07-25 14:51:46.299735 br-743a199599f1 In  IP 172.19.0.6.36097 > 192.76.120.10.5060: Flags [S], seq 64138193, win 64240, options [mss 1460,sackOK,TS val 497549724 ecr 0,nop,wscale 10], length 0
+E..<.Q@.@........Lx
+...........................
+...........
+
+2026-07-25 14:51:46.299760 ens5  Out IP 172.31.39.116.36097 > 192.76.120.10.5060: Flags [S], seq 64138193, win 64240, options [mss 1460,sackOK,TS val 497549724 ecr 0,nop,wscale 10], length 0
+E..<.Q@.?..p..'t.Lx
+...........................
+...........
+
+2026-07-25 14:51:46.344565 ens5  In  IP 192.76.120.10.5060 > 172.31.39.116.36097: Flags [S.], seq 2121913757, ack 64138194, win 65160, options [mss 1436,sackOK,TS val 1327044381 ecr 497549724,nop,wscale 7], length 0
+E..<..@.7.7..Lx
+..'t....~y.....................
+O...........
+2026-07-25 14:51:46.344597 br-743a199599f1 Out IP 192.76.120.10.5060 > 172.19.0.6.36097: Flags [S.], seq 2121913757, ack 64138194, win 65160, options [mss 1436,sackOK,TS val 1327044381 ecr 497549724,nop,wscale 7], length 0
+E..<..@.6.`L.Lx
+........~y..........;..........
+O...........
+2026-07-25 14:51:46.344602 veth994b361 Out IP 192.76.120.10.5060 > 172.19.0.6.36097: Flags [S.], seq 2121913757, ack 64138194, win 65160, options [mss 1436,sackOK,TS val 1327044381 ecr 497549724,nop,wscale 7], length 0
+E..<..@.6.`L.Lx
+........~y..........;..........
+O...........
+2026-07-25 14:51:46.344718 veth994b361 P   IP 172.19.0.6.36097 > 192.76.120.10.5060: Flags [P.], seq 1:1168, ack 1, win 63, options [nop,nop,TS val 497549769 ecr 1327044381], length 1167
+E....R@.@..b.....Lx
+........~y.....?.%.....
+....O...INVITE sip:+13174492106@sip.telnyx.com SIP/2.0
+Via: SIP/2.0/TCP 0.0.0.0;branch=z9hG4bK1ddd.480a7acac972b42871e520d0beb0cf92.0
+Via: SIP/2.0/UDP 192.168.1.100:52950;received=122.177.247.143;rport=7921;branch=z9hG4bK-524287-1---933ffca52a6cb6c5
+Max-Forwards: 69
+Contact: <sip:100@122.177.247.143:7921;transport=UDP>
+To: <sip:13174492106@sip.vspphone.com>
+From: <sip:100@sip.vspphone.com>;tag=38a6ae1f
+Call-ID: hVkh3e0Ks1OmDLEiq78g4Q..
+CSeq: 1 INVITE
+Allow: INVITE,ACK,CANCEL,BYE,NOTIFY,REFER,MESSAGE,OPTIONS,INFO,SUBSCRIBE
+Supported: replaces,norefersub,extended-refer,timer,sec-agree,outbound,path,X-cisco-serviceuri
+User-Agent: Zoiper v2.10.20.4_1
+Allow-Events: presence, kpml, talk, as-feature-event
+Content-Type: application/sdp
+Content-Length: 341
+X-VSP-Platform-UUID: bbbd656d-f6cb-4b0f-b123-c4dad84cdceb
+
+v=0
+o=Z 0 272163259 IN IP4 32.196.41.160
+s=Z
+c=IN IP4 32.196.41.160
+t=0 0
+m=audio 10094 RTP/AVP 3 101 110 97 8 0
+a=rtpmap:3 GSM/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-16
+a=rtpmap:110 speex/8000
+a=rtpmap:97 iLBC/8000
+a=fmtp:97 mode=20
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:10095
+a=rtcp-mux
+
+2026-07-25 14:51:46.344721 br-743a199599f1 In  IP 172.19.0.6.36097 > 192.76.120.10.5060: Flags [P.], seq 1:1168, ack 1, win 63, options [nop,nop,TS val 497549769 ecr 1327044381], length 1167
+E....R@.@..b.....Lx
+........~y.....?.%.....
+....O...INVITE sip:+13174492106@sip.telnyx.com SIP/2.0
+Via: SIP/2.0/TCP 0.0.0.0;branch=z9hG4bK1ddd.480a7acac972b42871e520d0beb0cf92.0
+Via: SIP/2.0/UDP 192.168.1.100:52950;received=122.177.247.143;rport=7921;branch=z9hG4bK-524287-1---933ffca52a6cb6c5
+Max-Forwards: 69
+Contact: <sip:100@122.177.247.143:7921;transport=UDP>
+To: <sip:13174492106@sip.vspphone.com>
+From: <sip:100@sip.vspphone.com>;tag=38a6ae1f
+Call-ID: hVkh3e0Ks1OmDLEiq78g4Q..
+CSeq: 1 INVITE
+Allow: INVITE,ACK,CANCEL,BYE,NOTIFY,REFER,MESSAGE,OPTIONS,INFO,SUBSCRIBE
+Supported: replaces,norefersub,extended-refer,timer,sec-agree,outbound,path,X-cisco-serviceuri
+User-Agent: Zoiper v2.10.20.4_1
+Allow-Events: presence, kpml, talk, as-feature-event
+Content-Type: application/sdp
+Content-Length: 341
+X-VSP-Platform-UUID: bbbd656d-f6cb-4b0f-b123-c4dad84cdceb
+
+v=0
+o=Z 0 272163259 IN IP4 32.196.41.160
+s=Z
+c=IN IP4 32.196.41.160
+t=0 0
+m=audio 10094 RTP/AVP 3 101 110 97 8 0
+a=rtpmap:3 GSM/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-16
+a=rtpmap:110 speex/8000
+a=rtpmap:97 iLBC/8000
+a=fmtp:97 mode=20
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:10095
+a=rtcp-mux
+
+2026-07-25 14:51:46.344739 ens5  Out IP 172.31.39.116.36097 > 192.76.120.10.5060: Flags [P.], seq 1:1168, ack 1, win 63, options [nop,nop,TS val 497549769 ecr 1327044381], length 1167
+E....R@.?.....'t.Lx
+........~y.....?.......
+....O...INVITE sip:+13174492106@sip.telnyx.com SIP/2.0
+Via: SIP/2.0/TCP 0.0.0.0;branch=z9hG4bK1ddd.480a7acac972b42871e520d0beb0cf92.0
+Via: SIP/2.0/UDP 192.168.1.100:52950;received=122.177.247.143;rport=7921;branch=z9hG4bK-524287-1---933ffca52a6cb6c5
+Max-Forwards: 69
+Contact: <sip:100@122.177.247.143:7921;transport=UDP>
+To: <sip:13174492106@sip.vspphone.com>
+From: <sip:100@sip.vspphone.com>;tag=38a6ae1f
+Call-ID: hVkh3e0Ks1OmDLEiq78g4Q..
+CSeq: 1 INVITE
+Allow: INVITE,ACK,CANCEL,BYE,NOTIFY,REFER,MESSAGE,OPTIONS,INFO,SUBSCRIBE
+Supported: replaces,norefersub,extended-refer,timer,sec-agree,outbound,path,X-cisco-serviceuri
+User-Agent: Zoiper v2.10.20.4_1
+Allow-Events: presence, kpml, talk, as-feature-event
+Content-Type: application/sdp
+Content-Length: 341
+X-VSP-Platform-UUID: bbbd656d-f6cb-4b0f-b123-c4dad84cdceb
+
+v=0
+o=Z 0 272163259 IN IP4 32.196.41.160
+s=Z
+c=IN IP4 32.196.41.160
+t=0 0
+m=audio 10094 RTP/AVP 3 101 110 97 8 0
+a=rtpmap:3 GSM/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-16
+a=rtpmap:110 speex/8000
+a=rtpmap:97 iLBC/8000
+a=fmtp:97 mode=20
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:10095
+a=rtcp-mux
+
+2026-07-25 14:51:46.388829 ens5  In  IP 192.76.120.10.5060 > 172.31.39.116.36097: Flags [.], ack 1168, win 501, options [nop,nop,TS val 1327044426 ecr 497549769], length 0
+E..4..@.7....Lx
+..'t....~y.....a....9......
+O..J....
+2026-07-25 14:51:46.388861 br-743a199599f1 Out IP 192.76.120.10.5060 > 172.19.0.6.36097: Flags [.], ack 1168, win 501, options [nop,nop,TS val 1327044426 ecr 497549769], length 0
+E..4..@.6.E..Lx
+........~y.....a....ar.....
+O..J....
+2026-07-25 14:51:46.388868 veth994b361 Out IP 192.76.120.10.5060 > 172.19.0.6.36097: Flags [.], ack 1168, win 501, options [nop,nop,TS val 1327044426 ecr 497549769], length 0
+E..4..@.6.E..Lx
+........~y.....a....ar.....
+O..J....
+2026-07-25 14:51:46.391613 ens5  In  IP 192.76.120.10.5060 > 172.31.39.116.36097: Flags [P.], seq 1:445, ack 1168, win 501, options [nop,nop,TS val 1327044429 ecr 497549769], length 444
+E.....@.7..U.Lx
+..'t....~y.....a....aL.....
+O..M....SIP/2.0 100 Telnyx Trying
+Via: SIP/2.0/TCP 0.0.0.0;branch=z9hG4bK1ddd.480a7acac972b42871e520d0beb0cf92.0;rport=36097;received=32.196.41.160
+Via: SIP/2.0/UDP 192.168.1.100:52950;received=122.177.247.143;rport=7921;branch=z9hG4bK-524287-1---933ffca52a6cb6c5
+To: <sip:13174492106@sip.vspphone.com>
+From: <sip:100@sip.vspphone.com>;tag=38a6ae1f
+Call-ID: hVkh3e0Ks1OmDLEiq78g4Q..
+CSeq: 1 INVITE
+Server: Telnyx SIP Proxy
+Content-Length: 0
+
+
+2026-07-25 14:51:46.391638 br-743a199599f1 Out IP 192.76.120.10.5060 > 172.19.0.6.36097: Flags [P.], seq 1:445, ack 1168, win 501, options [nop,nop,TS val 1327044429 ecr 497549769], length 444
+E.....@.6.C..Lx
+........~y.....a...........
+O..M....SIP/2.0 100 Telnyx Trying
+Via: SIP/2.0/TCP 0.0.0.0;branch=z9hG4bK1ddd.480a7acac972b42871e520d0beb0cf92.0;rport=36097;received=32.196.41.160
+Via: SIP/2.0/UDP 192.168.1.100:52950;received=122.177.247.143;rport=7921;branch=z9hG4bK-524287-1---933ffca52a6cb6c5
+To: <sip:13174492106@sip.vspphone.com>
+From: <sip:100@sip.vspphone.com>;tag=38a6ae1f
+Call-ID: hVkh3e0Ks1OmDLEiq78g4Q..
+CSeq: 1 INVITE
+Server: Telnyx SIP Proxy
+Content-Length: 0
+
+
+2026-07-25 14:51:46.391642 veth994b361 Out IP 192.76.120.10.5060 > 172.19.0.6.36097: Flags [P.], seq 1:445, ack 1168, win 501, options [nop,nop,TS val 1327044429 ecr 497549769], length 444
+E.....@.6.C..Lx
+........~y.....a...........
+O..M....SIP/2.0 100 Telnyx Trying
+Via: SIP/2.0/TCP 0.0.0.0;branch=z9hG4bK1ddd.480a7acac972b42871e520d0beb0cf92.0;rport=36097;received=32.196.41.160
+Via: SIP/2.0/UDP 192.168.1.100:52950;received=122.177.247.143;rport=7921;branch=z9hG4bK-524287-1---933ffca52a6cb6c5
+To: <sip:13174492106@sip.vspphone.com>
+From: <sip:100@sip.vspphone.com>;tag=38a6ae1f
+Call-ID: hVkh3e0Ks1OmDLEiq78g4Q..
+CSeq: 1 INVITE
+Server: Telnyx SIP Proxy
+Content-Length: 0
+
+
+2026-07-25 14:51:46.432457 veth994b361 P   IP 172.19.0.6.36097 > 192.76.120.10.5060: Flags [.], ack 445, win 63, options [nop,nop,TS val 497549857 ecr 1327044429], length 0
+E..4.S@.@........Lx
+.......a~y.Z...?.......
+...!O..M
+2026-07-25 14:51:46.432461 br-743a199599f1 In  IP 172.19.0.6.36097 > 192.76.120.10.5060: Flags [.], ack 445, win 63, options [nop,nop,TS val 497549857 ecr 1327044429], length 0
+E..4.S@.@........Lx
+.......a~y.Z...?.......
+...!O..M
+2026-07-25 14:51:46.432486 ens5  Out IP 172.31.39.116.36097 > 192.76.120.10.5060: Flags [.], ack 445, win 63, options [nop,nop,TS val 497549857 ecr 1327044429], length 0
+E..4.S@.?..v..'t.Lx
+.......a~y.Z...?.......
+...!O..M
+2026-07-25 14:51:46.536523 ens5  In  IP 192.76.120.10.5060 > 172.31.39.116.36097: Flags [P.], seq 445:1259, ack 1168, win 501, options [nop,nop,TS val 1327044573 ecr 497549857], length 814
+E..b..@.7....Lx
+..'t....~y.Z...a...........
+O......!SIP/2.0 407 Proxy Authentication Required
+Via: SIP/2.0/TCP 0.0.0.0;rport=36097;received=32.196.41.160;branch=z9hG4bK1ddd.480a7acac972b42871e520d0beb0cf92.0
+Via: SIP/2.0/UDP 192.168.1.100:52950;received=122.177.247.143;rport=7921;branch=z9hG4bK-524287-1---933ffca52a6cb6c5
+From: <sip:100@sip.vspphone.com>;tag=38a6ae1f
+To: <sip:13174492106@sip.vspphone.com>;tag=0mDyaN1SX007r
+Call-ID: hVkh3e0Ks1OmDLEiq78g4Q..
+CSeq: 1 INVITE
+Accept: application/sdp
+Allow: INVITE, ACK, BYE, CANCEL, OPTIONS, MESSAGE, INFO, UPDATE, REFER, NOTIFY
+Supported: path
+Allow-Events: talk, hold, conference, refer
+Proxy-Authenticate: Digest realm="sip.vspphone.com", nonce="9c0ba02c-07ec-4cac-824f-901d954352cc", algorithm=MD5, qop="auth", opaque="870e7cce-a8cb-4773-b0ed-53d0a896af66/10.239.135.24/b3b23be"
+Content-Length: 0
+
+
+2026-07-25 14:51:46.536554 br-743a199599f1 Out IP 192.76.120.10.5060 > 172.19.0.6.36097: Flags [P.], seq 445:1259, ack 1168, win 501, options [nop,nop,TS val 1327044573 ecr 497549857], length 814
+E..b..@.6.B\.Lx
+........~y.Z...a.....X.....
+O......!SIP/2.0 407 Proxy Authentication Required
+Via: SIP/2.0/TCP 0.0.0.0;rport=36097;received=32.196.41.160;branch=z9hG4bK1ddd.480a7acac972b42871e520d0beb0cf92.0
+Via: SIP/2.0/UDP 192.168.1.100:52950;received=122.177.247.143;rport=7921;branch=z9hG4bK-524287-1---933ffca52a6cb6c5
+From: <sip:100@sip.vspphone.com>;tag=38a6ae1f
+To: <sip:13174492106@sip.vspphone.com>;tag=0mDyaN1SX007r
+Call-ID: hVkh3e0Ks1OmDLEiq78g4Q..
+CSeq: 1 INVITE
+Accept: application/sdp
+Allow: INVITE, ACK, BYE, CANCEL, OPTIONS, MESSAGE, INFO, UPDATE, REFER, NOTIFY
+Supported: path
+Allow-Events: talk, hold, conference, refer
+Proxy-Authenticate: Digest realm="sip.vspphone.com", nonce="9c0ba02c-07ec-4cac-824f-901d954352cc", algorithm=MD5, qop="auth", opaque="870e7cce-a8cb-4773-b0ed-53d0a896af66/10.239.135.24/b3b23be"
+Content-Length: 0
+
+
+2026-07-25 14:51:46.536560 veth994b361 Out IP 192.76.120.10.5060 > 172.19.0.6.36097: Flags [P.], seq 445:1259, ack 1168, win 501, options [nop,nop,TS val 1327044573 ecr 497549857], length 814
+E..b..@.6.B\.Lx
+........~y.Z...a.....X.....
+O......!SIP/2.0 407 Proxy Authentication Required
+Via: SIP/2.0/TCP 0.0.0.0;rport=36097;received=32.196.41.160;branch=z9hG4bK1ddd.480a7acac972b42871e520d0beb0cf92.0
+Via: SIP/2.0/UDP 192.168.1.100:52950;received=122.177.247.143;rport=7921;branch=z9hG4bK-524287-1---933ffca52a6cb6c5
+From: <sip:100@sip.vspphone.com>;tag=38a6ae1f
+To: <sip:13174492106@sip.vspphone.com>;tag=0mDyaN1SX007r
+Call-ID: hVkh3e0Ks1OmDLEiq78g4Q..
+CSeq: 1 INVITE
+Accept: application/sdp
+Allow: INVITE, ACK, BYE, CANCEL, OPTIONS, MESSAGE, INFO, UPDATE, REFER, NOTIFY
+Supported: path
+Allow-Events: talk, hold, conference, refer
+Proxy-Authenticate: Digest realm="sip.vspphone.com", nonce="9c0ba02c-07ec-4cac-824f-901d954352cc", algorithm=MD5, qop="auth", opaque="870e7cce-a8cb-4773-b0ed-53d0a896af66/10.239.135.24/b3b23be"
+Content-Length: 0
+
+
+2026-07-25 14:51:46.536599 veth994b361 P   IP 172.19.0.6.36097 > 192.76.120.10.5060: Flags [.], ack 1259, win 66, options [nop,nop,TS val 497549961 ecr 1327044573], length 0
+E..4.T@.@........Lx
+.......a~y.....B.......
+....O...
+2026-07-25 14:51:46.536601 br-743a199599f1 In  IP 172.19.0.6.36097 > 192.76.120.10.5060: Flags [.], ack 1259, win 66, options [nop,nop,TS val 497549961 ecr 1327044573], length 0
+E..4.T@.@........Lx
+.......a~y.....B.......
+....O...
+2026-07-25 14:51:46.536610 ens5  Out IP 172.31.39.116.36097 > 192.76.120.10.5060: Flags [.], ack 1259, win 66, options [nop,nop,TS val 497549961 ecr 1327044573], length 0
+E..4.T@.?..u..'t.Lx
+.......a~y.....B.......
+....O...
+2026-07-25 14:51:46.536852 veth994b361 P   IP 172.19.0.6.36097 > 192.76.120.10.5060: Flags [P.], seq 1168:1485, ack 1259, win 66, options [nop,nop,TS val 497549961 ecr 1327044573], length 317
+E..q.U@.@........Lx
+.......a~y.....B.......
+....O...ACK sip:+13174492106@sip.telnyx.com SIP/2.0
+Via: SIP/2.0/TCP 0.0.0.0;branch=z9hG4bK1ddd.480a7acac972b42871e520d0beb0cf92.0
+Max-Forwards: 69
+To: <sip:13174492106@sip.vspphone.com>;tag=0mDyaN1SX007r
+From: <sip:100@sip.vspphone.com>;tag=38a6ae1f
+Call-ID: hVkh3e0Ks1OmDLEiq78g4Q..
+CSeq: 1 ACK
+Content-Length: 0
+
+
+2026-07-25 14:51:46.536856 br-743a199599f1 In  IP 172.19.0.6.36097 > 192.76.120.10.5060: Flags [P.], seq 1168:1485, ack 1259, win 66, options [nop,nop,TS val 497549961 ecr 1327044573], length 317
+E..q.U@.@........Lx
+.......a~y.....B.......
+....O...ACK sip:+13174492106@sip.telnyx.com SIP/2.0
+Via: SIP/2.0/TCP 0.0.0.0;branch=z9hG4bK1ddd.480a7acac972b42871e520d0beb0cf92.0
+Max-Forwards: 69
+To: <sip:13174492106@sip.vspphone.com>;tag=0mDyaN1SX007r
+From: <sip:100@sip.vspphone.com>;tag=38a6ae1f
+Call-ID: hVkh3e0Ks1OmDLEiq78g4Q..
+CSeq: 1 ACK
+Content-Length: 0
+
+
+2026-07-25 14:51:46.536872 ens5  Out IP 172.31.39.116.36097 > 192.76.120.10.5060: Flags [P.], seq 1168:1485, ack 1259, win 66, options [nop,nop,TS val 497549961 ecr 1327044573], length 317
+E..q.U@.?..7..'t.Lx
+.......a~y.....B.N.....
+....O...ACK sip:+13174492106@sip.telnyx.com SIP/2.0
+Via: SIP/2.0/TCP 0.0.0.0;branch=z9hG4bK1ddd.480a7acac972b42871e520d0beb0cf92.0
+Max-Forwards: 69
+To: <sip:13174492106@sip.vspphone.com>;tag=0mDyaN1SX007r
+From: <sip:100@sip.vspphone.com>;tag=38a6ae1f
+Call-ID: hVkh3e0Ks1OmDLEiq78g4Q..
+CSeq: 1 ACK
+Content-Length: 0
+
+
+2026-07-25 14:51:46.537077 veth994b361 P   IP 172.19.0.6.36097 > 192.76.120.10.5060: Flags [P.], seq 1485:2994, ack 1259, win 66, options [nop,nop,TS val 497549961 ecr 1327044573], length 1509
+E....V@.@........Lx
+........~y.....B.{.....
+....O...INVITE sip:+13174492106@sip.telnyx.com SIP/2.0
+Via: SIP/2.0/TCP 0.0.0.0;branch=z9hG4bK1ddd.480a7acac972b42871e520d0beb0cf92.1.cs1
+Via: SIP/2.0/UDP 192.168.1.100:52950;received=122.177.247.143;rport=7921;branch=z9hG4bK-524287-1---933ffca52a6cb6c5
+Max-Forwards: 69
+Contact: <sip:100@122.177.247.143:7921;transport=UDP>
+To: <sip:13174492106@sip.vspphone.com>
+From: <sip:100@sip.vspphone.com>;tag=38a6ae1f
+Call-ID: hVkh3e0Ks1OmDLEiq78g4Q..
+CSeq: 2 INVITE
+Allow: INVITE,ACK,CANCEL,BYE,NOTIFY,REFER,MESSAGE,OPTIONS,INFO,SUBSCRIBE
+Supported: replaces,norefersub,extended-refer,timer,sec-agree,outbound,path,X-cisco-serviceuri
+User-Agent: Zoiper v2.10.20.4_1
+Allow-Events: presence, kpml, talk, as-feature-event
+Content-Type: application/sdp
+Content-Length: 341
+X-VSP-Platform-UUID: bbbd656d-f6cb-4b0f-b123-c4dad84cdceb
+Proxy-Authorization: Digest username="userinfo26316", realm="sip.vspphone.com", nonce="9c0ba02c-07ec-4cac-824f-901d954352cc", uri="sip:+13174492106@sip.telnyx.com", opaque="870e7cce-a8cb-4773-b0ed-53d0a896af66/10.239.135.24/b3b23be", qop=auth, nc=00000001, cnonce="2497428355", response="ad5c4c6aeca0ccd40e4f0718455331a5", algorithm=MD5
+
+v=0
+o=Z 0 272163259 IN IP4 32.196.41.160
+s=Z
+c=IN IP4 32.196.41.160
+t=0 0
+m=audio 10094 RTP/AVP 3 101 110 97 8 0
+a=rtpmap:3 GSM/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-16
+a=rtpmap:110 speex/8000
+a=rtpmap:97 iLBC/8000
+a=fmtp:97 mode=20
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:10095
+a=rtcp-mux
+
+2026-07-25 14:51:46.537079 br-743a199599f1 In  IP 172.19.0.6.36097 > 192.76.120.10.5060: Flags [P.], seq 1485:2994, ack 1259, win 66, options [nop,nop,TS val 497549961 ecr 1327044573], length 1509
+E....V@.@........Lx
+........~y.....B.{.....
+....O...INVITE sip:+13174492106@sip.telnyx.com SIP/2.0
+Via: SIP/2.0/TCP 0.0.0.0;branch=z9hG4bK1ddd.480a7acac972b42871e520d0beb0cf92.1.cs1
+Via: SIP/2.0/UDP 192.168.1.100:52950;received=122.177.247.143;rport=7921;branch=z9hG4bK-524287-1---933ffca52a6cb6c5
+Max-Forwards: 69
+Contact: <sip:100@122.177.247.143:7921;transport=UDP>
+To: <sip:13174492106@sip.vspphone.com>
+From: <sip:100@sip.vspphone.com>;tag=38a6ae1f
+Call-ID: hVkh3e0Ks1OmDLEiq78g4Q..
+CSeq: 2 INVITE
+Allow: INVITE,ACK,CANCEL,BYE,NOTIFY,REFER,MESSAGE,OPTIONS,INFO,SUBSCRIBE
+Supported: replaces,norefersub,extended-refer,timer,sec-agree,outbound,path,X-cisco-serviceuri
+User-Agent: Zoiper v2.10.20.4_1
+Allow-Events: presence, kpml, talk, as-feature-event
+Content-Type: application/sdp
+Content-Length: 341
+X-VSP-Platform-UUID: bbbd656d-f6cb-4b0f-b123-c4dad84cdceb
+Proxy-Authorization: Digest username="userinfo26316", realm="sip.vspphone.com", nonce="9c0ba02c-07ec-4cac-824f-901d954352cc", uri="sip:+13174492106@sip.telnyx.com", opaque="870e7cce-a8cb-4773-b0ed-53d0a896af66/10.239.135.24/b3b23be", qop=auth, nc=00000001, cnonce="2497428355", response="ad5c4c6aeca0ccd40e4f0718455331a5", algorithm=MD5
+
+v=0
+o=Z 0 272163259 IN IP4 32.196.41.160
+s=Z
+c=IN IP4 32.196.41.160
+t=0 0
+m=audio 10094 RTP/AVP 3 101 110 97 8 0
+a=rtpmap:3 GSM/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-16
+a=rtpmap:110 speex/8000
+a=rtpmap:97 iLBC/8000
+a=fmtp:97 mode=20
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:10095
+a=rtcp-mux
+
+2026-07-25 14:51:46.537096 ens5  Out IP 172.31.39.116.36097 > 192.76.120.10.5060: Flags [.], seq 1485:2909, ack 1259, win 66, options [nop,nop,TS val 497549961 ecr 1327044573], length 1424
+E....V@.?.....'t.Lx
+........~y.....B.......
+....O...INVITE sip:+13174492106@sip.telnyx.com SIP/2.0
+Via: SIP/2.0/TCP 0.0.0.0;branch=z9hG4bK1ddd.480a7acac972b42871e520d0beb0cf92.1.cs1
+Via: SIP/2.0/UDP 192.168.1.100:52950;received=122.177.247.143;rport=7921;branch=z9hG4bK-524287-1---933ffca52a6cb6c5
+Max-Forwards: 69
+Contact: <sip:100@122.177.247.143:7921;transport=UDP>
+To: <sip:13174492106@sip.vspphone.com>
+From: <sip:100@sip.vspphone.com>;tag=38a6ae1f
+Call-ID: hVkh3e0Ks1OmDLEiq78g4Q..
+CSeq: 2 INVITE
+Allow: INVITE,ACK,CANCEL,BYE,NOTIFY,REFER,MESSAGE,OPTIONS,INFO,SUBSCRIBE
+Supported: replaces,norefersub,extended-refer,timer,sec-agree,outbound,path,X-cisco-serviceuri
+User-Agent: Zoiper v2.10.20.4_1
+Allow-Events: presence, kpml, talk, as-feature-event
+Content-Type: application/sdp
+Content-Length: 341
+X-VSP-Platform-UUID: bbbd656d-f6cb-4b0f-b123-c4dad84cdceb
+Proxy-Authorization: Digest username="userinfo26316", realm="sip.vspphone.com", nonce="9c0ba02c-07ec-4cac-824f-901d954352cc", uri="sip:+13174492106@sip.telnyx.com", opaque="870e7cce-a8cb-4773-b0ed-53d0a896af66/10.239.135.24/b3b23be", qop=auth, nc=00000001, cnonce="2497428355", response="ad5c4c6aeca0ccd40e4f0718455331a5", algorithm=MD5
+
+v=0
+o=Z 0 272163259 IN IP4 32.196.41.160
+s=Z
+c=IN IP4 32.196.41.160
+t=0 0
+m=audio 10094 RTP/AVP 3 101 110 97 8 0
+a=rtpmap:3 GSM/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-16
+a=rtpmap:110 speex/8000
+a=rtpmap:97 iLBC/8000
+a=fmtp:97 mode=2
+2026-07-25 14:51:46.537098 ens5  Out IP 172.31.39.116.36097 > 192.76.120.10.5060: Flags [P.], seq 2909:2994, ack 1259, win 66, options [nop,nop,TS val 497549961 ecr 1327044573], length 85
+E....W@.?.....'t.Lx
+........~y.....B.f.....
+....O...0
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:10095
+a=rtcp-mux
+
+2026-07-25 14:51:46.580721 ens5  In  IP 192.76.120.10.5060 > 172.31.39.116.36097: Flags [.], ack 1485, win 501, options [nop,nop,TS val 1327044618 ecr 497549961], length 0
+E..4..@.7....Lx
+..'t....~y..........2Q.....
+O..
+....
+2026-07-25 14:51:46.580752 br-743a199599f1 Out IP 192.76.120.10.5060 > 172.19.0.6.36097: Flags [.], ack 1485, win 501, options [nop,nop,TS val 1327044618 ecr 497549961], length 0
+E..4..@.6.E..Lx
+........~y..........Y......
+O..
+....
+2026-07-25 14:51:46.580756 veth994b361 Out IP 192.76.120.10.5060 > 172.19.0.6.36097: Flags [.], ack 1485, win 501, options [nop,nop,TS val 1327044618 ecr 497549961], length 0
+E..4..@.6.E..Lx
+........~y..........Y......
+O..
+....
+2026-07-25 14:51:46.580908 ens5  In  IP 192.76.120.10.5060 > 172.31.39.116.36097: Flags [.], ack 2909, win 501, options [nop,nop,TS val 1327044618 ecr 497549961], length 0
+E..4..@.7....Lx
+..'t....~y..........,......
+O..
+....
+2026-07-25 14:51:46.580915 br-743a199599f1 Out IP 192.76.120.10.5060 > 172.19.0.6.36097: Flags [.], ack 2909, win 501, options [nop,nop,TS val 1327044618 ecr 497549961], length 0
+E..4..@.6.E..Lx
+........~y..........T;.....
+O..
+....
+2026-07-25 14:51:46.580917 veth994b361 Out IP 192.76.120.10.5060 > 172.19.0.6.36097: Flags [.], ack 2909, win 501, options [nop,nop,TS val 1327044618 ecr 497549961], length 0
+E..4..@.6.E..Lx
+........~y..........T;.....
+O..
+....
+2026-07-25 14:51:46.581008 ens5  In  IP 192.76.120.10.5060 > 172.31.39.116.36097: Flags [.], ack 2994, win 501, options [nop,nop,TS val 1327044618 ecr 497549961], length 0
+E..4..@.7....Lx
+..'t....~y..........,l.....
+O..
+....
+2026-07-25 14:51:46.581011 br-743a199599f1 Out IP 192.76.120.10.5060 > 172.19.0.6.36097: Flags [.], ack 2994, win 501, options [nop,nop,TS val 1327044618 ecr 497549961], length 0
+E..4..@.6.E..Lx
+........~y..........S......
+O..
+....
+2026-07-25 14:51:46.581012 veth994b361 Out IP 192.76.120.10.5060 > 172.19.0.6.36097: Flags [.], ack 2994, win 501, options [nop,nop,TS val 1327044618 ecr 497549961], length 0
+E..4..@.6.E..Lx
+........~y..........S......
+O..
+....
+2026-07-25 14:51:46.581336 ens5  In  IP 192.76.120.10.5060 > 172.31.39.116.36097: Flags [P.], seq 1259:1707, ack 2994, win 501, options [nop,nop,TS val 1327044618 ecr 497549961], length 448
+E.....@.7..L.Lx
+..'t....~y.................
+O..
+....SIP/2.0 100 Telnyx Trying
+Via: SIP/2.0/TCP 0.0.0.0;branch=z9hG4bK1ddd.480a7acac972b42871e520d0beb0cf92.1.cs1;rport=36097;received=32.196.41.160
+Via: SIP/2.0/UDP 192.168.1.100:52950;received=122.177.247.143;rport=7921;branch=z9hG4bK-524287-1---933ffca52a6cb6c5
+To: <sip:13174492106@sip.vspphone.com>
+From: <sip:100@sip.vspphone.com>;tag=38a6ae1f
+Call-ID: hVkh3e0Ks1OmDLEiq78g4Q..
+CSeq: 2 INVITE
+Server: Telnyx SIP Proxy
+Content-Length: 0
+
+
+2026-07-25 14:51:46.581342 br-743a199599f1 Out IP 192.76.120.10.5060 > 172.19.0.6.36097: Flags [P.], seq 1259:1707, ack 2994, win 501, options [nop,nop,TS val 1327044618 ecr 497549961], length 448
+E.....@.6.C..Lx
+........~y.................
+O..
+....SIP/2.0 100 Telnyx Trying
+Via: SIP/2.0/TCP 0.0.0.0;branch=z9hG4bK1ddd.480a7acac972b42871e520d0beb0cf92.1.cs1;rport=36097;received=32.196.41.160
+Via: SIP/2.0/UDP 192.168.1.100:52950;received=122.177.247.143;rport=7921;branch=z9hG4bK-524287-1---933ffca52a6cb6c5
+To: <sip:13174492106@sip.vspphone.com>
+From: <sip:100@sip.vspphone.com>;tag=38a6ae1f
+Call-ID: hVkh3e0Ks1OmDLEiq78g4Q..
+CSeq: 2 INVITE
+Server: Telnyx SIP Proxy
+Content-Length: 0
+
+
+2026-07-25 14:51:46.581343 veth994b361 Out IP 192.76.120.10.5060 > 172.19.0.6.36097: Flags [P.], seq 1259:1707, ack 2994, win 501, options [nop,nop,TS val 1327044618 ecr 497549961], length 448
+E.....@.6.C..Lx
+........~y.................
+O..
+....SIP/2.0 100 Telnyx Trying
+Via: SIP/2.0/TCP 0.0.0.0;branch=z9hG4bK1ddd.480a7acac972b42871e520d0beb0cf92.1.cs1;rport=36097;received=32.196.41.160
+Via: SIP/2.0/UDP 192.168.1.100:52950;received=122.177.247.143;rport=7921;branch=z9hG4bK-524287-1---933ffca52a6cb6c5
+To: <sip:13174492106@sip.vspphone.com>
+From: <sip:100@sip.vspphone.com>;tag=38a6ae1f
+Call-ID: hVkh3e0Ks1OmDLEiq78g4Q..
+CSeq: 2 INVITE
+Server: Telnyx SIP Proxy
+Content-Length: 0
+
+
+2026-07-25 14:51:46.621469 veth994b361 P   IP 172.19.0.6.36097 > 192.76.120.10.5060: Flags [.], ack 1707, win 67, options [nop,nop,TS val 497550046 ecr 1327044618], length 0
+E..4.X@.@........Lx
+........~y.H...C.......
+....O..
+
+2026-07-25 14:51:46.621472 br-743a199599f1 In  IP 172.19.0.6.36097 > 192.76.120.10.5060: Flags [.], ack 1707, win 67, options [nop,nop,TS val 497550046 ecr 1327044618], length 0
+E..4.X@.@........Lx
+........~y.H...C.......
+....O..
+
+2026-07-25 14:51:46.621496 ens5  Out IP 172.31.39.116.36097 > 192.76.120.10.5060: Flags [.], ack 1707, win 67, options [nop,nop,TS val 497550046 ecr 1327044618], length 0
+E..4.X@.?..q..'t.Lx
+........~y.H...C.......
+....O..
+
+2026-07-25 14:51:46.694957 ens5  In  IP 192.76.120.10.5060 > 172.31.39.116.36097: Flags [P.], seq 1707:2310, ack 2994, win 501, options [nop,nop,TS val 1327044732 ecr 497550046], length 603
+E.....@.7....Lx
+..'t....~y.H...............
+O..|....SIP/2.0 403 Forbidden
+Via: SIP/2.0/TCP 0.0.0.0;rport=36097;received=32.196.41.160;branch=z9hG4bK1ddd.480a7acac972b42871e520d0beb0cf92.1.cs1
+Via: SIP/2.0/UDP 192.168.1.100:52950;received=122.177.247.143;rport=7921;branch=z9hG4bK-524287-1---933ffca52a6cb6c5
+From: <sip:100@sip.vspphone.com>;tag=38a6ae1f
+To: <sip:13174492106@sip.vspphone.com>;tag=1X6pcgjXt9ptm
+Call-ID: hVkh3e0Ks1OmDLEiq78g4Q..
+CSeq: 2 INVITE
+Accept: application/sdp
+Allow: INVITE, ACK, BYE, CANCEL, OPTIONS, MESSAGE, INFO, UPDATE, REFER, NOTIFY
+Supported: path
+Allow-Events: talk, hold, conference, refer
+Content-Length: 0
+
+
+2026-07-25 14:51:46.694989 br-743a199599f1 Out IP 192.76.120.10.5060 > 172.19.0.6.36097: Flags [P.], seq 1707:2310, ack 2994, win 501, options [nop,nop,TS val 1327044732 ecr 497550046], length 603
+E.....@.6.C*.Lx
+........~y.H........8......
+O..|....SIP/2.0 403 Forbidden
+Via: SIP/2.0/TCP 0.0.0.0;rport=36097;received=32.196.41.160;branch=z9hG4bK1ddd.480a7acac972b42871e520d0beb0cf92.1.cs1
+Via: SIP/2.0/UDP 192.168.1.100:52950;received=122.177.247.143;rport=7921;branch=z9hG4bK-524287-1---933ffca52a6cb6c5
+From: <sip:100@sip.vspphone.com>;tag=38a6ae1f
+To: <sip:13174492106@sip.vspphone.com>;tag=1X6pcgjXt9ptm
+Call-ID: hVkh3e0Ks1OmDLEiq78g4Q..
+CSeq: 2 INVITE
+Accept: application/sdp
+Allow: INVITE, ACK, BYE, CANCEL, OPTIONS, MESSAGE, INFO, UPDATE, REFER, NOTIFY
+Supported: path
+Allow-Events: talk, hold, conference, refer
+Content-Length: 0
+
+
+2026-07-25 14:51:46.694994 veth994b361 Out IP 192.76.120.10.5060 > 172.19.0.6.36097: Flags [P.], seq 1707:2310, ack 2994, win 501, options [nop,nop,TS val 1327044732 ecr 497550046], length 603
+E.....@.6.C*.Lx
+........~y.H........8......
+O..|....SIP/2.0 403 Forbidden
+Via: SIP/2.0/TCP 0.0.0.0;rport=36097;received=32.196.41.160;branch=z9hG4bK1ddd.480a7acac972b42871e520d0beb0cf92.1.cs1
+Via: SIP/2.0/UDP 192.168.1.100:52950;received=122.177.247.143;rport=7921;branch=z9hG4bK-524287-1---933ffca52a6cb6c5
+From: <sip:100@sip.vspphone.com>;tag=38a6ae1f
+To: <sip:13174492106@sip.vspphone.com>;tag=1X6pcgjXt9ptm
+Call-ID: hVkh3e0Ks1OmDLEiq78g4Q..
+CSeq: 2 INVITE
+Accept: application/sdp
+Allow: INVITE, ACK, BYE, CANCEL, OPTIONS, MESSAGE, INFO, UPDATE, REFER, NOTIFY
+Supported: path
+Allow-Events: talk, hold, conference, refer
+Content-Length: 0
+
+
+2026-07-25 14:51:46.695030 veth994b361 P   IP 172.19.0.6.36097 > 192.76.120.10.5060: Flags [.], ack 2310, win 67, options [nop,nop,TS val 497550119 ecr 1327044732], length 0
+E..4.Y@.@........Lx
+........~y.....C.......
+...'O..|
+2026-07-25 14:51:46.695032 br-743a199599f1 In  IP 172.19.0.6.36097 > 192.76.120.10.5060: Flags [.], ack 2310, win 67, options [nop,nop,TS val 497550119 ecr 1327044732], length 0
+E..4.Y@.@........Lx
+........~y.....C.......
+...'O..|
+2026-07-25 14:51:46.695041 ens5  Out IP 172.31.39.116.36097 > 192.76.120.10.5060: Flags [.], ack 2310, win 67, options [nop,nop,TS val 497550119 ecr 1327044732], length 0
+E..4.Y@.?..p..'t.Lx
+........~y.....C.......
+...'O..|
+2026-07-25 14:51:46.695247 veth994b361 P   IP 172.19.0.6.36097 > 192.76.120.10.5060: Flags [P.], seq 2994:3315, ack 2310, win 67, options [nop,nop,TS val 497550119 ecr 1327044732], length 321
+E..u.Z@.@........Lx
+........~y.....C.......
+...'O..|ACK sip:+13174492106@sip.telnyx.com SIP/2.0
+Via: SIP/2.0/TCP 0.0.0.0;branch=z9hG4bK1ddd.480a7acac972b42871e520d0beb0cf92.1.cs1
+Max-Forwards: 69
+To: <sip:13174492106@sip.vspphone.com>;tag=1X6pcgjXt9ptm
+From: <sip:100@sip.vspphone.com>;tag=38a6ae1f
+Call-ID: hVkh3e0Ks1OmDLEiq78g4Q..
+CSeq: 2 ACK
+Content-Length: 0
+
+
+2026-07-25 14:51:46.695250 br-743a199599f1 In  IP 172.19.0.6.36097 > 192.76.120.10.5060: Flags [P.], seq 2994:3315, ack 2310, win 67, options [nop,nop,TS val 497550119 ecr 1327044732], length 321
+E..u.Z@.@........Lx
+........~y.....C.......
+...'O..|ACK sip:+13174492106@sip.telnyx.com SIP/2.0
+Via: SIP/2.0/TCP 0.0.0.0;branch=z9hG4bK1ddd.480a7acac972b42871e520d0beb0cf92.1.cs1
+Max-Forwards: 69
+To: <sip:13174492106@sip.vspphone.com>;tag=1X6pcgjXt9ptm
+From: <sip:100@sip.vspphone.com>;tag=38a6ae1f
+Call-ID: hVkh3e0Ks1OmDLEiq78g4Q..
+CSeq: 2 ACK
+Content-Length: 0
+
+
+2026-07-25 14:51:46.695265 ens5  Out IP 172.31.39.116.36097 > 192.76.120.10.5060: Flags [P.], seq 2994:3315, ack 2310, win 67, options [nop,nop,TS val 497550119 ecr 1327044732], length 321
+E..u.Z@.?.....'t.Lx
+........~y.....C.R.....
+...'O..|ACK sip:+13174492106@sip.telnyx.com SIP/2.0
+Via: SIP/2.0/TCP 0.0.0.0;branch=z9hG4bK1ddd.480a7acac972b42871e520d0beb0cf92.1.cs1
+Max-Forwards: 69
+To: <sip:13174492106@sip.vspphone.com>;tag=1X6pcgjXt9ptm
+From: <sip:100@sip.vspphone.com>;tag=38a6ae1f
+Call-ID: hVkh3e0Ks1OmDLEiq78g4Q..
+CSeq: 2 ACK
+Content-Length: 0
+
+
+2026-07-25 14:51:46.739314 ens5  In  IP 192.76.120.10.5060 > 172.31.39.116.36097: Flags [.], ack 3315, win 501, options [nop,nop,TS val 1327044776 ecr 497550119], length 0
+E..4..@.7..
+.Lx
+..'t....~y..........%......
+O......'
+2026-07-25 14:51:46.739344 br-743a199599f1 Out IP 192.76.120.10.5060 > 172.19.0.6.36097: Flags [.], ack 3315, win 501, options [nop,nop,TS val 1327044776 ecr 497550119], length 0
+E..4..@.6.E..Lx
+........~y..........MN.....
+O......'
+2026-07-25 14:51:46.739349 veth994b361 Out IP 192.76.120.10.5060 > 172.19.0.6.36097: Flags [.], ack 3315, win 501, options [nop,nop,TS val 1327044776 ecr 497550119], length 0
+E..4..@.6.E..Lx
+........~y..........MN.....
+O......'
+2026-07-25 14:51:47.152328 veth994b361 P   IP 172.19.0.6.5060 > 192.76.120.10.5060: SIP: INVITE sip:+13174492106@sip.telnyx.com SIP/2.0
+E..... .@........Lx
+........INVITE sip:+13174492106@sip.telnyx.com SIP/2.0
+Via: SIP/2.0/UDP 0.0.0.0;branch=z9hG4bKecdd.fa120d6d2e38134821b4d12319543525.0
+Via: SIP/2.0/UDP 192.168.1.100:52950;received=122.177.247.143;rport=7921;branch=z9hG4bK-524287-1---f062dc505cbdd268
+Max-Forwards: 69
+Contact: <sip:100@122.177.247.143:7921;transport=UDP>
+To: <sip:13174492106@sip.vspphone.com>
+From: <sip:100@sip.vspphone.com>;tag=38a6ae1f
+Call-ID: hVkh3e0Ks1OmDLEiq78g4Q..
+CSeq: 2 INVITE
+Allow: INVITE,ACK,CANCEL,BYE,NOTIFY,REFER,MESSAGE,OPTIONS,INFO,SUBSCRIBE
+Proxy-Authorization: Digest username="100",realm="sip.vspphone.com",nonce="9c0ba02c-07ec-4cac-824f-901d954352cc",uri="sip:13174492106@sip.vspphone.com;transport=UDP",response="9c748067374f41935b1ca00e46de8f41",cnonce="9b603c347001620f02c362829b52e884",nc=00000001,qop=auth,algorithm=MD5,opaque="870e7cce-a8cb-4773-b0ed-53d0a896af66/10.239.135.24/b3b23be"
+Supported: replaces,norefersub,extended-refer,timer,sec-agree,outbound,path,X-cisco-serviceuri
+User-Agent: Zoiper v2.10.20.4_1
+Allow-Events: presence, kpml, talk, as-feature-event
+Content-Type: application/sdp
+Content-Length: 341
+X-VSP-Platform-UUID: bbbd656d-f6cb-4b0f-b123-c4dad84cdceb
+
+v=0
+o=Z 0 272163259 IN IP4 32.196.41.160
+s=Z
+c=IN IP4 32.196.41.160
+t=0 0
+m=audio 10094 RTP/AVP 3 101 110 97 8 0
+a=rtpmap:3 GSM/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-16
+a=rtpmap:110 speex/8000
+a=rtpmap:97 iLBC/8000
+a=fmtp:97 mode=20
+a=rtpmap:8 PCMA/8000
+a=rtpmap:
+2026-07-25 14:51:47.152328 br-743a199599f1 In  IP 172.19.0.6.5060 > 192.76.120.10.5060: SIP: INVITE sip:+13174492106@sip.telnyx.com SIP/2.0
+E..... .@........Lx
+........INVITE sip:+13174492106@sip.telnyx.com SIP/2.0
+Via: SIP/2.0/UDP 0.0.0.0;branch=z9hG4bKecdd.fa120d6d2e38134821b4d12319543525.0
+Via: SIP/2.0/UDP 192.168.1.100:52950;received=122.177.247.143;rport=7921;branch=z9hG4bK-524287-1---f062dc505cbdd268
+Max-Forwards: 69
+Contact: <sip:100@122.177.247.143:7921;transport=UDP>
+To: <sip:13174492106@sip.vspphone.com>
+From: <sip:100@sip.vspphone.com>;tag=38a6ae1f
+Call-ID: hVkh3e0Ks1OmDLEiq78g4Q..
+CSeq: 2 INVITE
+Allow: INVITE,ACK,CANCEL,BYE,NOTIFY,REFER,MESSAGE,OPTIONS,INFO,SUBSCRIBE
+Proxy-Authorization: Digest username="100",realm="sip.vspphone.com",nonce="9c0ba02c-07ec-4cac-824f-901d954352cc",uri="sip:13174492106@sip.vspphone.com;transport=UDP",response="9c748067374f41935b1ca00e46de8f41",cnonce="9b603c347001620f02c362829b52e884",nc=00000001,qop=auth,algorithm=MD5,opaque="870e7cce-a8cb-4773-b0ed-53d0a896af66/10.239.135.24/b3b23be"
+Supported: replaces,norefersub,extended-refer,timer,sec-agree,outbound,path,X-cisco-serviceuri
+User-Agent: Zoiper v2.10.20.4_1
+Allow-Events: presence, kpml, talk, as-feature-event
+Content-Type: application/sdp
+Content-Length: 341
+X-VSP-Platform-UUID: bbbd656d-f6cb-4b0f-b123-c4dad84cdceb
+
+v=0
+o=Z 0 272163259 IN IP4 32.196.41.160
+s=Z
+c=IN IP4 32.196.41.160
+t=0 0
+m=audio 10094 RTP/AVP 3 101 110 97 8 0
+a=rtpmap:3 GSM/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-16
+a=rtpmap:110 speex/8000
+a=rtpmap:97 iLBC/8000
+a=fmtp:97 mode=20
+a=rtpmap:8 PCMA/8000
+a=rtpmap:
+2026-07-25 14:51:47.152339 veth994b361 P   IP 172.19.0.6 > 192.76.120.10: ip-proto-17
+E..G....@..k.....Lx
+0 PCMU/8000
+a=sendrecv
+a=rtcp:10094
+a=rtcp-mux
+
+2026-07-25 14:51:47.152339 br-743a199599f1 In  IP 172.19.0.6 > 192.76.120.10: ip-proto-17
+E..G....@..k.....Lx
+0 PCMU/8000
+a=sendrecv
+a=rtcp:10094
+a=rtcp-mux
+
+2026-07-25 14:51:47.152361 ens5  Out IP 172.31.39.116.5060 > 192.76.120.10.5060: SIP: INVITE sip:+13174492106@sip.telnyx.com SIP/2.0
+E..... .?.....'t.Lx
+.......{INVITE sip:+13174492106@sip.telnyx.com SIP/2.0
+Via: SIP/2.0/UDP 0.0.0.0;branch=z9hG4bKecdd.fa120d6d2e38134821b4d12319543525.0
+Via: SIP/2.0/UDP 192.168.1.100:52950;received=122.177.247.143;rport=7921;branch=z9hG4bK-524287-1---f062dc505cbdd268
+Max-Forwards: 69
+Contact: <sip:100@122.177.247.143:7921;transport=UDP>
+To: <sip:13174492106@sip.vspphone.com>
+From: <sip:100@sip.vspphone.com>;tag=38a6ae1f
+Call-ID: hVkh3e0Ks1OmDLEiq78g4Q..
+CSeq: 2 INVITE
+Allow: INVITE,ACK,CANCEL,BYE,NOTIFY,REFER,MESSAGE,OPTIONS,INFO,SUBSCRIBE
+Proxy-Authorization: Digest username="100",realm="sip.vspphone.com",nonce="9c0ba02c-07ec-4cac-824f-901d954352cc",uri="sip:13174492106@sip.vspphone.com;transport=UDP",response="9c748067374f41935b1ca00e46de8f41",cnonce="9b603c347001620f02c362829b52e884",nc=00000001,qop=auth,algorithm=MD5,opaque="870e7cce-a8cb-4773-b0ed-53d0a896af66/10.239.135.24/b3b23be"
+Supported: replaces,norefersub,extended-refer,timer,sec-agree,outbound,path,X-cisco-serviceuri
+User-Agent: Zoiper v2.10.20.4_1
+Allow-Events: presence, kpml, talk, as-feature-event
+Content-Type: application/sdp
+Content-Length: 341
+X-VSP-Platform-UUID: bbbd656d-f6cb-4b0f-b123-c4dad84cdceb
+
+v=0
+o=Z 0 272163259 IN IP4 32.196.41.160
+s=Z
+c=IN IP4 32.196.41.160
+t=0 0
+m=audio 10094 RTP/AVP 3 101 110 97 8 0
+a=rtpmap:3 GSM/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-16
+a=rtpmap:110 speex/8000
+a=rtpmap:97 iLBC/8000
+a=fmtp:97 mode=20
+a=rtpmap:8 PCMA/8000
+a=rtpmap:
+2026-07-25 14:51:47.152365 ens5  Out IP 172.31.39.116 > 192.76.120.10: ip-proto-17
+E..G....?.....'t.Lx
+0 PCMU/8000
+a=sendrecv
+a=rtcp:10094
+a=rtcp-mux
+
+2026-07-25 14:51:47.194536 ens5  In  IP 192.76.120.10.5060 > 172.31.39.116.5060: SIP: SIP/2.0 100 Telnyx Trying
+E.......7..@.Lx
+..'t......:*SIP/2.0 100 Telnyx Trying
+Via: SIP/2.0/UDP 0.0.0.0;branch=z9hG4bKecdd.fa120d6d2e38134821b4d12319543525.0;rport=5060;received=32.196.41.160
+Via: SIP/2.0/UDP 192.168.1.100:52950;received=122.177.247.143;rport=7921;branch=z9hG4bK-524287-1---f062dc505cbdd268
+To: <sip:13174492106@sip.vspphone.com>
+From: <sip:100@sip.vspphone.com>;tag=38a6ae1f
+Call-ID: hVkh3e0Ks1OmDLEiq78g4Q..
+CSeq: 2 INVITE
+Server: Telnyx SIP Proxy
+Content-Length: 0
+
+
+2026-07-25 14:51:47.194563 br-743a199599f1 Out IP 192.76.120.10.5060 > 172.19.0.6.5060: SIP: SIP/2.0 100 Telnyx Trying
+E.......6....Lx
+..........a.SIP/2.0 100 Telnyx Trying
+Via: SIP/2.0/UDP 0.0.0.0;branch=z9hG4bKecdd.fa120d6d2e38134821b4d12319543525.0;rport=5060;received=32.196.41.160
+Via: SIP/2.0/UDP 192.168.1.100:52950;received=122.177.247.143;rport=7921;branch=z9hG4bK-524287-1---f062dc505cbdd268
+To: <sip:13174492106@sip.vspphone.com>
+From: <sip:100@sip.vspphone.com>;tag=38a6ae1f
+Call-ID: hVkh3e0Ks1OmDLEiq78g4Q..
+CSeq: 2 INVITE
+Server: Telnyx SIP Proxy
+Content-Length: 0
+
+
+2026-07-25 14:51:47.194567 veth994b361 Out IP 192.76.120.10.5060 > 172.19.0.6.5060: SIP: SIP/2.0 100 Telnyx Trying
+E.......6....Lx
+..........a.SIP/2.0 100 Telnyx Trying
+Via: SIP/2.0/UDP 0.0.0.0;branch=z9hG4bKecdd.fa120d6d2e38134821b4d12319543525.0;rport=5060;received=32.196.41.160
+Via: SIP/2.0/UDP 192.168.1.100:52950;received=122.177.247.143;rport=7921;branch=z9hG4bK-524287-1---f062dc505cbdd268
+To: <sip:13174492106@sip.vspphone.com>
+From: <sip:100@sip.vspphone.com>;tag=38a6ae1f
+Call-ID: hVkh3e0Ks1OmDLEiq78g4Q..
+CSeq: 2 INVITE
+Server: Telnyx SIP Proxy
+Content-Length: 0
+
+
+2026-07-25 14:51:47.308838 ens5  In  IP 192.76.120.10.5060 > 172.31.39.116.5060: SIP: SIP/2.0 482 Request merged
+E.......7..D.Lx
+..'t......3%SIP/2.0 482 Request merged
+Via: SIP/2.0/UDP 0.0.0.0;rport=5060;received=32.196.41.160;branch=z9hG4bKecdd.fa120d6d2e38134821b4d12319543525.0
+Via: SIP/2.0/UDP 192.168.1.100:52950;received=122.177.247.143;rport=7921;branch=z9hG4bK-524287-1---f062dc505cbdd268
+From: <sip:100@sip.vspphone.com>;tag=38a6ae1f
+To: <sip:13174492106@sip.vspphone.com>;tag=1X6pcgjXt9ptm
+Call-ID: hVkh3e0Ks1OmDLEiq78g4Q..
+CSeq: 2 INVITE
+Content-Length: 0
+
+
+2026-07-25 14:51:47.308868 br-743a199599f1 Out IP 192.76.120.10.5060 > 172.19.0.6.5060: SIP: SIP/2.0 482 Request merged
+E.......6....Lx
+..........Z.SIP/2.0 482 Request merged
+Via: SIP/2.0/UDP 0.0.0.0;rport=5060;received=32.196.41.160;branch=z9hG4bKecdd.fa120d6d2e38134821b4d12319543525.0
+Via: SIP/2.0/UDP 192.168.1.100:52950;received=122.177.247.143;rport=7921;branch=z9hG4bK-524287-1---f062dc505cbdd268
+From: <sip:100@sip.vspphone.com>;tag=38a6ae1f
+To: <sip:13174492106@sip.vspphone.com>;tag=1X6pcgjXt9ptm
+Call-ID: hVkh3e0Ks1OmDLEiq78g4Q..
+CSeq: 2 INVITE
+Content-Length: 0
+
+
+2026-07-25 14:51:47.308873 veth994b361 Out IP 192.76.120.10.5060 > 172.19.0.6.5060: SIP: SIP/2.0 482 Request merged
+E.......6....Lx
+..........Z.SIP/2.0 482 Request merged
+Via: SIP/2.0/UDP 0.0.0.0;rport=5060;received=32.196.41.160;branch=z9hG4bKecdd.fa120d6d2e38134821b4d12319543525.0
+Via: SIP/2.0/UDP 192.168.1.100:52950;received=122.177.247.143;rport=7921;branch=z9hG4bK-524287-1---f062dc505cbdd268
+From: <sip:100@sip.vspphone.com>;tag=38a6ae1f
+To: <sip:13174492106@sip.vspphone.com>;tag=1X6pcgjXt9ptm
+Call-ID: hVkh3e0Ks1OmDLEiq78g4Q..
+CSeq: 2 INVITE
+Content-Length: 0
+
+
+2026-07-25 14:51:47.309121 veth994b361 P   IP 172.19.0.6.5060 > 192.76.120.10.5060: SIP: ACK sip:+13174492106@sip.telnyx.com SIP/2.0
+E..Y....@........Lx
+.....E..ACK sip:+13174492106@sip.telnyx.com SIP/2.0
+Via: SIP/2.0/UDP 0.0.0.0;branch=z9hG4bKecdd.fa120d6d2e38134821b4d12319543525.0
+Max-Forwards: 69
+To: <sip:13174492106@sip.vspphone.com>;tag=1X6pcgjXt9ptm
+From: <sip:100@sip.vspphone.com>;tag=38a6ae1f
+Call-ID: hVkh3e0Ks1OmDLEiq78g4Q..
+CSeq: 2 ACK
+Content-Length: 0
+
+
+2026-07-25 14:51:47.309121 br-743a199599f1 In  IP 172.19.0.6.5060 > 192.76.120.10.5060: SIP: ACK sip:+13174492106@sip.telnyx.com SIP/2.0
+E..Y....@........Lx
+.....E..ACK sip:+13174492106@sip.telnyx.com SIP/2.0
+Via: SIP/2.0/UDP 0.0.0.0;branch=z9hG4bKecdd.fa120d6d2e38134821b4d12319543525.0
+Max-Forwards: 69
+To: <sip:13174492106@sip.vspphone.com>;tag=1X6pcgjXt9ptm
+From: <sip:100@sip.vspphone.com>;tag=38a6ae1f
+Call-ID: hVkh3e0Ks1OmDLEiq78g4Q..
+CSeq: 2 ACK
+Content-Length: 0
+
+
+2026-07-25 14:51:47.309143 ens5  Out IP 172.31.39.116.5060 > 192.76.120.10.5060: SIP: ACK sip:+13174492106@sip.telnyx.com SIP/2.0
+E..Y....?.....'t.Lx
+.....E.AACK sip:+13174492106@sip.telnyx.com SIP/2.0
+Via: SIP/2.0/UDP 0.0.0.0;branch=z9hG4bKecdd.fa120d6d2e38134821b4d12319543525.0
+Max-Forwards: 69
+To: <sip:13174492106@sip.vspphone.com>;tag=1X6pcgjXt9ptm
+From: <sip:100@sip.vspphone.com>;tag=38a6ae1f
+Call-ID: hVkh3e0Ks1OmDLEiq78g4Q..
+CSeq: 2 ACK
+Content-Length: 0
+
+
+2026-07-25 14:52:12.299430 veth994b361 P   IP 172.19.0.6.36097 > 192.76.120.10.5060: Flags [P.], seq 3315:4482, ack 2310, win 67, options [nop,nop,TS val 497575724 ecr 1327044776], length 1167
+E....[@.@..Y.....Lx
+........~y.....C.%.....
+..g,O...INVITE sip:+13174492106@sip.telnyx.com SIP/2.0
+Via: SIP/2.0/TCP 0.0.0.0;branch=z9hG4bKf561.35f6fb4655c38669370f5da06e471cf0.0
+Via: SIP/2.0/UDP 192.168.1.100:52950;received=122.177.247.143;rport=7921;branch=z9hG4bK-524287-1---714d5f1c9d9ad48e
+Max-Forwards: 69
+Contact: <sip:100@122.177.247.143:7921;transport=UDP>
+To: <sip:13174492106@sip.vspphone.com>
+From: <sip:100@sip.vspphone.com>;tag=d5b96267
+Call-ID: fopLif-X-bwRAiGEwdrkUg..
+CSeq: 1 INVITE
+Allow: INVITE,ACK,CANCEL,BYE,NOTIFY,REFER,MESSAGE,OPTIONS,INFO,SUBSCRIBE
+Supported: replaces,norefersub,extended-refer,timer,sec-agree,outbound,path,X-cisco-serviceuri
+User-Agent: Zoiper v2.10.20.4_1
+Allow-Events: presence, kpml, talk, as-feature-event
+Content-Type: application/sdp
+Content-Length: 341
+X-VSP-Platform-UUID: 6a6e15bb-b3e5-4a4e-bbad-0d4b8f4860d0
+
+v=0
+o=Z 0 272189179 IN IP4 32.196.41.160
+s=Z
+c=IN IP4 32.196.41.160
+t=0 0
+m=audio 10010 RTP/AVP 3 101 110 97 8 0
+a=rtpmap:3 GSM/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-16
+a=rtpmap:110 speex/8000
+a=rtpmap:97 iLBC/8000
+a=fmtp:97 mode=20
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:10011
+a=rtcp-mux
+
+2026-07-25 14:52:12.299432 br-743a199599f1 In  IP 172.19.0.6.36097 > 192.76.120.10.5060: Flags [P.], seq 3315:4482, ack 2310, win 67, options [nop,nop,TS val 497575724 ecr 1327044776], length 1167
+E....[@.@..Y.....Lx
+........~y.....C.%.....
+..g,O...INVITE sip:+13174492106@sip.telnyx.com SIP/2.0
+Via: SIP/2.0/TCP 0.0.0.0;branch=z9hG4bKf561.35f6fb4655c38669370f5da06e471cf0.0
+Via: SIP/2.0/UDP 192.168.1.100:52950;received=122.177.247.143;rport=7921;branch=z9hG4bK-524287-1---714d5f1c9d9ad48e
+Max-Forwards: 69
+Contact: <sip:100@122.177.247.143:7921;transport=UDP>
+To: <sip:13174492106@sip.vspphone.com>
+From: <sip:100@sip.vspphone.com>;tag=d5b96267
+Call-ID: fopLif-X-bwRAiGEwdrkUg..
+CSeq: 1 INVITE
+Allow: INVITE,ACK,CANCEL,BYE,NOTIFY,REFER,MESSAGE,OPTIONS,INFO,SUBSCRIBE
+Supported: replaces,norefersub,extended-refer,timer,sec-agree,outbound,path,X-cisco-serviceuri
+User-Agent: Zoiper v2.10.20.4_1
+Allow-Events: presence, kpml, talk, as-feature-event
+Content-Type: application/sdp
+Content-Length: 341
+X-VSP-Platform-UUID: 6a6e15bb-b3e5-4a4e-bbad-0d4b8f4860d0
+
+v=0
+o=Z 0 272189179 IN IP4 32.196.41.160
+s=Z
+c=IN IP4 32.196.41.160
+t=0 0
+m=audio 10010 RTP/AVP 3 101 110 97 8 0
+a=rtpmap:3 GSM/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-16
+a=rtpmap:110 speex/8000
+a=rtpmap:97 iLBC/8000
+a=fmtp:97 mode=20
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:10011
+a=rtcp-mux
+
+2026-07-25 14:52:12.299441 ens5  Out IP 172.31.39.116.36097 > 192.76.120.10.5060: Flags [P.], seq 3315:4482, ack 2310, win 67, options [nop,nop,TS val 497575724 ecr 1327044776], length 1167
+E....[@.?.....'t.Lx
+........~y.....C.......
+..g,O...INVITE sip:+13174492106@sip.telnyx.com SIP/2.0
+Via: SIP/2.0/TCP 0.0.0.0;branch=z9hG4bKf561.35f6fb4655c38669370f5da06e471cf0.0
+Via: SIP/2.0/UDP 192.168.1.100:52950;received=122.177.247.143;rport=7921;branch=z9hG4bK-524287-1---714d5f1c9d9ad48e
+Max-Forwards: 69
+Contact: <sip:100@122.177.247.143:7921;transport=UDP>
+To: <sip:13174492106@sip.vspphone.com>
+From: <sip:100@sip.vspphone.com>;tag=d5b96267
+Call-ID: fopLif-X-bwRAiGEwdrkUg..
+CSeq: 1 INVITE
+Allow: INVITE,ACK,CANCEL,BYE,NOTIFY,REFER,MESSAGE,OPTIONS,INFO,SUBSCRIBE
+Supported: replaces,norefersub,extended-refer,timer,sec-agree,outbound,path,X-cisco-serviceuri
+User-Agent: Zoiper v2.10.20.4_1
+Allow-Events: presence, kpml, talk, as-feature-event
+Content-Type: application/sdp
+Content-Length: 341
+X-VSP-Platform-UUID: 6a6e15bb-b3e5-4a4e-bbad-0d4b8f4860d0
+
+v=0
+o=Z 0 272189179 IN IP4 32.196.41.160
+s=Z
+c=IN IP4 32.196.41.160
+t=0 0
+m=audio 10010 RTP/AVP 3 101 110 97 8 0
+a=rtpmap:3 GSM/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-16
+a=rtpmap:110 speex/8000
+a=rtpmap:97 iLBC/8000
+a=fmtp:97 mode=20
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:10011
+a=rtcp-mux
+
+2026-07-25 14:52:12.343530 ens5  In  IP 192.76.120.10.5060 > 172.31.39.116.36097: Flags [.], ack 4482, win 501, options [nop,nop,TS val 1327070380 ecr 497575724], length 0
+E..4..@.7..	.Lx
+..'t....~y.....S....Y;.....
+O.|...g,
+2026-07-25 14:52:12.343565 br-743a199599f1 Out IP 192.76.120.10.5060 > 172.19.0.6.36097: Flags [.], ack 4482, win 501, options [nop,nop,TS val 1327070380 ecr 497575724], length 0
+E..4..@.6.E..Lx
+........~y.....S...........
+O.|...g,
+2026-07-25 14:52:12.343570 veth994b361 Out IP 192.76.120.10.5060 > 172.19.0.6.36097: Flags [.], ack 4482, win 501, options [nop,nop,TS val 1327070380 ecr 497575724], length 0
+E..4..@.6.E..Lx
+........~y.....S...........
+O.|...g,
+2026-07-25 14:52:12.344675 ens5  In  IP 192.76.120.10.5060 > 172.31.39.116.36097: Flags [P.], seq 2310:2754, ack 4482, win 501, options [nop,nop,TS val 1327070381 ecr 497575724], length 444
+E.....@.7..L.Lx
+..'t....~y.....S...........
+O.|...g,SIP/2.0 100 Telnyx Trying
+Via: SIP/2.0/TCP 0.0.0.0;branch=z9hG4bKf561.35f6fb4655c38669370f5da06e471cf0.0;rport=36097;received=32.196.41.160
+Via: SIP/2.0/UDP 192.168.1.100:52950;received=122.177.247.143;rport=7921;branch=z9hG4bK-524287-1---714d5f1c9d9ad48e
+To: <sip:13174492106@sip.vspphone.com>
+From: <sip:100@sip.vspphone.com>;tag=d5b96267
+Call-ID: fopLif-X-bwRAiGEwdrkUg..
+CSeq: 1 INVITE
+Server: Telnyx SIP Proxy
+Content-Length: 0
+
+
+2026-07-25 14:52:12.344695 br-743a199599f1 Out IP 192.76.120.10.5060 > 172.19.0.6.36097: Flags [P.], seq 2310:2754, ack 4482, win 501, options [nop,nop,TS val 1327070381 ecr 497575724], length 444
+E.....@.6.C..Lx
+........~y.....S.....b.....
+O.|...g,SIP/2.0 100 Telnyx Trying
+Via: SIP/2.0/TCP 0.0.0.0;branch=z9hG4bKf561.35f6fb4655c38669370f5da06e471cf0.0;rport=36097;received=32.196.41.160
+Via: SIP/2.0/UDP 192.168.1.100:52950;received=122.177.247.143;rport=7921;branch=z9hG4bK-524287-1---714d5f1c9d9ad48e
+To: <sip:13174492106@sip.vspphone.com>
+From: <sip:100@sip.vspphone.com>;tag=d5b96267
+Call-ID: fopLif-X-bwRAiGEwdrkUg..
+CSeq: 1 INVITE
+Server: Telnyx SIP Proxy
+Content-Length: 0
+
+
+2026-07-25 14:52:12.344699 veth994b361 Out IP 192.76.120.10.5060 > 172.19.0.6.36097: Flags [P.], seq 2310:2754, ack 4482, win 501, options [nop,nop,TS val 1327070381 ecr 497575724], length 444
+E.....@.6.C..Lx
+........~y.....S.....b.....
+O.|...g,SIP/2.0 100 Telnyx Trying
+Via: SIP/2.0/TCP 0.0.0.0;branch=z9hG4bKf561.35f6fb4655c38669370f5da06e471cf0.0;rport=36097;received=32.196.41.160
+Via: SIP/2.0/UDP 192.168.1.100:52950;received=122.177.247.143;rport=7921;branch=z9hG4bK-524287-1---714d5f1c9d9ad48e
+To: <sip:13174492106@sip.vspphone.com>
+From: <sip:100@sip.vspphone.com>;tag=d5b96267
+Call-ID: fopLif-X-bwRAiGEwdrkUg..
+CSeq: 1 INVITE
+Server: Telnyx SIP Proxy
+Content-Length: 0
+
+
+2026-07-25 14:52:12.385455 veth994b361 P   IP 172.19.0.6.36097 > 192.76.120.10.5060: Flags [.], ack 2754, win 67, options [nop,nop,TS val 497575810 ecr 1327070381], length 0
+E..4.\@.@........Lx
+.......S~y._...C.......
+..g.O.|.
+2026-07-25 14:52:12.385458 br-743a199599f1 In  IP 172.19.0.6.36097 > 192.76.120.10.5060: Flags [.], ack 2754, win 67, options [nop,nop,TS val 497575810 ecr 1327070381], length 0
+E..4.\@.@........Lx
+.......S~y._...C.......
+..g.O.|.
+2026-07-25 14:52:12.385480 ens5  Out IP 172.31.39.116.36097 > 192.76.120.10.5060: Flags [.], ack 2754, win 67, options [nop,nop,TS val 497575810 ecr 1327070381], length 0
+E..4.\@.?..m..'t.Lx
+.......S~y._...C.......
+..g.O.|.
+2026-07-25 14:52:12.491158 ens5  In  IP 192.76.120.10.5060 > 172.31.39.116.36097: Flags [P.], seq 2754:3569, ack 4482, win 501, options [nop,nop,TS val 1327070528 ecr 497575810], length 815
+E..c..@.7....Lx
+..'t....~y._...S.....L.....
+O.}@..g.SIP/2.0 407 Proxy Authentication Required
+Via: SIP/2.0/TCP 0.0.0.0;rport=36097;received=32.196.41.160;branch=z9hG4bKf561.35f6fb4655c38669370f5da06e471cf0.0
+Via: SIP/2.0/UDP 192.168.1.100:52950;received=122.177.247.143;rport=7921;branch=z9hG4bK-524287-1---714d5f1c9d9ad48e
+From: <sip:100@sip.vspphone.com>;tag=d5b96267
+To: <sip:13174492106@sip.vspphone.com>;tag=XmHFNUt5tj6KD
+Call-ID: fopLif-X-bwRAiGEwdrkUg..
+CSeq: 1 INVITE
+Accept: application/sdp
+Allow: INVITE, ACK, BYE, CANCEL, OPTIONS, MESSAGE, INFO, UPDATE, REFER, NOTIFY
+Supported: path
+Allow-Events: talk, hold, conference, refer
+Proxy-Authenticate: Digest realm="sip.vspphone.com", nonce="6c0f4090-e02e-4cf0-aa9f-3dfcbef0d8ce", algorithm=MD5, qop="auth", opaque="53e1b2ff-2fb4-4077-a22a-9267e0926a8e/10.239.133.224/921769b"
+Content-Length: 0
+
+
+2026-07-25 14:52:12.491192 br-743a199599f1 Out IP 192.76.120.10.5060 > 172.19.0.6.36097: Flags [P.], seq 2754:3569, ack 4482, win 501, options [nop,nop,TS val 1327070528 ecr 497575810], length 815
+E..c..@.6.BR.Lx
+........~y._...S...........
+O.}@..g.SIP/2.0 407 Proxy Authentication Required
+Via: SIP/2.0/TCP 0.0.0.0;rport=36097;received=32.196.41.160;branch=z9hG4bKf561.35f6fb4655c38669370f5da06e471cf0.0
+Via: SIP/2.0/UDP 192.168.1.100:52950;received=122.177.247.143;rport=7921;branch=z9hG4bK-524287-1---714d5f1c9d9ad48e
+From: <sip:100@sip.vspphone.com>;tag=d5b96267
+To: <sip:13174492106@sip.vspphone.com>;tag=XmHFNUt5tj6KD
+Call-ID: fopLif-X-bwRAiGEwdrkUg..
+CSeq: 1 INVITE
+Accept: application/sdp
+Allow: INVITE, ACK, BYE, CANCEL, OPTIONS, MESSAGE, INFO, UPDATE, REFER, NOTIFY
+Supported: path
+Allow-Events: talk, hold, conference, refer
+Proxy-Authenticate: Digest realm="sip.vspphone.com", nonce="6c0f4090-e02e-4cf0-aa9f-3dfcbef0d8ce", algorithm=MD5, qop="auth", opaque="53e1b2ff-2fb4-4077-a22a-9267e0926a8e/10.239.133.224/921769b"
+Content-Length: 0
+
+
+2026-07-25 14:52:12.491198 veth994b361 Out IP 192.76.120.10.5060 > 172.19.0.6.36097: Flags [P.], seq 2754:3569, ack 4482, win 501, options [nop,nop,TS val 1327070528 ecr 497575810], length 815
+E..c..@.6.BR.Lx
+........~y._...S...........
+O.}@..g.SIP/2.0 407 Proxy Authentication Required
+Via: SIP/2.0/TCP 0.0.0.0;rport=36097;received=32.196.41.160;branch=z9hG4bKf561.35f6fb4655c38669370f5da06e471cf0.0
+Via: SIP/2.0/UDP 192.168.1.100:52950;received=122.177.247.143;rport=7921;branch=z9hG4bK-524287-1---714d5f1c9d9ad48e
+From: <sip:100@sip.vspphone.com>;tag=d5b96267
+To: <sip:13174492106@sip.vspphone.com>;tag=XmHFNUt5tj6KD
+Call-ID: fopLif-X-bwRAiGEwdrkUg..
+CSeq: 1 INVITE
+Accept: application/sdp
+Allow: INVITE, ACK, BYE, CANCEL, OPTIONS, MESSAGE, INFO, UPDATE, REFER, NOTIFY
+Supported: path
+Allow-Events: talk, hold, conference, refer
+Proxy-Authenticate: Digest realm="sip.vspphone.com", nonce="6c0f4090-e02e-4cf0-aa9f-3dfcbef0d8ce", algorithm=MD5, qop="auth", opaque="53e1b2ff-2fb4-4077-a22a-9267e0926a8e/10.239.133.224/921769b"
+Content-Length: 0
+
+
+2026-07-25 14:52:12.491240 veth994b361 P   IP 172.19.0.6.36097 > 192.76.120.10.5060: Flags [.], ack 3569, win 67, options [nop,nop,TS val 497575915 ecr 1327070528], length 0
+E..4.]@.@........Lx
+.......S~y.....C.......
+..g.O.}@
+2026-07-25 14:52:12.491242 br-743a199599f1 In  IP 172.19.0.6.36097 > 192.76.120.10.5060: Flags [.], ack 3569, win 67, options [nop,nop,TS val 497575915 ecr 1327070528], length 0
+E..4.]@.@........Lx
+.......S~y.....C.......
+..g.O.}@
+2026-07-25 14:52:12.491252 ens5  Out IP 172.31.39.116.36097 > 192.76.120.10.5060: Flags [.], ack 3569, win 67, options [nop,nop,TS val 497575915 ecr 1327070528], length 0
+E..4.]@.?..l..'t.Lx
+.......S~y.....C.......
+..g.O.}@
+2026-07-25 14:52:12.491493 veth994b361 P   IP 172.19.0.6.36097 > 192.76.120.10.5060: Flags [P.], seq 4482:4799, ack 3569, win 67, options [nop,nop,TS val 497575916 ecr 1327070528], length 317
+E..q.^@.@........Lx
+.......S~y.....C.......
+..g.O.}@ACK sip:+13174492106@sip.telnyx.com SIP/2.0
+Via: SIP/2.0/TCP 0.0.0.0;branch=z9hG4bKf561.35f6fb4655c38669370f5da06e471cf0.0
+Max-Forwards: 69
+To: <sip:13174492106@sip.vspphone.com>;tag=XmHFNUt5tj6KD
+From: <sip:100@sip.vspphone.com>;tag=d5b96267
+Call-ID: fopLif-X-bwRAiGEwdrkUg..
+CSeq: 1 ACK
+Content-Length: 0
+
+
+2026-07-25 14:52:12.491494 br-743a199599f1 In  IP 172.19.0.6.36097 > 192.76.120.10.5060: Flags [P.], seq 4482:4799, ack 3569, win 67, options [nop,nop,TS val 497575916 ecr 1327070528], length 317
+E..q.^@.@........Lx
+.......S~y.....C.......
+..g.O.}@ACK sip:+13174492106@sip.telnyx.com SIP/2.0
+Via: SIP/2.0/TCP 0.0.0.0;branch=z9hG4bKf561.35f6fb4655c38669370f5da06e471cf0.0
+Max-Forwards: 69
+To: <sip:13174492106@sip.vspphone.com>;tag=XmHFNUt5tj6KD
+From: <sip:100@sip.vspphone.com>;tag=d5b96267
+Call-ID: fopLif-X-bwRAiGEwdrkUg..
+CSeq: 1 ACK
+Content-Length: 0
+
+
+2026-07-25 14:52:12.491505 ens5  Out IP 172.31.39.116.36097 > 192.76.120.10.5060: Flags [P.], seq 4482:4799, ack 3569, win 67, options [nop,nop,TS val 497575916 ecr 1327070528], length 317
+E..q.^@.?.....'t.Lx
+.......S~y.....C.N.....
+..g.O.}@ACK sip:+13174492106@sip.telnyx.com SIP/2.0
+Via: SIP/2.0/TCP 0.0.0.0;branch=z9hG4bKf561.35f6fb4655c38669370f5da06e471cf0.0
+Max-Forwards: 69
+To: <sip:13174492106@sip.vspphone.com>;tag=XmHFNUt5tj6KD
+From: <sip:100@sip.vspphone.com>;tag=d5b96267
+Call-ID: fopLif-X-bwRAiGEwdrkUg..
+CSeq: 1 ACK
+Content-Length: 0
+
+
+2026-07-25 14:52:12.491669 veth994b361 P   IP 172.19.0.6.36097 > 192.76.120.10.5060: Flags [P.], seq 4799:6309, ack 3569, win 67, options [nop,nop,TS val 497575916 ecr 1327070528], length 1510
+E...._@.@........Lx
+........~y.....C.|.....
+..g.O.}@INVITE sip:+13174492106@sip.telnyx.com SIP/2.0
+Via: SIP/2.0/TCP 0.0.0.0;branch=z9hG4bKf561.35f6fb4655c38669370f5da06e471cf0.1.cs1
+Via: SIP/2.0/UDP 192.168.1.100:52950;received=122.177.247.143;rport=7921;branch=z9hG4bK-524287-1---714d5f1c9d9ad48e
+Max-Forwards: 69
+Contact: <sip:100@122.177.247.143:7921;transport=UDP>
+To: <sip:13174492106@sip.vspphone.com>
+From: <sip:100@sip.vspphone.com>;tag=d5b96267
+Call-ID: fopLif-X-bwRAiGEwdrkUg..
+CSeq: 2 INVITE
+Allow: INVITE,ACK,CANCEL,BYE,NOTIFY,REFER,MESSAGE,OPTIONS,INFO,SUBSCRIBE
+Supported: replaces,norefersub,extended-refer,timer,sec-agree,outbound,path,X-cisco-serviceuri
+User-Agent: Zoiper v2.10.20.4_1
+Allow-Events: presence, kpml, talk, as-feature-event
+Content-Type: application/sdp
+Content-Length: 341
+X-VSP-Platform-UUID: 6a6e15bb-b3e5-4a4e-bbad-0d4b8f4860d0
+Proxy-Authorization: Digest username="userinfo26316", realm="sip.vspphone.com", nonce="6c0f4090-e02e-4cf0-aa9f-3dfcbef0d8ce", uri="sip:+13174492106@sip.telnyx.com", opaque="53e1b2ff-2fb4-4077-a22a-9267e0926a8e/10.239.133.224/921769b", qop=auth, nc=00000001, cnonce="3655359861", response="cccc1a0a0637d21182839a3fbd3e6b05", algorithm=MD5
+
+v=0
+o=Z 0 272189179 IN IP4 32.196.41.160
+s=Z
+c=IN IP4 32.196.41.160
+t=0 0
+m=audio 10010 RTP/AVP 3 101 110 97 8 0
+a=rtpmap:3 GSM/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-16
+a=rtpmap:110 speex/8000
+a=rtpmap:97 iLBC/8000
+a=fmtp:97 mode=20
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:10011
+a=rtcp-mux
+
+2026-07-25 14:52:12.491671 br-743a199599f1 In  IP 172.19.0.6.36097 > 192.76.120.10.5060: Flags [P.], seq 4799:6309, ack 3569, win 67, options [nop,nop,TS val 497575916 ecr 1327070528], length 1510
+E...._@.@........Lx
+........~y.....C.|.....
+..g.O.}@INVITE sip:+13174492106@sip.telnyx.com SIP/2.0
+Via: SIP/2.0/TCP 0.0.0.0;branch=z9hG4bKf561.35f6fb4655c38669370f5da06e471cf0.1.cs1
+Via: SIP/2.0/UDP 192.168.1.100:52950;received=122.177.247.143;rport=7921;branch=z9hG4bK-524287-1---714d5f1c9d9ad48e
+Max-Forwards: 69
+Contact: <sip:100@122.177.247.143:7921;transport=UDP>
+To: <sip:13174492106@sip.vspphone.com>
+From: <sip:100@sip.vspphone.com>;tag=d5b96267
+Call-ID: fopLif-X-bwRAiGEwdrkUg..
+CSeq: 2 INVITE
+Allow: INVITE,ACK,CANCEL,BYE,NOTIFY,REFER,MESSAGE,OPTIONS,INFO,SUBSCRIBE
+Supported: replaces,norefersub,extended-refer,timer,sec-agree,outbound,path,X-cisco-serviceuri
+User-Agent: Zoiper v2.10.20.4_1
+Allow-Events: presence, kpml, talk, as-feature-event
+Content-Type: application/sdp
+Content-Length: 341
+X-VSP-Platform-UUID: 6a6e15bb-b3e5-4a4e-bbad-0d4b8f4860d0
+Proxy-Authorization: Digest username="userinfo26316", realm="sip.vspphone.com", nonce="6c0f4090-e02e-4cf0-aa9f-3dfcbef0d8ce", uri="sip:+13174492106@sip.telnyx.com", opaque="53e1b2ff-2fb4-4077-a22a-9267e0926a8e/10.239.133.224/921769b", qop=auth, nc=00000001, cnonce="3655359861", response="cccc1a0a0637d21182839a3fbd3e6b05", algorithm=MD5
+
+v=0
+o=Z 0 272189179 IN IP4 32.196.41.160
+s=Z
+c=IN IP4 32.196.41.160
+t=0 0
+m=audio 10010 RTP/AVP 3 101 110 97 8 0
+a=rtpmap:3 GSM/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-16
+a=rtpmap:110 speex/8000
+a=rtpmap:97 iLBC/8000
+a=fmtp:97 mode=20
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:10011
+a=rtcp-mux
+
+2026-07-25 14:52:12.491684 ens5  Out IP 172.31.39.116.36097 > 192.76.120.10.5060: Flags [.], seq 4799:6223, ack 3569, win 67, options [nop,nop,TS val 497575916 ecr 1327070528], length 1424
+E...._@.?.....'t.Lx
+........~y.....C.......
+..g.O.}@INVITE sip:+13174492106@sip.telnyx.com SIP/2.0
+Via: SIP/2.0/TCP 0.0.0.0;branch=z9hG4bKf561.35f6fb4655c38669370f5da06e471cf0.1.cs1
+Via: SIP/2.0/UDP 192.168.1.100:52950;received=122.177.247.143;rport=7921;branch=z9hG4bK-524287-1---714d5f1c9d9ad48e
+Max-Forwards: 69
+Contact: <sip:100@122.177.247.143:7921;transport=UDP>
+To: <sip:13174492106@sip.vspphone.com>
+From: <sip:100@sip.vspphone.com>;tag=d5b96267
+Call-ID: fopLif-X-bwRAiGEwdrkUg..
+CSeq: 2 INVITE
+Allow: INVITE,ACK,CANCEL,BYE,NOTIFY,REFER,MESSAGE,OPTIONS,INFO,SUBSCRIBE
+Supported: replaces,norefersub,extended-refer,timer,sec-agree,outbound,path,X-cisco-serviceuri
+User-Agent: Zoiper v2.10.20.4_1
+Allow-Events: presence, kpml, talk, as-feature-event
+Content-Type: application/sdp
+Content-Length: 341
+X-VSP-Platform-UUID: 6a6e15bb-b3e5-4a4e-bbad-0d4b8f4860d0
+Proxy-Authorization: Digest username="userinfo26316", realm="sip.vspphone.com", nonce="6c0f4090-e02e-4cf0-aa9f-3dfcbef0d8ce", uri="sip:+13174492106@sip.telnyx.com", opaque="53e1b2ff-2fb4-4077-a22a-9267e0926a8e/10.239.133.224/921769b", qop=auth, nc=00000001, cnonce="3655359861", response="cccc1a0a0637d21182839a3fbd3e6b05", algorithm=MD5
+
+v=0
+o=Z 0 272189179 IN IP4 32.196.41.160
+s=Z
+c=IN IP4 32.196.41.160
+t=0 0
+m=audio 10010 RTP/AVP 3 101 110 97 8 0
+a=rtpmap:3 GSM/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-16
+a=rtpmap:110 speex/8000
+a=rtpmap:97 iLBC/8000
+a=fmtp:97 mode=
+2026-07-25 14:52:12.491686 ens5  Out IP 172.31.39.116.36097 > 192.76.120.10.5060: Flags [P.], seq 6223:6309, ack 3569, win 67, options [nop,nop,TS val 497575916 ecr 1327070528], length 86
+E....`@.?.....'t.Lx
+....... ~y.....C.g.....
+..g.O.}@20
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:10011
+a=rtcp-mux
+
+2026-07-25 14:52:12.535644 ens5  In  IP 192.76.120.10.5060 > 172.31.39.116.36097: Flags [.], ack 4799, win 501, options [nop,nop,TS val 1327070572 ecr 497575916], length 0
+E..4..@.7....Lx
+..'t....~y..........Q......
+O.}l..g.
+2026-07-25 14:52:12.535645 ens5  In  IP 192.76.120.10.5060 > 172.31.39.116.36097: Flags [.], ack 6223, win 495, options [nop,nop,TS val 1327070572 ecr 497575916], length 0
+E..4..@.7....Lx
+..'t....~y..... ....L	.....
+O.}l..g.
+2026-07-25 14:52:12.535677 br-743a199599f1 Out IP 192.76.120.10.5060 > 172.19.0.6.36097: Flags [.], ack 4799, win 501, options [nop,nop,TS val 1327070572 ecr 497575916], length 0
+E..4..@.6.E..Lx
+........~y..........y......
+O.}l..g.
+2026-07-25 14:52:12.535682 veth994b361 Out IP 192.76.120.10.5060 > 172.19.0.6.36097: Flags [.], ack 4799, win 501, options [nop,nop,TS val 1327070572 ecr 497575916], length 0
+E..4..@.6.E..Lx
+........~y..........y......
+O.}l..g.
+2026-07-25 14:52:12.535685 br-743a199599f1 Out IP 192.76.120.10.5060 > 172.19.0.6.36097: Flags [.], ack 6223, win 495, options [nop,nop,TS val 1327070572 ecr 497575916], length 0
+E..4..@.6.E..Lx
+........~y..... ....s......
+O.}l..g.
+2026-07-25 14:52:12.535686 veth994b361 Out IP 192.76.120.10.5060 > 172.19.0.6.36097: Flags [.], ack 6223, win 495, options [nop,nop,TS val 1327070572 ecr 497575916], length 0
+E..4..@.6.E..Lx
+........~y..... ....s......
+O.}l..g.
+2026-07-25 14:52:12.535714 ens5  In  IP 192.76.120.10.5060 > 172.31.39.116.36097: Flags [.], ack 6309, win 501, options [nop,nop,TS val 1327070572 ecr 497575916], length 0
+E..4..@.7....Lx
+..'t....~y.....v....K......
+O.}l..g.
+2026-07-25 14:52:12.535717 br-743a199599f1 Out IP 192.76.120.10.5060 > 172.19.0.6.36097: Flags [.], ack 6309, win 501, options [nop,nop,TS val 1327070572 ecr 497575916], length 0
+E..4..@.6.E~.Lx
+........~y.....v....s'.....
+O.}l..g.
+2026-07-25 14:52:12.535717 veth994b361 Out IP 192.76.120.10.5060 > 172.19.0.6.36097: Flags [.], ack 6309, win 501, options [nop,nop,TS val 1327070572 ecr 497575916], length 0
+E..4..@.6.E~.Lx
+........~y.....v....s'.....
+O.}l..g.
+2026-07-25 14:52:12.536788 ens5  In  IP 192.76.120.10.5060 > 172.31.39.116.36097: Flags [P.], seq 3569:4017, ack 6309, win 501, options [nop,nop,TS val 1327070573 ecr 497575916], length 448
+E.....@.7..C.Lx
+..'t....~y.....v...........
+O.}m..g.SIP/2.0 100 Telnyx Trying
+Via: SIP/2.0/TCP 0.0.0.0;branch=z9hG4bKf561.35f6fb4655c38669370f5da06e471cf0.1.cs1;rport=36097;received=32.196.41.160
+Via: SIP/2.0/UDP 192.168.1.100:52950;received=122.177.247.143;rport=7921;branch=z9hG4bK-524287-1---714d5f1c9d9ad48e
+To: <sip:13174492106@sip.vspphone.com>
+From: <sip:100@sip.vspphone.com>;tag=d5b96267
+Call-ID: fopLif-X-bwRAiGEwdrkUg..
+CSeq: 2 INVITE
+Server: Telnyx SIP Proxy
+Content-Length: 0
+
+
+2026-07-25 14:52:12.536798 br-743a199599f1 Out IP 192.76.120.10.5060 > 172.19.0.6.36097: Flags [P.], seq 3569:4017, ack 6309, win 501, options [nop,nop,TS val 1327070573 ecr 497575916], length 448
+E.....@.6.C..Lx
+........~y.....v....!......
+O.}m..g.SIP/2.0 100 Telnyx Trying
+Via: SIP/2.0/TCP 0.0.0.0;branch=z9hG4bKf561.35f6fb4655c38669370f5da06e471cf0.1.cs1;rport=36097;received=32.196.41.160
+Via: SIP/2.0/UDP 192.168.1.100:52950;received=122.177.247.143;rport=7921;branch=z9hG4bK-524287-1---714d5f1c9d9ad48e
+To: <sip:13174492106@sip.vspphone.com>
+From: <sip:100@sip.vspphone.com>;tag=d5b96267
+Call-ID: fopLif-X-bwRAiGEwdrkUg..
+CSeq: 2 INVITE
+Server: Telnyx SIP Proxy
+Content-Length: 0
+
+
+2026-07-25 14:52:12.536800 veth994b361 Out IP 192.76.120.10.5060 > 172.19.0.6.36097: Flags [P.], seq 3569:4017, ack 6309, win 501, options [nop,nop,TS val 1327070573 ecr 497575916], length 448
+E.....@.6.C..Lx
+........~y.....v....!......
+O.}m..g.SIP/2.0 100 Telnyx Trying
+Via: SIP/2.0/TCP 0.0.0.0;branch=z9hG4bKf561.35f6fb4655c38669370f5da06e471cf0.1.cs1;rport=36097;received=32.196.41.160
+Via: SIP/2.0/UDP 192.168.1.100:52950;received=122.177.247.143;rport=7921;branch=z9hG4bK-524287-1---714d5f1c9d9ad48e
+To: <sip:13174492106@sip.vspphone.com>
+From: <sip:100@sip.vspphone.com>;tag=d5b96267
+Call-ID: fopLif-X-bwRAiGEwdrkUg..
+CSeq: 2 INVITE
+Server: Telnyx SIP Proxy
+Content-Length: 0
+
+
+2026-07-25 14:52:12.577442 veth994b361 P   IP 172.19.0.6.36097 > 192.76.120.10.5060: Flags [.], ack 4017, win 67, options [nop,nop,TS val 497576002 ecr 1327070573], length 0
+E..4.a@.@........Lx
+.......v~y.N...C.......
+..hBO.}m
+2026-07-25 14:52:12.577445 br-743a199599f1 In  IP 172.19.0.6.36097 > 192.76.120.10.5060: Flags [.], ack 4017, win 67, options [nop,nop,TS val 497576002 ecr 1327070573], length 0
+E..4.a@.@........Lx
+.......v~y.N...C.......
+..hBO.}m
+2026-07-25 14:52:12.577477 ens5  Out IP 172.31.39.116.36097 > 192.76.120.10.5060: Flags [.], ack 4017, win 67, options [nop,nop,TS val 497576002 ecr 1327070573], length 0
+E..4.a@.?..h..'t.Lx
+.......v~y.N...C.......
+..hBO.}m
+2026-07-25 14:52:12.640595 ens5  In  IP 192.76.120.10.5060 > 172.31.39.116.36097: Flags [P.], seq 4017:4620, ack 6309, win 501, options [nop,nop,TS val 1327070677 ecr 497576002], length 603
+E.....@.7....Lx
+..'t....~y.N...v...........
+O.}...hBSIP/2.0 403 Forbidden
+Via: SIP/2.0/TCP 0.0.0.0;rport=36097;received=32.196.41.160;branch=z9hG4bKf561.35f6fb4655c38669370f5da06e471cf0.1.cs1
+Via: SIP/2.0/UDP 192.168.1.100:52950;received=122.177.247.143;rport=7921;branch=z9hG4bK-524287-1---714d5f1c9d9ad48e
+From: <sip:100@sip.vspphone.com>;tag=d5b96267
+To: <sip:13174492106@sip.vspphone.com>;tag=yXa8ppB9QUv6r
+Call-ID: fopLif-X-bwRAiGEwdrkUg..
+CSeq: 2 INVITE
+Accept: application/sdp
+Allow: INVITE, ACK, BYE, CANCEL, OPTIONS, MESSAGE, INFO, UPDATE, REFER, NOTIFY
+Supported: path
+Allow-Events: talk, hold, conference, refer
+Content-Length: 0
+
+
+2026-07-25 14:52:12.640627 br-743a199599f1 Out IP 192.76.120.10.5060 > 172.19.0.6.36097: Flags [P.], seq 4017:4620, ack 6309, win 501, options [nop,nop,TS val 1327070677 ecr 497576002], length 603
+E.....@.6.C!.Lx
+........~y.N...v.....Q.....
+O.}...hBSIP/2.0 403 Forbidden
+Via: SIP/2.0/TCP 0.0.0.0;rport=36097;received=32.196.41.160;branch=z9hG4bKf561.35f6fb4655c38669370f5da06e471cf0.1.cs1
+Via: SIP/2.0/UDP 192.168.1.100:52950;received=122.177.247.143;rport=7921;branch=z9hG4bK-524287-1---714d5f1c9d9ad48e
+From: <sip:100@sip.vspphone.com>;tag=d5b96267
+To: <sip:13174492106@sip.vspphone.com>;tag=yXa8ppB9QUv6r
+Call-ID: fopLif-X-bwRAiGEwdrkUg..
+CSeq: 2 INVITE
+Accept: application/sdp
+Allow: INVITE, ACK, BYE, CANCEL, OPTIONS, MESSAGE, INFO, UPDATE, REFER, NOTIFY
+Supported: path
+Allow-Events: talk, hold, conference, refer
+Content-Length: 0
+
+
+2026-07-25 14:52:12.640633 veth994b361 Out IP 192.76.120.10.5060 > 172.19.0.6.36097: Flags [P.], seq 4017:4620, ack 6309, win 501, options [nop,nop,TS val 1327070677 ecr 497576002], length 603
+E.....@.6.C!.Lx
+........~y.N...v.....Q.....
+O.}...hBSIP/2.0 403 Forbidden
+Via: SIP/2.0/TCP 0.0.0.0;rport=36097;received=32.196.41.160;branch=z9hG4bKf561.35f6fb4655c38669370f5da06e471cf0.1.cs1
+Via: SIP/2.0/UDP 192.168.1.100:52950;received=122.177.247.143;rport=7921;branch=z9hG4bK-524287-1---714d5f1c9d9ad48e
+From: <sip:100@sip.vspphone.com>;tag=d5b96267
+To: <sip:13174492106@sip.vspphone.com>;tag=yXa8ppB9QUv6r
+Call-ID: fopLif-X-bwRAiGEwdrkUg..
+CSeq: 2 INVITE
+Accept: application/sdp
+Allow: INVITE, ACK, BYE, CANCEL, OPTIONS, MESSAGE, INFO, UPDATE, REFER, NOTIFY
+Supported: path
+Allow-Events: talk, hold, conference, refer
+Content-Length: 0
+
+
+2026-07-25 14:52:12.640670 veth994b361 P   IP 172.19.0.6.36097 > 192.76.120.10.5060: Flags [.], ack 4620, win 67, options [nop,nop,TS val 497576065 ecr 1327070677], length 0
+E..4.b@.@........Lx
+.......v~y.....C.......
+..h.O.}.
+2026-07-25 14:52:12.640672 br-743a199599f1 In  IP 172.19.0.6.36097 > 192.76.120.10.5060: Flags [.], ack 4620, win 67, options [nop,nop,TS val 497576065 ecr 1327070677], length 0
+E..4.b@.@........Lx
+.......v~y.....C.......
+..h.O.}.
+2026-07-25 14:52:12.640681 ens5  Out IP 172.31.39.116.36097 > 192.76.120.10.5060: Flags [.], ack 4620, win 67, options [nop,nop,TS val 497576065 ecr 1327070677], length 0
+E..4.b@.?..g..'t.Lx
+.......v~y.....C.......
+..h.O.}.
+2026-07-25 14:52:12.640894 veth994b361 P   IP 172.19.0.6.36097 > 192.76.120.10.5060: Flags [P.], seq 6309:6630, ack 4620, win 67, options [nop,nop,TS val 497576065 ecr 1327070677], length 321
+E..u.c@.@........Lx
+.......v~y.....C.......
+..h.O.}.ACK sip:+13174492106@sip.telnyx.com SIP/2.0
+Via: SIP/2.0/TCP 0.0.0.0;branch=z9hG4bKf561.35f6fb4655c38669370f5da06e471cf0.1.cs1
+Max-Forwards: 69
+To: <sip:13174492106@sip.vspphone.com>;tag=yXa8ppB9QUv6r
+From: <sip:100@sip.vspphone.com>;tag=d5b96267
+Call-ID: fopLif-X-bwRAiGEwdrkUg..
+CSeq: 2 ACK
+Content-Length: 0
+
+
+2026-07-25 14:52:12.640895 br-743a199599f1 In  IP 172.19.0.6.36097 > 192.76.120.10.5060: Flags [P.], seq 6309:6630, ack 4620, win 67, options [nop,nop,TS val 497576065 ecr 1327070677], length 321
+E..u.c@.@........Lx
+.......v~y.....C.......
+..h.O.}.ACK sip:+13174492106@sip.telnyx.com SIP/2.0
+Via: SIP/2.0/TCP 0.0.0.0;branch=z9hG4bKf561.35f6fb4655c38669370f5da06e471cf0.1.cs1
+Max-Forwards: 69
+To: <sip:13174492106@sip.vspphone.com>;tag=yXa8ppB9QUv6r
+From: <sip:100@sip.vspphone.com>;tag=d5b96267
+Call-ID: fopLif-X-bwRAiGEwdrkUg..
+CSeq: 2 ACK
+Content-Length: 0
+
+
+2026-07-25 14:52:12.640903 ens5  Out IP 172.31.39.116.36097 > 192.76.120.10.5060: Flags [P.], seq 6309:6630, ack 4620, win 67, options [nop,nop,TS val 497576065 ecr 1327070677], length 321
+E..u.c@.?..%..'t.Lx
+.......v~y.....C.R.....
+..h.O.}.ACK sip:+13174492106@sip.telnyx.com SIP/2.0
+Via: SIP/2.0/TCP 0.0.0.0;branch=z9hG4bKf561.35f6fb4655c38669370f5da06e471cf0.1.cs1
+Max-Forwards: 69
+To: <sip:13174492106@sip.vspphone.com>;tag=yXa8ppB9QUv6r
+From: <sip:100@sip.vspphone.com>;tag=d5b96267
+Call-ID: fopLif-X-bwRAiGEwdrkUg..
+CSeq: 2 ACK
+Content-Length: 0
+
+
+2026-07-25 14:52:12.731896 ens5  In  IP 192.76.120.10.5060 > 172.31.39.116.36097: Flags [.], ack 6630, win 501, options [nop,nop,TS val 1327070769 ecr 497576065], length 0
+E..4..@.7....Lx
+..'t....~y..........D......
+O.~1..h.
+2026-07-25 14:52:12.731928 br-743a199599f1 Out IP 192.76.120.10.5060 > 172.19.0.6.36097: Flags [.], ack 6630, win 501, options [nop,nop,TS val 1327070769 ecr 497576065], length 0
+E..4..@.6.E{.Lx
+........~y..........lq.....
+O.~1..h.
+2026-07-25 14:52:12.731933 veth994b361 Out IP 192.76.120.10.5060 > 172.19.0.6.36097: Flags [.], ack 6630, win 501, options [nop,nop,TS val 1327070769 ecr 497576065], length 0
+E..4..@.6.E{.Lx
+........~y..........lq.....
+O.~1..h.
+2026-07-25 14:52:13.115232 veth994b361 P   IP 172.19.0.6.5060 > 192.76.120.10.5060: SIP: INVITE sip:+13174492106@sip.telnyx.com SIP/2.0
+E..... .@........Lx
+........INVITE sip:+13174492106@sip.telnyx.com SIP/2.0
+Via: SIP/2.0/UDP 0.0.0.0;branch=z9hG4bKc561.e6ba0ed6954d603b0a41c77a4625fd3d.0
+Via: SIP/2.0/UDP 192.168.1.100:52950;received=122.177.247.143;rport=7921;branch=z9hG4bK-524287-1---d6b90c8cc96d8c43
+Max-Forwards: 69
+Contact: <sip:100@122.177.247.143:7921;transport=UDP>
+To: <sip:13174492106@sip.vspphone.com>
+From: <sip:100@sip.vspphone.com>;tag=d5b96267
+Call-ID: fopLif-X-bwRAiGEwdrkUg..
+CSeq: 2 INVITE
+Allow: INVITE,ACK,CANCEL,BYE,NOTIFY,REFER,MESSAGE,OPTIONS,INFO,SUBSCRIBE
+Proxy-Authorization: Digest username="100",realm="sip.vspphone.com",nonce="6c0f4090-e02e-4cf0-aa9f-3dfcbef0d8ce",uri="sip:13174492106@sip.vspphone.com;transport=UDP",response="3f97d9ccc717146eeebe3d1547dfa04e",cnonce="2680871e492b72a44bc13b741b911bc8",nc=00000001,qop=auth,algorithm=MD5,opaque="53e1b2ff-2fb4-4077-a22a-9267e0926a8e/10.239.133.224/921769b"
+Supported: replaces,norefersub,extended-refer,timer,sec-agree,outbound,path,X-cisco-serviceuri
+User-Agent: Zoiper v2.10.20.4_1
+Allow-Events: presence, kpml, talk, as-feature-event
+Content-Type: application/sdp
+Content-Length: 341
+X-VSP-Platform-UUID: 6a6e15bb-b3e5-4a4e-bbad-0d4b8f4860d0
+
+v=0
+o=Z 0 272189179 IN IP4 32.196.41.160
+s=Z
+c=IN IP4 32.196.41.160
+t=0 0
+m=audio 10010 RTP/AVP 3 101 110 97 8 0
+a=rtpmap:3 GSM/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-16
+a=rtpmap:110 speex/8000
+a=rtpmap:97 iLBC/8000
+a=fmtp:97 mode=20
+a=rtpmap:8 PCMA/8000
+a=rtpmap
+2026-07-25 14:52:13.115232 br-743a199599f1 In  IP 172.19.0.6.5060 > 192.76.120.10.5060: SIP: INVITE sip:+13174492106@sip.telnyx.com SIP/2.0
+E..... .@........Lx
+........INVITE sip:+13174492106@sip.telnyx.com SIP/2.0
+Via: SIP/2.0/UDP 0.0.0.0;branch=z9hG4bKc561.e6ba0ed6954d603b0a41c77a4625fd3d.0
+Via: SIP/2.0/UDP 192.168.1.100:52950;received=122.177.247.143;rport=7921;branch=z9hG4bK-524287-1---d6b90c8cc96d8c43
+Max-Forwards: 69
+Contact: <sip:100@122.177.247.143:7921;transport=UDP>
+To: <sip:13174492106@sip.vspphone.com>
+From: <sip:100@sip.vspphone.com>;tag=d5b96267
+Call-ID: fopLif-X-bwRAiGEwdrkUg..
+CSeq: 2 INVITE
+Allow: INVITE,ACK,CANCEL,BYE,NOTIFY,REFER,MESSAGE,OPTIONS,INFO,SUBSCRIBE
+Proxy-Authorization: Digest username="100",realm="sip.vspphone.com",nonce="6c0f4090-e02e-4cf0-aa9f-3dfcbef0d8ce",uri="sip:13174492106@sip.vspphone.com;transport=UDP",response="3f97d9ccc717146eeebe3d1547dfa04e",cnonce="2680871e492b72a44bc13b741b911bc8",nc=00000001,qop=auth,algorithm=MD5,opaque="53e1b2ff-2fb4-4077-a22a-9267e0926a8e/10.239.133.224/921769b"
+Supported: replaces,norefersub,extended-refer,timer,sec-agree,outbound,path,X-cisco-serviceuri
+User-Agent: Zoiper v2.10.20.4_1
+Allow-Events: presence, kpml, talk, as-feature-event
+Content-Type: application/sdp
+Content-Length: 341
+X-VSP-Platform-UUID: 6a6e15bb-b3e5-4a4e-bbad-0d4b8f4860d0
+
+v=0
+o=Z 0 272189179 IN IP4 32.196.41.160
+s=Z
+c=IN IP4 32.196.41.160
+t=0 0
+m=audio 10010 RTP/AVP 3 101 110 97 8 0
+a=rtpmap:3 GSM/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-16
+a=rtpmap:110 speex/8000
+a=rtpmap:97 iLBC/8000
+a=fmtp:97 mode=20
+a=rtpmap:8 PCMA/8000
+a=rtpmap
+2026-07-25 14:52:13.115241 veth994b361 P   IP 172.19.0.6 > 192.76.120.10: ip-proto-17
+E..H....@........Lx
+:0 PCMU/8000
+a=sendrecv
+a=rtcp:10010
+a=rtcp-mux
+
+2026-07-25 14:52:13.115241 br-743a199599f1 In  IP 172.19.0.6 > 192.76.120.10: ip-proto-17
+E..H....@........Lx
+:0 PCMU/8000
+a=sendrecv
+a=rtcp:10010
+a=rtcp-mux
+
+2026-07-25 14:52:13.115255 ens5  Out IP 172.31.39.116.5060 > 192.76.120.10.5060: SIP: INVITE sip:+13174492106@sip.telnyx.com SIP/2.0
+E..... .?.`5..'t.Lx
+......a.INVITE sip:+13174492106@sip.telnyx.com SIP/2.0
+Via: SIP/2.0/UDP 0.0.0.0;branch=z9hG4bKc561.e6ba0ed6954d603b0a41c77a4625fd3d.0
+Via: SIP/2.0/UDP 192.168.1.100:52950;received=122.177.247.143;rport=7921;branch=z9hG4bK-524287-1---d6b90c8cc96d8c43
+Max-Forwards: 69
+Contact: <sip:100@122.177.247.143:7921;transport=UDP>
+To: <sip:13174492106@sip.vspphone.com>
+From: <sip:100@sip.vspphone.com>;tag=d5b96267
+Call-ID: fopLif-X-bwRAiGEwdrkUg..
+CSeq: 2 INVITE
+Allow: INVITE,ACK,CANCEL,BYE,NOTIFY,REFER,MESSAGE,OPTIONS,INFO,SUBSCRIBE
+Proxy-Authorization: Digest username="100",realm="sip.vspphone.com",nonce="6c0f4090-e02e-4cf0-aa9f-3dfcbef0d8ce",uri="sip:13174492106@sip.vspphone.com;transport=UDP",response="3f97d9ccc717146eeebe3d1547dfa04e",cnonce="2680871e492b72a44bc13b741b911bc8",nc=00000001,qop=auth,algorithm=MD5,opaque="53e1b2ff-2fb4-4077-a22a-9267e0926a8e/10.239.133.224/921769b"
+Supported: replaces,norefersub,extended-refer,timer,sec-agree,outbound,path,X-cisco-serviceuri
+User-Agent: Zoiper v2.10.20.4_1
+Allow-Events: presence, kpml, talk, as-feature-event
+Content-Type: application/sdp
+Content-Length: 341
+X-VSP-Platform-UUID: 6a6e15bb-b3e5-4a4e-bbad-0d4b8f4860d0
+
+v=0
+o=Z 0 272189179 IN IP4 32.196.41.160
+s=Z
+c=IN IP4 32.196.41.160
+t=0 0
+m=audio 10010 RTP/AVP 3 101 110 97 8 0
+a=rtpmap:3 GSM/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-16
+a=rtpmap:110 speex/8000
+a=rtpmap:97 iLBC/8000
+a=fmtp:97 mode=20
+a=rtpmap:8 PCMA/8000
+a=rtpmap
+2026-07-25 14:52:13.115258 ens5  Out IP 172.31.39.116 > 192.76.120.10: ip-proto-17
+E..H....?.....'t.Lx
+:0 PCMU/8000
+a=sendrecv
+a=rtcp:10010
+a=rtcp-mux
+
+2026-07-25 14:52:13.157445 ens5  In  IP 192.76.120.10.5060 > 172.31.39.116.5060: SIP: SIP/2.0 100 Telnyx Trying
+E....;..7....Lx
+..'t.......iSIP/2.0 100 Telnyx Trying
+Via: SIP/2.0/UDP 0.0.0.0;branch=z9hG4bKc561.e6ba0ed6954d603b0a41c77a4625fd3d.0;rport=5060;received=32.196.41.160
+Via: SIP/2.0/UDP 192.168.1.100:52950;received=122.177.247.143;rport=7921;branch=z9hG4bK-524287-1---d6b90c8cc96d8c43
+To: <sip:13174492106@sip.vspphone.com>
+From: <sip:100@sip.vspphone.com>;tag=d5b96267
+Call-ID: fopLif-X-bwRAiGEwdrkUg..
+CSeq: 2 INVITE
+Server: Telnyx SIP Proxy
+Content-Length: 0
+
+
+2026-07-25 14:52:13.157475 br-743a199599f1 Out IP 192.76.120.10.5060 > 172.19.0.6.5060: SIP: SIP/2.0 100 Telnyx Trying
+E....;..6..j.Lx
+............SIP/2.0 100 Telnyx Trying
+Via: SIP/2.0/UDP 0.0.0.0;branch=z9hG4bKc561.e6ba0ed6954d603b0a41c77a4625fd3d.0;rport=5060;received=32.196.41.160
+Via: SIP/2.0/UDP 192.168.1.100:52950;received=122.177.247.143;rport=7921;branch=z9hG4bK-524287-1---d6b90c8cc96d8c43
+To: <sip:13174492106@sip.vspphone.com>
+From: <sip:100@sip.vspphone.com>;tag=d5b96267
+Call-ID: fopLif-X-bwRAiGEwdrkUg..
+CSeq: 2 INVITE
+Server: Telnyx SIP Proxy
+Content-Length: 0
+
+
+2026-07-25 14:52:13.157480 veth994b361 Out IP 192.76.120.10.5060 > 172.19.0.6.5060: SIP: SIP/2.0 100 Telnyx Trying
+E....;..6..j.Lx
+............SIP/2.0 100 Telnyx Trying
+Via: SIP/2.0/UDP 0.0.0.0;branch=z9hG4bKc561.e6ba0ed6954d603b0a41c77a4625fd3d.0;rport=5060;received=32.196.41.160
+Via: SIP/2.0/UDP 192.168.1.100:52950;received=122.177.247.143;rport=7921;branch=z9hG4bK-524287-1---d6b90c8cc96d8c43
+To: <sip:13174492106@sip.vspphone.com>
+From: <sip:100@sip.vspphone.com>;tag=d5b96267
+Call-ID: fopLif-X-bwRAiGEwdrkUg..
+CSeq: 2 INVITE
+Server: Telnyx SIP Proxy
+Content-Length: 0
+
+
+2026-07-25 14:52:13.266418 ens5  In  IP 192.76.120.10.5060 > 172.31.39.116.5060: SIP: SIP/2.0 482 Request merged
+E....K..7....Lx
+..'t.......zSIP/2.0 482 Request merged
+Via: SIP/2.0/UDP 0.0.0.0;rport=5060;received=32.196.41.160;branch=z9hG4bKc561.e6ba0ed6954d603b0a41c77a4625fd3d.0
+Via: SIP/2.0/UDP 192.168.1.100:52950;received=122.177.247.143;rport=7921;branch=z9hG4bK-524287-1---d6b90c8cc96d8c43
+From: <sip:100@sip.vspphone.com>;tag=d5b96267
+To: <sip:13174492106@sip.vspphone.com>;tag=yXa8ppB9QUv6r
+Call-ID: fopLif-X-bwRAiGEwdrkUg..
+CSeq: 2 INVITE
+Content-Length: 0
+
+
+2026-07-25 14:52:13.266450 br-743a199599f1 Out IP 192.76.120.10.5060 > 172.19.0.6.5060: SIP: SIP/2.0 482 Request merged
+E....K..6..a.Lx
+..........	.SIP/2.0 482 Request merged
+Via: SIP/2.0/UDP 0.0.0.0;rport=5060;received=32.196.41.160;branch=z9hG4bKc561.e6ba0ed6954d603b0a41c77a4625fd3d.0
+Via: SIP/2.0/UDP 192.168.1.100:52950;received=122.177.247.143;rport=7921;branch=z9hG4bK-524287-1---d6b90c8cc96d8c43
+From: <sip:100@sip.vspphone.com>;tag=d5b96267
+To: <sip:13174492106@sip.vspphone.com>;tag=yXa8ppB9QUv6r
+Call-ID: fopLif-X-bwRAiGEwdrkUg..
+CSeq: 2 INVITE
+Content-Length: 0
+
+
+2026-07-25 14:52:13.266455 veth994b361 Out IP 192.76.120.10.5060 > 172.19.0.6.5060: SIP: SIP/2.0 482 Request merged
+E....K..6..a.Lx
+..........	.SIP/2.0 482 Request merged
+Via: SIP/2.0/UDP 0.0.0.0;rport=5060;received=32.196.41.160;branch=z9hG4bKc561.e6ba0ed6954d603b0a41c77a4625fd3d.0
+Via: SIP/2.0/UDP 192.168.1.100:52950;received=122.177.247.143;rport=7921;branch=z9hG4bK-524287-1---d6b90c8cc96d8c43
+From: <sip:100@sip.vspphone.com>;tag=d5b96267
+To: <sip:13174492106@sip.vspphone.com>;tag=yXa8ppB9QUv6r
+Call-ID: fopLif-X-bwRAiGEwdrkUg..
+CSeq: 2 INVITE
+Content-Length: 0
+
+
+2026-07-25 14:52:13.266654 veth994b361 P   IP 172.19.0.6.5060 > 192.76.120.10.5060: SIP: ACK sip:+13174492106@sip.telnyx.com SIP/2.0
+E..Y.>..@........Lx
+.....E..ACK sip:+13174492106@sip.telnyx.com SIP/2.0
+Via: SIP/2.0/UDP 0.0.0.0;branch=z9hG4bKc561.e6ba0ed6954d603b0a41c77a4625fd3d.0
+Max-Forwards: 69
+To: <sip:13174492106@sip.vspphone.com>;tag=yXa8ppB9QUv6r
+From: <sip:100@sip.vspphone.com>;tag=d5b96267
+Call-ID: fopLif-X-bwRAiGEwdrkUg..
+CSeq: 2 ACK
+Content-Length: 0
+
+
+2026-07-25 14:52:13.266654 br-743a199599f1 In  IP 172.19.0.6.5060 > 192.76.120.10.5060: SIP: ACK sip:+13174492106@sip.telnyx.com SIP/2.0
+E..Y.>..@........Lx
+.....E..ACK sip:+13174492106@sip.telnyx.com SIP/2.0
+Via: SIP/2.0/UDP 0.0.0.0;branch=z9hG4bKc561.e6ba0ed6954d603b0a41c77a4625fd3d.0
+Max-Forwards: 69
+To: <sip:13174492106@sip.vspphone.com>;tag=yXa8ppB9QUv6r
+From: <sip:100@sip.vspphone.com>;tag=d5b96267
+Call-ID: fopLif-X-bwRAiGEwdrkUg..
+CSeq: 2 ACK
+Content-Length: 0
+
+
+2026-07-25 14:52:13.266680 ens5  Out IP 172.31.39.116.5060 > 192.76.120.10.5060: SIP: ACK sip:+13174492106@sip.telnyx.com SIP/2.0
+E..Y.>..?..[..'t.Lx
+.....E.AACK sip:+13174492106@sip.telnyx.com SIP/2.0
+Via: SIP/2.0/UDP 0.0.0.0;branch=z9hG4bKc561.e6ba0ed6954d603b0a41c77a4625fd3d.0
+Max-Forwards: 69
+To: <sip:13174492106@sip.vspphone.com>;tag=yXa8ppB9QUv6r
+From: <sip:100@sip.vspphone.com>;tag=d5b96267
+Call-ID: fopLif-X-bwRAiGEwdrkUg..
+CSeq: 2 ACK
+Content-Length: 0
+
+

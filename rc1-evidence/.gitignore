@@ -1,0 +1,2 @@
+# Raw production log captures contain serviceAuth tokens and SIP digest responses.
+*-live.txt
