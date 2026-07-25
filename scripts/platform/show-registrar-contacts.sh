@@ -27,25 +27,15 @@ if [[ "$DUMP_OK" != "1" ]]; then
   }
 fi
 
-TOTAL_AOR_COUNT=$(grep -Ec '^AOR:' /tmp/ul_dump.$$.txt 2>/dev/null || true)
-[[ -z "$TOTAL_AOR_COUNT" ]] && TOTAL_AOR_COUNT=0
-echo "Total AoRs currently in usrloc: $TOTAL_AOR_COUNT"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 echo
-echo "=== Contacts matching '$TARGET' ==="
-# kamcmd ul.dump output is a nested key: value block per AoR/contact; grab the
-# surrounding context around any line mentioning the target so we see the
-# whole contact record (Contact:, Received:, Expires:, User-Agent:, etc).
-if grep -n -i -- "$TARGET" /tmp/ul_dump.$$.txt >/dev/null 2>&1; then
-  grep -n -i -B2 -A12 -- "$TARGET" /tmp/ul_dump.$$.txt
+echo "=== Parsed usrloc (target='$TARGET') ==="
+if command -v node >/dev/null 2>&1; then
+  node "$SCRIPT_DIR/parse-usrloc-dump.cjs" /tmp/ul_dump.$$.txt "$TARGET"
 else
-  echo "(no lines matched '$TARGET' in the usrloc dump — extension may not be registered right now)"
+  echo "node not found on this host — showing raw grep context instead."
+  grep -n -i -B2 -A12 -- "$TARGET" /tmp/ul_dump.$$.txt || echo "(no lines matched '$TARGET')"
 fi
-
-echo
-echo "=== Contact count for '$TARGET' ==="
-CONTACT_COUNT=$(grep -Ec -i -- "^[[:space:]]*Contact:.*$TARGET|AOR::.*$TARGET" /tmp/ul_dump.$$.txt 2>/dev/null || true)
-[[ -z "$CONTACT_COUNT" ]] && CONTACT_COUNT=0
-echo "$CONTACT_COUNT (best-effort match — inspect the block above for the authoritative list; each 'Contact:' line under this AoR is one registered device)"
 
 rm -f /tmp/ul_dump.$$.txt

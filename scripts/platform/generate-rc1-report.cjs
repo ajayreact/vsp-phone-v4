@@ -49,7 +49,12 @@ function section(title, body) {
 
 function countContacts(text) {
   if (!text) return null;
-  const m = text.match(/^\s*Contact:/gim);
+  // Preferred: parse-usrloc-dump.cjs (called by show-registrar-contacts.sh)
+  // emits an explicit "CONTACT_COUNT=<n>" summary line — authoritative.
+  const summaryMatch = text.match(/^CONTACT_COUNT=(\d+)/m);
+  if (summaryMatch) return Number(summaryMatch[1]);
+  // Fallback for older captures / raw-text dumps without the parsed summary.
+  const m = text.match(/^\s*Address:/gim) || text.match(/^\s*Contact:/gim);
   return m ? m.length : 0;
 }
 
