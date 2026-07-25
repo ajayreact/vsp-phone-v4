@@ -179,12 +179,19 @@ export class RegistrationService {
 
     this.logger.log(
       JSON.stringify({
-        event: 'telecom.reg.accepted',
+        event: 'telecom.reg.identity',
         type: eventType,
         tenantId: endpoint.tenantId,
         deviceId: device.id,
+        sipEndpointId: endpoint.id,
         aor: canonicalAor,
         requestAor: aor,
+        authUsername: endpoint.authUsername,
+        extension: endpoint.authUsername,
+        lineId: device.lineId ?? null,
+        contact: contactUri,
+        srcIp: dto.srcIp ?? null,
+        userAgent: dto.userAgent ?? null,
         multiDeviceCount,
         requestId: meta.requestId,
       }),

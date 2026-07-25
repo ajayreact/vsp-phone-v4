@@ -45,6 +45,12 @@ import { receptionRepository } from '../../lib/repositories/reception.repository
 import { queueRingRepository } from '../../lib/repositories/queue-ring.repository';
 import { queryKeys } from '../../lib/query/query-keys';
 import { SipSoftphoneClient } from '../../lib/softphone/sip-softphone';
+import {
+  callPhaseLabel,
+  isCallSessionState,
+  TIMER_PHASES,
+  type CallPhase,
+} from '../../lib/softphone/call-state';
 import type { CallSessionInfo, NetworkQuality, SoftphoneLayout, SoftphoneState } from '../../lib/softphone/types';
 import { cn } from '../../lib/utils/cn';
 import { Button } from '../ui/Button';
@@ -112,8 +118,14 @@ export function SoftphonePanel() {
     return m?.[1] ?? '';
   }, [aor]);
 
-  const inCall = state === 'in-call' || state === 'calling' || state === 'ringing' || state === 'held';
-  const registered = state === 'registered' || inCall;
+  const inCall = isCallSessionState(state);
+  const registered = state === 'registered' || inCall || state === 'connecting';
+  const showTimer = TIMER_PHASES.has(state as CallPhase);
+
+  const activeConnectedAt = useMemo(() => {
+    const active = sessions.find((s) => s.id === clientRef.current?.getActiveSessionId());
+    return active?.connectedAt ?? null;
+  }, [sessions]);
 
   const cdrQuery = useTenantCdr({ limit: 25 });
   const favoritesQuery = useQuery({
@@ -145,13 +157,17 @@ export function SoftphonePanel() {
   }, []);
 
   useEffect(() => {
-    if (state !== 'in-call') {
+    if (!showTimer || activeConnectedAt == null) {
       setCallDuration(0);
       return;
     }
-    const t = setInterval(() => setCallDuration((d) => d + 1), 1000);
+    const tick = () => {
+      setCallDuration(Math.max(0, Math.floor((Date.now() - activeConnectedAt) / 1000)));
+    };
+    tick();
+    const t = setInterval(tick, 1000);
     return () => clearInterval(t);
-  }, [state]);
+  }, [showTimer, activeConnectedAt]);
 
   useEffect(() => {
     const client = new SipSoftphoneClient();
@@ -534,7 +550,12 @@ export function SoftphonePanel() {
             {inCall ? (
               <>
                 <p className="text-center text-lg font-medium">{dialTarget || incomingFrom || detail}</p>
-                <p className="mb-4 text-center text-sm text-muted-foreground">{formatDuration(callDuration)}</p>
+                <p className="text-center text-sm font-medium text-primary">
+                  {callPhaseLabel(state as CallPhase)}
+                </p>
+                <p className="mb-4 text-center text-sm text-muted-foreground">
+                  {showTimer ? formatDuration(callDuration) : '—'}
+                </p>
                 <div className="mt-auto grid grid-cols-2 gap-2">
                   <Button variant="outline" size="sm" onClick={() => void clientRef.current?.toggleMute().then(setMuted)}>{muted ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />} Mute</Button>
                   <Button variant="outline" size="sm" onClick={() => void clientRef.current?.toggleHold().then(setHeld)}>{held ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />} Hold</Button>

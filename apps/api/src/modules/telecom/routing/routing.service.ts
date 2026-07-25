@@ -1,4 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { resolvePstnCallerIdName } from '../caller-id/pstn-caller-id-name.util';
+import {
+  buildRegistrarAorCandidates,
+  normalizeRegistrationIp,
+} from './caller-identity.util';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import {
   CallLifecycleState,
@@ -7,6 +13,7 @@ import {
   CallType,
   DeviceStatus,
   LineStatus,
+  SIPEndpointStatus,
   TenantStatus,
 } from '@prisma/client';
 import { createHash, randomUUID } from 'node:crypto';
@@ -41,6 +48,11 @@ interface ResolvedLineCtx {
   outboundEnabled: boolean;
   callerIdName?: string;
   callerIdNumber?: string;
+  userProfile?: {
+    displayName?: string | null;
+    firstName?: string | null;
+    lastName?: string | null;
+  };
   devices: Array<{
     id: string;
     status: DeviceStatus;
@@ -54,9 +66,15 @@ interface ResolvedLineCtx {
  * Phase 8 — PSTN outbound (BRIDGE_CARRIER) + inbound DID (FORK).
  * Never writes sipCallId (ADR-019).
  */
+interface CallerLookupHints {
+  srcIp?: string;
+  userAgent?: string;
+}
+
 @Injectable()
 export class RoutingService {
   private readonly logger = new Logger(RoutingService.name);
+  private readonly registrarHost: string;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -66,7 +84,10 @@ export class RoutingService {
     private readonly recordingPolicy: RecordingPolicyService,
     private readonly callAppsRouting: CallAppsRoutingService,
     private readonly enterpriseOps: EnterpriseOpsRoutingService,
-  ) {}
+    config: ConfigService,
+  ) {
+    this.registrarHost = (config.get<string>('SIP_REGISTRAR_HOST') || '').trim().toLowerCase();
+  }
 
   async resolve(dto: RouteRequestDto, meta: TelecomCallMeta): Promise<RouteResponseDto> {
     // RC1 diagnostic: raw DTO as received, before any derivation/mutation.
@@ -140,6 +161,7 @@ export class RoutingService {
           (dto.authUsername || '').trim() || extractUserPart(callerAor),
           dto.tenantId,
           meta.requestId,
+          { srcIp: dto.srcIp, userAgent: dto.userAgent },
         )
       : null;
 
@@ -461,6 +483,7 @@ export class RoutingService {
       authUsername || userPart,
       dto.tenantId,
       meta.requestId,
+      { srcIp: dto.srcIp, userAgent: dto.userAgent },
     );
     if (!callerCtx) {
       return this.rejectPlan(dto.tenantId, undefined, 404, 'CALLER_LINE_NOT_FOUND', meta, 'OUTBOUND');
@@ -608,6 +631,12 @@ export class RoutingService {
       callIntent: 'OUTBOUND',
     });
 
+    const pstnCallerIdName = resolvePstnCallerIdName({
+      extension: callerCtx.extension ?? authUsername ?? userPart ?? '',
+      storedCallerIdName: callerCtx.callerIdName,
+      userProfile: callerCtx.userProfile,
+    });
+
     const plan: RouteResponseDto = {
       platformUuid,
       tenantId,
@@ -629,7 +658,7 @@ export class RoutingService {
         queueRingSec: NO_ANSWER_SEC,
         ivrTimeoutSec: 10,
       },
-      callerIdName: callerCtx.callerIdName,
+      callerIdName: pstnCallerIdName,
       callerIdNumber: cliResult.number ?? callerCtx.callerIdNumber,
       forkContacts: [],
       forkContactsCsv: '',
@@ -1031,6 +1060,7 @@ export class RoutingService {
     userPart: string | null | undefined,
     tenantHint?: string,
     requestId?: string,
+    hints?: CallerLookupHints,
   ): Promise<ResolvedLineCtx | null> {
     const rawAor = aorOrUri ? normalizeAor(extractAor(aorOrUri) ?? aorOrUri) : undefined;
     // Softphones often put Contact-style From (sip:user@ip:port); strip port for AoR compare.
@@ -1042,6 +1072,13 @@ export class RoutingService {
       callPolicy: true,
       callerId: { include: { phoneNumber: true } },
       extension: true,
+      user: {
+        include: {
+          profile: {
+            select: { displayName: true, firstName: true, lastName: true },
+          },
+        },
+      },
       devices: { include: { sipEndpoint: true } },
     } as const;
 
@@ -1176,17 +1213,25 @@ export class RoutingService {
     let aorMatched = false;
     let authUsernameMatched = false;
     let extensionMatched = false;
-    let lookupPath: 'aor' | 'authUsername' | 'extension' | 'assignment' | 'none' = 'none';
+    let lookupPath:
+      | 'aor'
+      | 'authUsername'
+      | 'extension'
+      | 'assignment'
+      | 'registration'
+      | 'none' = 'none';
     let matchedAuthUsername: string | null = null;
     let ctx: ResolvedLineCtx | null = null;
     let canonicalAor: string | null = null;
     let endpointFoundId: string | null = null;
     let endpointWithoutLine = false;
 
-    // Stage 1: SIPEndpoint by exact AoR (canonical DB AoR), then registrar-host / raw variants.
-    const aorCandidates = [aor, rawAor].filter(
-      (v, i, arr): v is string => Boolean(v) && arr.indexOf(v) === i,
-    );
+    // Stage 1: SIPEndpoint by AoR — include registrar-host and Contact-style variants.
+    const aorCandidates = [
+      aor,
+      rawAor,
+      ...(username ? buildRegistrarAorCandidates(username, this.registrarHost) : []),
+    ].filter((v, i, arr): v is string => Boolean(v) && arr.indexOf(v) === i);
     for (const candidate of aorCandidates) {
       if (ctx) break;
       const ep = await this.prisma.sIPEndpoint.findFirst({
@@ -1220,9 +1265,27 @@ export class RoutingService {
       }
     }
 
-    // Stage 2: Phone From uses SIP_REGISTRAR_HOST or Contact IP while DB AoR uses tenant realm.
-    //    Same authUsername the phone digest-authenticated with (Kamailio $au, else From user).
-    //    Includes DeviceAssignment.lineId fallback (stage label "assignment" in final log).
+    // Stage 2: Active registration binding when INVITE srcIp matches REGISTER contact
+    // (RFC 3261 registrar model — authenticated registration is authoritative identity).
+    if (!ctx && username && hints?.srcIp) {
+      const viaReg = await this.resolveViaActiveRegistration(
+        username,
+        hints,
+        tenantHint,
+        requestId,
+        lineFromEndpoint,
+      );
+      if (viaReg) {
+        ctx = viaReg.ctx;
+        endpointFoundId = viaReg.endpointId;
+        lookupPath = 'registration';
+        matchedAuthUsername = username;
+        canonicalAor = viaReg.canonicalAor;
+      }
+    }
+
+    // Stage 3: authUsername — registrar-host / Contact-style From fallback.
+    // Includes DeviceAssignment.lineId fallback (stage label "assignment" in final log).
     if (!ctx && username) {
       const epByUser = await this.prisma.sIPEndpoint.findFirst({
         where: {
@@ -1275,7 +1338,7 @@ export class RoutingService {
       }
     }
 
-    // Stage 3: Extension match (internal dialing / softphone username == extension number)
+    // Stage 4: Extension match (internal dialing / softphone username == extension number)
     if (!ctx && username && /^\d{2,8}$/.test(username)) {
       const ext = await this.prisma.extension.findFirst({
         where: {
@@ -1328,10 +1391,151 @@ export class RoutingService {
         endpointFoundId,
         endpointWithoutLine,
         resolved: Boolean(ctx),
+        registrationSrcIp: hints?.srcIp ?? null,
+        registrationUserAgent: hints?.userAgent ?? null,
       }),
     );
 
+    if (requestId) {
+      this.logger.log(
+        JSON.stringify({
+          event: 'telecom.route.invite_identity',
+          requestId,
+          resolved: Boolean(ctx),
+          lookupPath,
+          lineId: ctx?.lineId ?? null,
+          extension: ctx?.extension ?? null,
+          tenantId: ctx?.tenantId ?? null,
+          canonicalAor: canonicalAor ?? ctx?.aor ?? null,
+          routingDecision: ctx ? 'ACCEPT_CALLER' : 'CALLER_LINE_NOT_FOUND',
+        }),
+      );
+    }
+
     return ctx;
+  }
+
+  /** Resolve caller via Redis registration mirror when REGISTER contact matches INVITE srcIp. */
+  private async resolveViaActiveRegistration(
+    username: string,
+    hints: CallerLookupHints | undefined,
+    tenantHint: string | undefined,
+    requestId: string | undefined,
+    lineFromEndpoint: (
+      ep: {
+        id: string;
+        aor: string;
+        authUsername?: string;
+        tenantId: string;
+        registrationStatus: string;
+        line: (Parameters<RoutingService['toLineCtx']>[0] & {
+          status: LineStatus;
+          deletedAt?: Date | null;
+        }) | null;
+        devices: Array<{
+          id?: string;
+          lineId: string | null;
+          line: (Parameters<RoutingService['toLineCtx']>[0] & {
+            status: LineStatus;
+            deletedAt?: Date | null;
+          }) | null;
+          assignments: Array<{ lineId: string | null; tenantId: string }>;
+        }>;
+      },
+      stage: 'aor' | 'authUsername',
+    ) => Promise<ResolvedLineCtx | null>,
+  ): Promise<{ ctx: ResolvedLineCtx; endpointId: string; canonicalAor: string } | null> {
+    const tenantFilter = tenantHint ? { tenantId: tenantHint } : {};
+    const ep = await this.prisma.sIPEndpoint.findFirst({
+      where: {
+        deletedAt: null,
+        authUsername: { equals: username, mode: 'insensitive' },
+        ...tenantFilter,
+      },
+      orderBy: [{ lastRegisteredAt: 'desc' }, { updatedAt: 'desc' }],
+      include: {
+        line: {
+          include: {
+            callPolicy: true,
+            callerId: { include: { phoneNumber: true } },
+            extension: true,
+            user: {
+              include: {
+                profile: { select: { displayName: true, firstName: true, lastName: true } },
+              },
+            },
+            devices: { include: { sipEndpoint: true } },
+          },
+        },
+        devices: {
+          where: { deletedAt: null },
+          orderBy: [{ isPrimary: 'desc' as const }, { updatedAt: 'desc' as const }],
+          take: 20,
+          include: {
+            line: {
+              include: {
+                callPolicy: true,
+                callerId: { include: { phoneNumber: true } },
+                extension: true,
+                user: {
+                  include: {
+                    profile: { select: { displayName: true, firstName: true, lastName: true } },
+                  },
+                },
+                devices: { include: { sipEndpoint: true } },
+              },
+            },
+            assignments: {
+              where: { deletedAt: null, effectiveTo: null },
+              orderBy: { effectiveFrom: 'desc' as const },
+              take: 3,
+              select: { lineId: true, tenantId: true },
+            },
+          },
+        },
+      },
+    });
+
+    this.logger.log(
+      JSON.stringify({
+        event: 'telecom.route.lookup.registration',
+        requestId: requestId ?? null,
+        queryAuthUsername: username,
+        tenantHint: tenantHint ?? null,
+        hit: Boolean(ep),
+        endpointId: ep?.id ?? null,
+        srcIp: hints?.srcIp ?? null,
+      }),
+    );
+
+    if (!ep) return null;
+
+    const canonicalAor = normalizeAor(ep.aor);
+    const bindings = await this.activeContacts(ep.tenantId, canonicalAor);
+    const srcIp = normalizeRegistrationIp(hints?.srcIp);
+
+    if (srcIp && bindings.length) {
+      const matched = bindings.some((b) => normalizeRegistrationIp(b.srcIp) === srcIp);
+      if (!matched) {
+        this.logger.warn(
+          JSON.stringify({
+            event: 'telecom.route.lookup.registration_src_mismatch',
+            requestId: requestId ?? null,
+            endpointId: ep.id,
+            expectedSrcIp: srcIp,
+            bindingSrcIps: bindings.map((b) => b.srcIp).filter(Boolean),
+          }),
+        );
+        return null;
+      }
+    } else if (!bindings.length && ep.registrationStatus !== SIPEndpointStatus.REGISTERED) {
+      return null;
+    }
+
+    const ctx = await lineFromEndpoint(ep, 'authUsername');
+    if (!ctx) return null;
+
+    return { ctx, endpointId: ep.id, canonicalAor };
   }
 
   private toLineCtx(
@@ -1344,6 +1548,13 @@ export class RoutingService {
         phoneNumber: { number: string } | null;
       } | null;
       extension: { extension: string } | null;
+      user?: {
+        profile: {
+          displayName: string | null;
+          firstName: string | null;
+          lastName: string | null;
+        } | null;
+      } | null;
       devices: Array<{
         id: string;
         status: DeviceStatus;
@@ -1375,6 +1586,13 @@ export class RoutingService {
       outboundEnabled: line.callPolicy?.outboundEnabled ?? true,
       callerIdName: line.callerId?.callerIdName ?? undefined,
       callerIdNumber: line.callerId?.phoneNumber?.number ?? undefined,
+      userProfile: line.user?.profile
+        ? {
+            displayName: line.user.profile.displayName,
+            firstName: line.user.profile.firstName,
+            lastName: line.user.profile.lastName,
+          }
+        : undefined,
       devices,
     };
   }

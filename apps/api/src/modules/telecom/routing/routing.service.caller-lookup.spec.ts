@@ -1,4 +1,5 @@
-import { LineStatus, DeviceStatus } from '@prisma/client';
+import { ConfigService } from '@nestjs/config';
+import { LineStatus, DeviceStatus, SIPEndpointStatus } from '@prisma/client';
 import { RoutingService } from './routing.service';
 import type { RouteRequestDto } from '../dto/telecom.request.dto';
 
@@ -84,6 +85,7 @@ describe('RoutingService caller line lookup', () => {
     byAuthUsername?: typeof canonicalEndpoint | typeof assignmentOnlyEndpoint | null;
     byExtension?: { line: typeof activeLine } | null;
     lineById?: typeof activeLine7005 | null;
+    registrationBindings?: Record<string, string>;
   };
 
   function buildService(opts: LookupOpts = {}) {
@@ -125,12 +127,16 @@ describe('RoutingService caller line lookup', () => {
     const redis = {
       get: jest.fn().mockResolvedValue(null),
       setex: jest.fn().mockResolvedValue(undefined),
-      hgetall: jest.fn().mockResolvedValue({}),
+      hgetall: jest.fn().mockImplementation(async () => opts.registrationBindings ?? {}),
       registrationKey: jest.fn((t: string, a: string) => `vsp:${t}:reg:${a}`),
       routeIdempotencyKey: jest.fn((k: string) => `vsp:route:idem:${k}`),
       callRuntimeKey: jest.fn((t: string, p: string) => `vsp:${t}:call:${p}`),
       corrSipKey: jest.fn((t: string, c: string) => `vsp:${t}:corr:sip:${c}`),
       corrPlatformKey: jest.fn((t: string, p: string) => `vsp:${t}:corr:platform:${p}`),
+    };
+
+    const config = {
+      get: jest.fn((key: string) => (key === 'SIP_REGISTRAR_HOST' ? 'sip.vspphone.com' : undefined)),
     };
 
     const carriers = {
@@ -158,6 +164,7 @@ describe('RoutingService caller line lookup', () => {
       } as never,
       { resolveAppDestination: jest.fn().mockResolvedValue(null) } as never,
       { resolveFeature: jest.fn().mockResolvedValue(null) } as never,
+      config as unknown as ConfigService,
     );
 
     return { service, prisma, carriers };
@@ -167,6 +174,8 @@ describe('RoutingService caller line lookup', () => {
     service: RoutingService,
     aorOrUri: string,
     userPart: string | null,
+    hints?: { srcIp?: string; userAgent?: string },
+    tenantHint?: string,
   ) {
     return (
       service as unknown as {
@@ -174,9 +183,11 @@ describe('RoutingService caller line lookup', () => {
           a: string,
           u: string | null,
           t?: string,
+          r?: string,
+          h?: { srcIp?: string; userAgent?: string },
         ) => Promise<{ lineId: string; tenantId: string; aor?: string; extension?: string } | null>;
       }
-    ).resolveLineByAorOrExtension(aorOrUri, userPart);
+    ).resolveLineByAorOrExtension(aorOrUri, userPart, tenantHint, 'req-test', hints);
   }
 
   const meta = {
@@ -331,5 +342,58 @@ describe('RoutingService caller line lookup', () => {
     expect(plan.fromLineId).toBe('line-7005');
     expect(plan.actions[0]?.type).toBe('BRIDGE_CARRIER');
     expect(carriers.selectOutboundTrunk).toHaveBeenCalled();
+  });
+
+  it('7) Grandstream-style Contact From resolves via registrar-host AoR candidate + tenant hint', async () => {
+    const contactStyleFrom = 'sip:100@192.168.1.2';
+    const { service, prisma } = buildService({
+      byAor: null,
+      byAuthUsername: canonicalEndpoint,
+    });
+
+    const ctx = await resolveLine(service, contactStyleFrom, '100', undefined, tenantId);
+
+    expect(ctx?.lineId).toBe(lineId);
+    expect(ctx?.tenantId).toBe(tenantId);
+    expect(
+      prisma.sIPEndpoint.findFirst.mock.calls.some(
+        (c) => c[0].where.aor?.equals === 'sip:100@sip.vspphone.com',
+      ),
+    ).toBe(true);
+  });
+
+  it('8) resolves via active registration binding when authUsername misses but REGISTER mirror matches srcIp', async () => {
+    const registeredEndpoint = {
+      ...canonicalEndpoint,
+      registrationStatus: SIPEndpointStatus.REGISTERED,
+    };
+    const expiresAt = new Date(Date.now() + 600_000).toISOString();
+    const { service, prisma } = buildService({
+      byAor: null,
+      byAuthUsername: null,
+      registrationBindings: {
+        c1: JSON.stringify({
+          contact: 'sip:100@122.177.247.143:26219',
+          srcIp: '122.177.247.143',
+          expiresAt,
+        }),
+      },
+    });
+    prisma.sIPEndpoint.findFirst.mockImplementation(async (args: { where: Record<string, unknown> }) => {
+      if (args.where.aor) return null;
+      if (args.where.authUsername) return registeredEndpoint;
+      return null;
+    });
+
+    const ctx = await resolveLine(
+      service,
+      'sip:100@192.168.1.2',
+      '100',
+      { srcIp: '122.177.247.143', userAgent: 'Grandstream GRP2601' },
+      tenantId,
+    );
+
+    expect(ctx?.lineId).toBe(lineId);
+    expect(ctx?.tenantId).toBe(tenantId);
   });
 });

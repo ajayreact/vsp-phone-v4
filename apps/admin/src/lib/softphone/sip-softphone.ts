@@ -19,6 +19,12 @@ import type {
   SoftphoneEvent,
   SoftphoneState,
 } from './types';
+import {
+  type CallPhase,
+  callPhaseFromProvisional,
+  callPhaseFromSipStatus,
+  isTerminalCallPhase,
+} from './call-state';
 
 type Listener = (event: SoftphoneEvent) => void;
 
@@ -54,7 +60,18 @@ export class SipSoftphoneClient {
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private enrollRefreshTimer: ReturnType<typeof setTimeout> | null = null;
   private statsTimer: ReturnType<typeof setInterval> | null = null;
-  private sessionMeta = new Map<string, { muted: boolean; held: boolean; remote: string; direction: 'inbound' | 'outbound'; startedAt: number }>();
+  private endClearTimer: ReturnType<typeof setTimeout> | null = null;
+  private sessionMeta = new Map<
+    string,
+    {
+      muted: boolean;
+      held: boolean;
+      remote: string;
+      direction: 'inbound' | 'outbound';
+      connectedAt: number | null;
+      phase: CallPhase;
+    }
+  >();
   private currentMicId: string | null = null;
   private currentSpeakerId: string | null = null;
 
@@ -71,6 +88,47 @@ export class SipSoftphoneClient {
     this.emit({ type: 'state', state, detail });
   }
 
+  private setCallPhase(id: string, phase: CallPhase, detail?: string): void {
+    const meta = this.sessionMeta.get(id);
+    if (meta) {
+      meta.phase = phase;
+    }
+    if (this.activeSessionId === id) {
+      this.setState(phase, detail);
+    }
+    this.emitSessions();
+  }
+
+  /** Set connectedAt once on 200 OK — never reset on hold/re-INVITE. */
+  private markConnected(id: string): void {
+    const meta = this.sessionMeta.get(id);
+    if (!meta || meta.connectedAt != null) return;
+    meta.connectedAt = Date.now();
+    this.emitSessions();
+  }
+
+  private newSessionMeta(
+    remote: string,
+    direction: 'inbound' | 'outbound',
+    phase: CallPhase,
+  ): {
+    muted: boolean;
+    held: boolean;
+    remote: string;
+    direction: 'inbound' | 'outbound';
+    connectedAt: number | null;
+    phase: CallPhase;
+  } {
+    return {
+      muted: false,
+      held: false,
+      remote,
+      direction,
+      connectedAt: null,
+      phase,
+    };
+  }
+
   private log(message: string): void {
     this.emit({ type: 'log', message });
   }
@@ -82,7 +140,8 @@ export class SipSoftphoneClient {
         id,
         remote: meta.remote,
         direction: meta.direction,
-        startedAt: meta.startedAt,
+        connectedAt: meta.connectedAt,
+        phase: meta.phase,
         held: meta.held,
         muted: meta.muted,
       });
@@ -170,13 +229,7 @@ export class SipSoftphoneClient {
 
     if (this.activeSessionId && this.sessions.has(this.activeSessionId)) {
       this.sessions.set(id, invitation);
-      this.sessionMeta.set(id, {
-        muted: false,
-        held: false,
-        remote: from,
-        direction: 'inbound',
-        startedAt: Date.now(),
-      });
+      this.sessionMeta.set(id, this.newSessionMeta(from, 'inbound', 'ringing'));
       this.emit({ type: 'waiting', from, sessionId: id });
       this.emitSessions();
       return;
@@ -184,16 +237,10 @@ export class SipSoftphoneClient {
 
     this.sessions.set(id, invitation);
     this.activeSessionId = id;
-    this.sessionMeta.set(id, {
-      muted: false,
-      held: false,
-      remote: from,
-      direction: 'inbound',
-      startedAt: Date.now(),
-    });
+    this.sessionMeta.set(id, this.newSessionMeta(from, 'inbound', 'ringing'));
     this.bindSession(invitation, id);
     this.emit({ type: 'incoming', from, sessionId: id });
-    this.setState('ringing', from);
+    this.setCallPhase(id, 'ringing', from);
     this.emitSessions();
   }
 
@@ -202,9 +249,16 @@ export class SipSoftphoneClient {
     if (!id) return;
     const session = this.sessions.get(id);
     if (!(session instanceof Invitation)) return;
-    await session.accept();
+    await session.accept({
+      requestDelegate: {
+        onAccept: () => {
+          this.markConnected(id);
+          this.setCallPhase(id, 'connected');
+        },
+      },
+    });
     this.activeSessionId = id;
-    this.setState('in-call');
+    this.setCallPhase(id, 'active');
     this.emitSessions();
   }
 
@@ -214,8 +268,9 @@ export class SipSoftphoneClient {
     const session = this.sessions.get(id);
     if (!(session instanceof Invitation)) return;
     await session.reject();
+    this.setCallPhase(id, 'cancelled');
     this.removeSession(id);
-    this.setState(this.sessions.size ? 'in-call' : 'registered');
+    this.setState(this.sessions.size ? 'active' : 'registered');
   }
 
   async call(target: string): Promise<void> {
@@ -227,16 +282,42 @@ export class SipSoftphoneClient {
     const id = this.sessionId(inviter);
     this.sessions.set(id, inviter);
     this.activeSessionId = id;
-    this.sessionMeta.set(id, {
-      muted: false,
-      held: false,
-      remote: dest,
-      direction: 'outbound',
-      startedAt: Date.now(),
-    });
+    this.sessionMeta.set(id, this.newSessionMeta(dest, 'outbound', 'dialing'));
     this.bindSession(inviter, id);
-    this.setState('calling', dest);
-    await inviter.invite();
+    this.setCallPhase(id, 'dialing', dest);
+
+    let sawTrying = false;
+    await inviter.invite({
+      requestDelegate: {
+        onTrying: () => {
+          sawTrying = true;
+          this.setCallPhase(id, 'trying');
+        },
+        onProgress: (response) => {
+          const code = response.message.statusCode;
+          if (code === 100) {
+            this.setCallPhase(id, 'trying');
+            return;
+          }
+          if (code === 180 || code === 183) {
+            this.setCallPhase(id, 'ringing');
+            return;
+          }
+          this.setCallPhase(id, callPhaseFromProvisional(code, sawTrying));
+        },
+        onAccept: () => {
+          this.markConnected(id);
+          this.setCallPhase(id, 'connected');
+        },
+        onReject: (response) => {
+          const code = response.message.statusCode;
+          const phase = callPhaseFromSipStatus(code);
+          if (phase && isTerminalCallPhase(phase)) {
+            this.setCallPhase(id, phase);
+          }
+        },
+      },
+    });
     this.emitSessions();
   }
 
@@ -249,12 +330,12 @@ export class SipSoftphoneClient {
     if (state === SessionState.Established) {
       await session.bye();
     } else if (session instanceof Inviter) {
+      this.setCallPhase(id, 'cancelled');
       await session.cancel();
     } else if (session instanceof Invitation) {
       await session.reject();
     }
-    this.removeSession(id);
-    this.setState(this.sessions.size ? 'in-call' : 'registered');
+    // Session cleanup + terminal UI state handled in bindSession Terminated handler.
   }
 
   async toggleMute(sessionId?: string): Promise<boolean> {
@@ -287,11 +368,11 @@ export class SipSoftphoneClient {
     meta.held = !meta.held;
     if (meta.held) {
       await session.invite({ sessionDescriptionHandlerModifiers: [holdModifier] });
-      this.setState('held');
+      this.setCallPhase(id, 'hold');
       this.log('On hold');
     } else {
       await session.invite({ sessionDescriptionHandlerModifiers: [unholdModifier] });
-      this.setState('in-call');
+      this.setCallPhase(id, 'active');
       this.log('Resumed');
     }
     this.emitSessions();
@@ -327,15 +408,30 @@ export class SipSoftphoneClient {
     await session.refer(uri);
     this.log(`Blind transfer to ${dest}`);
     this.removeSession(id);
-    this.setState(this.sessions.size ? 'in-call' : 'registered');
+    if (!this.sessions.size) {
+      this.setState('ended');
+      if (this.endClearTimer) clearTimeout(this.endClearTimer);
+      this.endClearTimer = setTimeout(() => {
+        this.endClearTimer = null;
+        if (!this.sessions.size) this.setState('registered');
+      }, 1500);
+    } else {
+      const nextMeta = this.activeSessionId ? this.sessionMeta.get(this.activeSessionId) : null;
+      this.setState(nextMeta?.phase ?? 'active');
+    }
   }
 
   async switchToSession(sessionId: string): Promise<void> {
     if (!this.sessions.has(sessionId)) return;
     this.activeSessionId = sessionId;
     const session = this.sessions.get(sessionId)!;
+    const meta = this.sessionMeta.get(sessionId);
     this.attachRemoteAudio(session);
-    this.setState(session.state === SessionState.Established ? 'in-call' : 'ringing');
+    if (meta) {
+      this.setCallPhase(sessionId, meta.phase);
+    } else {
+      this.setState(session.state === SessionState.Established ? 'active' : 'ringing');
+    }
     this.emitSessions();
   }
 
@@ -424,15 +520,38 @@ export class SipSoftphoneClient {
     this.emitSessions();
   }
 
+  private finishCallSession(id: string): void {
+    const meta = this.sessionMeta.get(id);
+    const terminalPhase: CallPhase =
+      meta?.phase && isTerminalCallPhase(meta.phase)
+        ? meta.phase
+        : meta?.connectedAt != null
+          ? 'ended'
+          : 'cancelled';
+    const wasActive = this.activeSessionId === id;
+    this.removeSession(id);
+    if (!this.sessions.size && wasActive) {
+      this.setState(terminalPhase);
+      if (this.endClearTimer) clearTimeout(this.endClearTimer);
+      this.endClearTimer = setTimeout(() => {
+        this.endClearTimer = null;
+        if (!this.sessions.size) this.setState('registered');
+      }, 1500);
+    } else if (wasActive && this.activeSessionId) {
+      const nextMeta = this.sessionMeta.get(this.activeSessionId);
+      this.setState(nextMeta?.phase ?? 'active');
+    }
+  }
+
   private bindSession(session: Session, id: string): void {
     session.stateChange.addListener((state) => {
       if (state === SessionState.Established) {
-        if (this.activeSessionId === id) this.setState('in-call');
+        this.markConnected(id);
+        if (this.activeSessionId === id) this.setCallPhase(id, 'active');
         this.attachRemoteAudio(session);
         this.log('Call established (DTLS-SRTP via RTPengine)');
       } else if (state === SessionState.Terminated) {
-        this.removeSession(id);
-        if (!this.sessions.size) this.setState('registered');
+        this.finishCallSession(id);
         this.log('Call ended');
       }
     });
@@ -549,9 +668,11 @@ export class SipSoftphoneClient {
   private clearTimers(): void {
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
     if (this.enrollRefreshTimer) clearTimeout(this.enrollRefreshTimer);
+    if (this.endClearTimer) clearTimeout(this.endClearTimer);
     if (this.statsTimer) clearInterval(this.statsTimer);
     this.reconnectTimer = null;
     this.enrollRefreshTimer = null;
+    this.endClearTimer = null;
     this.statsTimer = null;
   }
 }

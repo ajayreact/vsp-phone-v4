@@ -243,6 +243,24 @@ export class RouteRequestDto {
   @IsString()
   @MaxLength(256)
   serviceAuth?: string;
+
+  @ApiPropertyOptional({ description: 'Signaling source IP (Kamailio $si) for registration binding match' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  srcIp?: string;
+
+  @ApiPropertyOptional({ description: 'Signaling source port (Kamailio $sp)' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(16)
+  sourcePort?: string;
+
+  @ApiPropertyOptional({ description: 'SIP User-Agent header from desk endpoint' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(512)
+  userAgent?: string;
 }
 
 export class CallStartRequestDto {
