@@ -14,7 +14,12 @@
  */
 
 const path = require('node:path');
-require('dotenv').config({ path: path.resolve(process.cwd(), '.env') });
+try {
+  require('dotenv').config({ path: path.resolve(process.cwd(), '.env') });
+} catch {
+  // dotenv is a devDependency and may be pruned from production images —
+  // that's fine here since Docker already injects DATABASE_URL via env.
+}
 
 const TARGET = process.argv[2] || process.env.EXT || '17000';
 const DATABASE_URL = process.env.DATABASE_URL || '';
