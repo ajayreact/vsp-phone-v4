@@ -12,8 +12,9 @@ mkdir -p "$OUT"
 
 log() { echo "[verify-carrier-ack] $*"; }
 
-log "Capturing Telnyx SIP for ${SEC}s — dial 13174492106# now"
-sudo timeout "$SEC" tcpdump -i any -nn -tttt -s0 -w "$OUT/telnyx.pcap" "host ${TELNYX_IP} and port 5060" 2>"$OUT/tcpdump.err" &
+CAP_IF="${CAP_IF:-ens5}"
+log "Capturing Telnyx SIP on ${CAP_IF} for ${SEC}s — dial 13174492106# now"
+sudo timeout "$SEC" tcpdump -i "$CAP_IF" -nn -tttt -s0 -w "$OUT/telnyx.pcap" "host ${TELNYX_IP} and port 5060" 2>"$OUT/tcpdump.err" &
 TP=$!
 (
   timeout "$SEC" docker logs -f vsp-kamailio 2>&1 \
