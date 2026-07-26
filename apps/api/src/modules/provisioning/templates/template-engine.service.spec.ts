@@ -25,11 +25,14 @@ describe('TemplateEngineService.render Grandstream', () => {
     tlsValidate: true,
   };
 
-  function renderGrandstream(overrides: Partial<RenderContext> = {}) {
+  function renderGrandstream(overrides: Partial<RenderContext> = {}, env: Record<string, string> = {}) {
     const config = {
       get: (key: string) => {
+        if (key in env) return env[key];
         if (key === 'PROV_PUBLIC_BASE_URL') return 'https://prov.vspphone.com';
         if (key === 'PROV_HTTPS_PORT') return '3444';
+        if (key === 'GRANDSTREAM_SYSLOG_HOST') return '32.196.41.160';
+        if (key === 'GRANDSTREAM_SYSLOG_PORT') return '514';
         return undefined;
       },
     } as ConfigService;
@@ -58,6 +61,11 @@ describe('TemplateEngineService.render Grandstream', () => {
     expect(xml).not.toContain('<P1361>');
     expect(xml).toContain('<P64>auto</P64>');
     expect(xml).toContain('<P237>https://prov.vspphone.com/gs/ec74d751e3e7/cfg.xml</P237>');
+    expect(xml).toContain('<P207>32.196.41.160:514</P207>');
+    expect(xml).toContain('<P208>1</P208>');
+    expect(xml).toContain('<P1387>1</P1387>');
+    expect(xml).toContain('<P729>1</P729>');
+    expect(xml).toContain('<P22421>1</P22421>');
   });
 
   it('embeds prov HTTP credentials when embedProvHttpCredentials is true', () => {

@@ -2,6 +2,10 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { DeviceManufacturer } from '@prisma/client';
 import { provVendorPath, resolveProvPublicBaseUrl } from '../url/prov-config-url';
+import {
+  buildGrandstreamDeskPvalueLines,
+  resolveGrandstreamDeskPvalueOptions,
+} from './grandstream-desk-pvalues';
 
 export interface RenderContext {
   mac: string;
@@ -34,7 +38,7 @@ export interface RenderContext {
 /** Phase 11 + Phase 3 — multi-vendor provisioning template engine. */
 @Injectable()
 export class TemplateEngineService {
-  readonly platformTemplateVersion = '1.3.0';
+  readonly platformTemplateVersion = '1.4.0';
 
   constructor(private readonly config: ConfigService) {}
 
@@ -89,6 +93,7 @@ export class TemplateEngineService {
       ? `    <P192>${escapeXml(ctx.firmwareUrl)}</P192>
 `
       : '';
+    const deskLines = buildGrandstreamDeskPvalueLines(resolveGrandstreamDeskPvalueOptions(this.config));
     return `<?xml version="1.0" encoding="UTF-8"?>
 <gs_provision version="1">
   <mac>${ctx.mac}</mac>
@@ -110,7 +115,7 @@ ${firmwareLine}    <P271>1</P271>
     <P40>${ctx.sipPort}</P40>
     <P130>${transport}</P130>
     <P3>${escapeXml(ctx.displayName)}</P3>
-  </config>
+${deskLines}  </config>
 </gs_provision>`;
   }
 
