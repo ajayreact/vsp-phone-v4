@@ -95,9 +95,11 @@ section() { echo; echo "=== $* ==="; }
     echo "packets_captured=$PKTS file=$CAP"
     if [[ "$PKTS" -gt 0 ]]; then
       echo "PASS: phone sent UDP/514 to this host"
-      sudo tcpdump -nn -r "$CAP" -A -s0 2>/dev/null | head -30
+      sudo tcpdump -nn -r "$CAP" -A -s0 2>/dev/null | head -30 || true
+      SYSLOG_PASS=1
     else
       echo "FAIL: zero UDP/514 from ${PHONE_IP} — wrong syslog IP, SG block, or phone level=None"
+      SYSLOG_PASS=0
     fi
   fi
 
@@ -111,3 +113,9 @@ section() { echo; echo "=== $* ==="; }
 } | tee "$REPORT"
 
 echo "[grandstream-syslog-check] Wrote $REPORT"
+if [[ "${SYSLOG_PASS:-}" == "1" ]]; then
+  exit 0
+fi
+if [[ "$LISTEN_SEC" -gt 0 ]]; then
+  exit 1
+fi
