@@ -62,12 +62,24 @@ fi
 
 # RC1 — advertise shared registrar FQDN for desk phones (alias in Record-Route / domain handling)
 SIP_REGISTRAR_HOST="${SIP_REGISTRAR_HOST:-}"
+REG_HOST=""
 if [ -n "${SIP_REGISTRAR_HOST}" ]; then
   REG_HOST=$(printf '%s' "${SIP_REGISTRAR_HOST}" | sed 's|^[a-zA-Z]*://||' | cut -d: -f1 | sed 's|/$||')
   if [ -n "${REG_HOST}" ]; then
     sed -i "s|alias=\"localhost\"|alias=\"localhost\"\nalias=\"${REG_HOST}\"|" "${CFG}"
     echo "[kamailio] SIP registrar alias=${REG_HOST}"
   fi
+fi
+
+# RC1 — public SIP advertise address for Record-Route / ACK / BYE on carrier B2BUA legs.
+SIP_PUBLIC_IP="${SIP_PUBLIC_IP:-}"
+if [ -n "${SIP_PUBLIC_IP}" ]; then
+  ESC_IP=$(printf '%s' "${SIP_PUBLIC_IP}" | sed 's/[\\/&|]/\\&/g')
+  sed -i "s|__SIP_PUBLIC_IP__|${ESC_IP}|g" "${CFG}"
+  echo "[kamailio] SIP advertise address=${SIP_PUBLIC_IP}"
+else
+  sed -i 's| advertise __SIP_PUBLIC_IP__:5060||g' "${CFG}"
+  echo "[kamailio] WARNING: SIP_PUBLIC_IP unset — Record-Route may use 0.0.0.0 (lab only)"
 fi
 
 # Remediation H-06 — usrloc persistence mode

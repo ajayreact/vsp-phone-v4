@@ -182,6 +182,7 @@ services:
       RTPENGINE_NG_PORT: ${RTPENGINE_NG_PORT:-2223}
       KAMAILIO_REQUIRE_TLS: ${KAMAILIO_REQUIRE_TLS:-true}
       SIP_REGISTRAR_HOST: ${SIP_REGISTRAR_HOST:-}
+      SIP_PUBLIC_IP: ${SIP_PUBLIC_IP:-}
       NESTJS_BASE_URL: http://api:3000
       TELECOM_SERVICE_AUTH_TOKEN: ${TELECOM_SERVICE_AUTH_TOKEN:-}
       # RC1 fix: Telnyx SIP Connection is Credentials-auth — it challenges every
