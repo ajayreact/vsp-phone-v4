@@ -41,7 +41,8 @@ export function resolveGrandstreamDeskPvalueOptions(
     earlyDial: parseTruthy(config.get<string>('GRANDSTREAM_DESK_EARLY_DIAL'), true),
     keyAsSendPound: parseTruthy(config.get<string>('GRANDSTREAM_DESK_KEY_AS_SEND_POUND'), true),
     pcmuOnly: parseTruthy(config.get<string>('GRANDSTREAM_DESK_PCMU_ONLY'), true),
-    forceRebootOnProvision: parseTruthy(config.get<string>('GRANDSTREAM_DESK_FORCE_REBOOT'), true),
+    // Default false — P22421=1 on every cfg causes boot→provision→reboot loops on GRP260x.
+    forceRebootOnProvision: parseTruthy(config.get<string>('GRANDSTREAM_DESK_FORCE_REBOOT'), false),
     dialPlan: (config.get<string>('GRANDSTREAM_DIAL_PLAN') ?? DEFAULT_DIAL_PLAN).trim() || DEFAULT_DIAL_PLAN,
   };
 }

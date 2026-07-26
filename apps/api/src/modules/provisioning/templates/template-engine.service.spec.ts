@@ -65,7 +65,7 @@ describe('TemplateEngineService.render Grandstream', () => {
     expect(xml).toContain('<P208>1</P208>');
     expect(xml).toContain('<P1387>1</P1387>');
     expect(xml).toContain('<P729>1</P729>');
-    expect(xml).toContain('<P22421>1</P22421>');
+    expect(xml).not.toContain('<P22421>');
   });
 
   it('embeds prov HTTP credentials when embedProvHttpCredentials is true', () => {

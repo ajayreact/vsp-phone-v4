@@ -50,7 +50,7 @@ GRANDSTREAM_SYSLOG_LEVEL=1
 GRANDSTREAM_SYSLOG_SEND_SIP=true
 GRANDSTREAM_DESK_EARLY_DIAL=true
 GRANDSTREAM_DESK_PCMU_ONLY=true
-GRANDSTREAM_DESK_FORCE_REBOOT=true
+GRANDSTREAM_DESK_FORCE_REBOOT=false
 EOF
   }
   $COMPOSE build api
@@ -58,7 +58,7 @@ EOF
   sleep 15
   echo "=== force-regenerate served cfg for MAC ${MAC} ==="
   $COMPOSE exec -T api node scripts/platform/reprovision-grandstream-desk.cjs --mac "${MAC}"
-  echo "Phone will auto-fetch cfg (P22421 forces reboot when P-values apply)."
+  echo "Phone will auto-fetch cfg on next poll (no P22421 — avoids reboot loop)."
 }
 
 verify_cfg() {

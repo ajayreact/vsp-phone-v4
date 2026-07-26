@@ -24,9 +24,16 @@ describe('grandstream-desk-pvalues', () => {
     expect(xml).toContain('<P208>1</P208>');
     expect(xml).toContain('<P1387>1</P1387>');
     expect(xml).toContain('<P729>1</P729>');
-    expect(xml).toContain('<P22421>1</P22421>');
+    expect(xml).not.toContain('<P22421>');
     expect(xml).toContain('<P290>');
   });
+
+  it('includes P22421 only when GRANDSTREAM_DESK_FORCE_REBOOT=true', () => {
+    const opts = resolveGrandstreamDeskPvalueOptions(
+      config({ GRANDSTREAM_DESK_FORCE_REBOOT: 'true' }),
+    );
+    const xml = buildGrandstreamDeskPvalueLines(opts);
+    expect(xml).toContain('<P22421>1</P22421>');
 
   it('omits syslog when host unset', () => {
     const opts = resolveGrandstreamDeskPvalueOptions(config({}));

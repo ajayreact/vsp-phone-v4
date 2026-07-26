@@ -97,7 +97,6 @@ async function main() {
       ['P208 DEBUG', /<P208>1<\/P208>/],
       ['P1387 SIP log', /<P1387>1<\/P1387>/],
       ['P729 early dial', /<P729>1<\/P729>/],
-      ['P22421 reboot', /<P22421>1<\/P22421>/],
     ];
     for (const [label, re] of checks) {
       const ok = re.test(xml);
