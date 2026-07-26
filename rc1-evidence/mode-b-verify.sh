@@ -64,7 +64,7 @@ count_in_file_pipe() {
 
 pcap_invite_count() {
   local n
-  n=$(sudo tcpdump -nn -r "$PCAP" -A -s0 2>/dev/null | grep -c 'INVITE sip:' || true)
+  n=$(sudo tcpdump -nn -r "$PCAP" 2>/dev/null | grep -c "${PHONE_IP}.*>.*5060.*INVITE" || true)
   echo "${n:-0}"
 }
 
