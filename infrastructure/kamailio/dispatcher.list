@@ -9,6 +9,6 @@
 # RTPengine NG endpoints (attrs only — actual NG sock is modparam rtpengine_sock)
 1 sip:rtpengine:2223 0 0 set=rtpengine;role=media
 
-# Telnyx primary / backup (UDP then TCP). Host override via Carrier.configuration sipHost.
-2 sip:sip.telnyx.com:5060;transport=udp 2 0 set=telnyx;role=primary;state=active
-2 sip:sip.telnyx.com:5060;transport=tcp 2 10 set=telnyx;role=backup;state=active
+# Telnyx primary (UDP only — TCP INVITE + UDP Contact ACK breaks transaction → 32s BYE).
+2 sip:sip.telnyx.com:5060;transport=udp 0 0 set=telnyx;role=primary;state=active
+# 2 sip:sip.telnyx.com:5060;transport=tcp 2 10 set=telnyx;role=backup;state=active

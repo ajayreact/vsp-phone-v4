@@ -25,7 +25,7 @@ TP2=$!
 TP="$TP1 $TP2"
 (
   timeout "$SEC" docker logs -f vsp-kamailio 2>&1 \
-    | grep -iE 'BYE |CANCEL |487 |408 |481 |dlg_ontimeout|Session-Expires|carrier uac ACK|BRIDGE_CARRIER|rtpengine_delete' \
+    | grep -iE 'BYE received|carrier local ACK|carrier uac ACK|Session-Expires|dlg_ontimeout|rtpengine_delete|carrier 200 OK' \
     || true
 ) >"$OUT/kamailio.log" 2>/dev/null &
 KL=$!
