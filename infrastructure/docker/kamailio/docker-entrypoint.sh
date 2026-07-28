@@ -82,6 +82,12 @@ else
   echo "[kamailio] WARNING: SIP_PUBLIC_IP unset — Record-Route may use 0.0.0.0 (lab only)"
 fi
 
+# Desk-facing 200 OK Contact domain (registrar FQDN, e.g. sip.vspphone.com).
+DESK_CONTACT_DOMAIN="${REG_HOST:-${SIP_PUBLIC_IP:-sip.localhost}}"
+ESC_DOMAIN=$(printf '%s' "${DESK_CONTACT_DOMAIN}" | sed 's/[\\/&|]/\\&/g')
+sed -i "s|__SIP_REGISTRAR_HOST__|${ESC_DOMAIN}|g" "${CFG}"
+echo "[kamailio] desk Contact domain=${DESK_CONTACT_DOMAIN}"
+
 # Remediation H-06 — usrloc persistence mode
 case "${USRLOC_MODE}" in
   postgres)

@@ -1,6 +1,6 @@
 # RC1 Root Cause: Telnyx 408 ACK Timeout (Protocol Investigation)
 
-**Status:** FIX IMPLEMENTED — validation pending (Grandstream + Zoiper ≥5 min)  
+**Status:** FIX IMPLEMENTED (desk-facing 200 OK normalization) — validation pending (Grandstream + Zoiper ≥5 min)  
 **Evidence call (pre-fix):** `50741629-44403-2@BCC.BHH.CEG.JC`  
 **Capture:** `/tmp/teardown-capture-20260728T051730Z/docker.pcap`  
 **CDR:** `call_sec=32`, hangup NORMAL_UNSPECIFIED, Telnyx BYE `Reason: SIP;cause=408;text="ACK Timeout"`  
@@ -275,3 +275,38 @@ Until a capture shows those fields matching, do not declare the 32s issue resolv
 **Overall: FAIL (pre-fix proven) — post-fix validation PENDING.**
 
 Kamailio redeployed healthy at 2026-07-28 ~05:42 UTC (`478cf12`). Capture window `20260728T054246Z` (420s) had no qualifying PSTN calls on Grandstream IP filter; run `rc1-evidence/capture-teardown.sh` while holding Grandstream → PSTN and Zoiper → PSTN for ≥5 minutes each.
+
+---
+
+## 9. Endpoint proof — Grandstream zero ACK (2026-07-28, no Contact changes)
+
+**Full report:** `rc1-evidence/RC1-grandstream-zero-ack-endpoint-proof.md`
+
+Wire summary:
+
+| Call-ID | Phone | Desk 200 OK Contact | Post-200 ACK from phone |
+|---------|-------|---------------------|-------------------------|
+| `631199326-44403-3@...` | GRP2601 @ 122.177.246.92 | Encoded `@64.16.250.10:5060` | **0** |
+| `1938501546-17916-2@...` | GRP2601 @ 122.177.247.143 | Encoded `@telnyx.com`, later decoded `@192.76.120.10` | **0** |
+| `uNWK9g7brST6ZZ75eN_fow..` | Zoiper @ 49.43.218.12 | Encoded `@telnyx.com` | BYE uses Telnyx Contact (dialog formed); desk ACK wire **pending paired capture** |
+
+Post-fix call `631199326`: Kamailio logged `carrier Record-Route stored` but **no** `carrier phone ACK relay` — consistent with Grandstream never sending desk ACK.
+
+**Decision gate:** Do not rewrite Contact until Grandstream syslog and/or `endpoint-ack-compare-capture.sh` closes the Zoiper wire-ACK comparison.
+
+---
+
+## 10. Fix implemented — desk-facing 200 OK normalization (2026-07-28)
+
+**Root cause addressed:** Telnyx encoded `Contact` on carrier 200 OK was relayed verbatim to desk → Grandstream sent zero post-200 ACK.
+
+**Change:** `route[DESK_NORMALIZE_CARRIER_REPLY]` in `onreply_route[MANAGE_REPLY]`:
+
+1. Store carrier Contact/Record-Route for ACK relay (unchanged).
+2. Strip carrier `Record-Route`.
+3. Restore desk `From` + `CSeq` from INVITE snapshot (`$sht(desk_from=>$ci)`, etc.).
+4. Replace `Contact` with PBX endpoint: `sip:<extension>@sip.vspphone.com` (not Telnyx Contact).
+
+Desk ACK now targets Kamailio; `route[CARRIER_RELAY_ACK]` rewrites to stored carrier Contact for Telnyx.
+
+**Validation:** `SEC=420 bash rc1-evidence/validate-32s-fix.sh` — requires Grandstream + Zoiper PSTN holds ≥5 min each.
