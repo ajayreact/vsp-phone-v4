@@ -135,12 +135,14 @@ sudo timeout "$((AST_HOLD + 60))" tcpdump -i any -nn -tttt -s0 -w "$OUT/asterisk
 AST_TP=$!
 
 docker run -d --name vsp-asterisk-baseline --network host \
-  -v "$OUT/pjsip.conf:/etc/asterisk/pjsip.d/telnyx.conf:ro" \
+  -v "$OUT/pjsip.conf:/etc/asterisk/pjsip.conf:ro" \
   -v "$OUT/extensions.conf:/etc/asterisk/extensions.conf:ro" \
   -v "$OUT/modules.conf:/etc/asterisk/modules.conf:ro" \
   andrius/asterisk:18-current >/dev/null
 
 sleep 10
+docker exec vsp-asterisk-baseline asterisk -rx "module reload res_pjsip.so" 2>&1 | tee "$OUT/asterisk-reload.txt" || true
+sleep 5
 log "Asterisk PJSIP endpoints:"
 docker exec vsp-asterisk-baseline asterisk -rx "pjsip show endpoints" 2>&1 | tee "$OUT/asterisk-endpoints.txt" || true
 
