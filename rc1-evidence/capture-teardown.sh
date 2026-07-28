@@ -15,17 +15,17 @@ log() { echo "[capture-teardown] $*"; }
 
 log "OUT=$OUT — dial PSTN now, hold through disconnect (${SEC}s capture)"
 sudo timeout "$SEC" tcpdump -i ens5 -nn -tttt -s0 -w "$OUT/all.pcap" \
-  "port 5060 and (host ${PHONE_IP} or host 32.196.41.160 or host ${TELNYX_IP} or host ${TELNYX_IP2} or net 64.16.250.0/24 or net 192.76.120.0/24)" \
+  "(port 5060 or port 5070) and (host ${PHONE_IP} or host 32.196.41.160 or host ${TELNYX_IP} or host ${TELNYX_IP2} or net 64.16.250.0/24 or net 192.76.120.0/24)" \
   2>"$OUT/tcpdump.err" &
 TP1=$!
 sudo timeout "$SEC" tcpdump -i any -nn -tttt -s0 -w "$OUT/docker.pcap" \
-  "port 5060" \
+  "port 5060 or port 5070" \
   2>"$OUT/tcpdump-docker.err" &
 TP2=$!
 TP="$TP1 $TP2"
 (
   timeout "$SEC" docker logs -f vsp-kamailio 2>&1 \
-    | grep -iE 'BYE received|carrier tm ACK|carrier ACK TX|Session-Expires|dlg_ontimeout|rtpengine_delete|carrier 200 OK' \
+    | grep -iE 'BYE received|carrier phone ACK|carrier Record-Route|Session-Expires|dlg_ontimeout|rtpengine_delete|carrier 200 OK|unexpected tm local ACK' \
     || true
 ) >"$OUT/kamailio.log" 2>/dev/null &
 KL=$!
