@@ -29,7 +29,7 @@ fi
 
 log "=== Kamailio ACK trace ==="
 docker logs --since "$((SEC + 60))"s vsp-kamailio 2>&1 \
-  | grep -E 'desk carrier reply normalized|carrier phone ACK relay|carrier phone ACK absorbed|carrier encoded Contact|carrier 200 OK|BYE received|carrier ACK TX' \
+  | grep -E 'desk carrier reply normalized|carrier dialog stored|carrier ack cseq stored|carrier phone ACK relay|carrier phone ACK absorbed|carrier encoded Contact|carrier 200 OK|BYE received|carrier ACK TX' \
   | tee "$OUT/kamailio-ack.log" || true
 
 log "=== Telnyx CDR ==="

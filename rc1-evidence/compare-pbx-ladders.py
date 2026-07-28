@@ -39,6 +39,9 @@ HEADER_FIELDS = [
     "User-Agent",
     "P-Asserted-Identity",
     "Remote-Party-ID",
+    "Session-Expires",
+    "Min-SE",
+    "Diversion",
 ]
 
 MILESTONES = [
@@ -392,6 +395,54 @@ def main() -> int:
         k = "YES" if kam_ms.get(key) else "NO"
         flag = " **" if r != k else ""
         lines.append(f"| {key} | {r} | {k}{flag} |")
+    lines.append("")
+
+    # Per-milestone summary table (FreePBX vs Kamailio header fields)
+    lines.append("## SIP element comparison (aligned milestones)")
+    lines.append("| SIP Element | FreePBX (Reference) | Our PBX (Kamailio) | Match | Difference |")
+    lines.append("|-------------|---------------------|--------------------|-------|------------|")
+    compare_keys = [
+        ("desk_200", "Contact"),
+        ("desk_200", "From"),
+        ("desk_200", "To"),
+        ("desk_200", "Record-Route"),
+        ("desk_ack", "Request-URI"),
+        ("desk_ack", "CSeq"),
+        ("carrier_200", "Contact"),
+        ("carrier_200", "Record-Route"),
+        ("carrier_ack", "Request-URI"),
+        ("carrier_ack", "Route"),
+        ("carrier_ack", "From"),
+        ("carrier_ack", "To"),
+        ("carrier_ack", "CSeq"),
+        ("carrier_ack", "Call-ID"),
+        ("carrier_bye", "Reason"),
+    ]
+    for key, fld in compare_keys:
+        ref_m = ref_ms.get(key)
+        kam_m = kam_ms.get(key)
+        ref_v = ref_m.field(fld) if ref_m else ""
+        kam_v = kam_m.field(fld) if kam_m else ""
+        if ref_m is None and kam_m is None:
+            continue
+        if not ref_v and not kam_v and fld not in ("Request-URI",):
+            continue
+        match = "YES" if norm(ref_v) == norm(kam_v) else "NO"
+        diff = ""
+        if match == "NO":
+            if not ref_m:
+                diff = "reference missing milestone"
+            elif not kam_m:
+                diff = "kamailio missing milestone"
+            elif not ref_v and kam_v:
+                diff = "present only on kamailio"
+            elif ref_v and not kam_v:
+                diff = "present only on reference"
+            else:
+                diff = "value mismatch"
+        lines.append(
+            f"| {key}/{fld} | `{ref_v[:120]}` | `{kam_v[:120]}` | {match} | {diff} |"
+        )
     lines.append("")
 
     first_div: Optional[tuple[str, str, str, str]] = None
