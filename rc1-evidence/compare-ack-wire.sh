@@ -67,12 +67,18 @@ for k in keys:
     req=''
     if k=='start': req='R-URI = Contact when route empty'
     if k=='CSeq': req='same number, method ACK'
+    if k=='Route': req='reversed RR; all Route hops'
     v200=ok200['f'].get(k,[''])[0] if ok200 else ''
-    vack=ack['f'].get(k,[''])[0] if ack else ''
     if k=='start' and ok200:
         v200=ok200['f'].get('Contact',[''])[0]
-    if k=='start' and ack:
+    if k=='Route' and ack:
+        vack=' | '.join(ack['f'].get('Route',[]))
+    elif k=='Route' and ok200:
+        v200=' | '.join(ok200['f'].get('Record-Route',[]))
+    elif k=='start' and ack:
         vack=ack['f'].get('start',[''])[0]
+    else:
+        vack=ack['f'].get(k,[''])[0] if ack else ''
     match=''
     if k=='start' and ok200 and ack:
         c=ok200['f'].get('Contact',[''])[0].strip('<>')
@@ -83,7 +89,11 @@ for k in keys:
     elif k=='CSeq' and v200 and vack:
         n200=v200.split()[0]; nack=vack.split()[0]
         match='YES' if n200==nack and 'ACK' in vack else 'NO'
-    print(f"{k:<16} {req:<40} {v200[:40]:<40} {vack[:40]:<40} {match}")
+    elif k=='Route' and ok200 and ack:
+        rr=list(reversed(ok200['f'].get('Record-Route',[])))
+        ar=ack['f'].get('Route',[])
+        match='YES' if len(ar)>=len(rr) and all(a.strip('<>')==b.strip('<>') or b.strip('<>') in a for a,b in zip(ar,rr)) else 'NO'
+    print(f"{k:<16} {req:<40} {str(v200)[:40]:<40} {str(vack)[:40]:<40} {match}")
 if not ok200: print('ERROR: no carrier 200 OK found', file=sys.stderr); sys.exit(1)
 if not ack: print('ERROR: no post-200 ACK found', file=sys.stderr); sys.exit(1)
 PY
