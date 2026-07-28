@@ -68,6 +68,45 @@ gate() {
   return 1
 }
 
+KAM_CTL_SOCK="${KAM_CTL_SOCK:-unix:/tmp/kamailio_ctl}"
+KAM_CONTAINER="${KAM_CONTAINER:-vsp-kamailio}"
+
+wait_kamailio_ready() {
+  local i
+  for i in $(seq 1 30); do
+    if curl -sf "http://127.0.0.1:8880/health" 2>/dev/null | grep -q '"status":"ok"'; then
+      return 0
+    fi
+    sleep 2
+  done
+  return 1
+}
+
+# kamcmd defaults to /var/run/kamailio/kamailio_ctl; ctl module binds unix:/tmp/kamailio_ctl.
+kam_rpc() {
+  local cmd="$1" out="$2"
+  if docker exec "$KAM_CONTAINER" test -S /tmp/kamailio_ctl 2>/dev/null; then
+    if docker exec "$KAM_CONTAINER" sh -c 'command -v kamcmd >/dev/null 2>&1'; then
+      docker exec "$KAM_CONTAINER" kamcmd -s "$KAM_CTL_SOCK" "$cmd" > "$out" 2>&1 && return 0
+    fi
+    if docker exec "$KAM_CONTAINER" sh -c 'command -v kamctl >/dev/null 2>&1'; then
+      case "$cmd" in
+        dispatcher.list)
+          docker exec "$KAM_CONTAINER" kamctl dispatcher dump > "$out" 2>&1 && return 0 ;;
+        ul.dump)
+          docker exec "$KAM_CONTAINER" kamctl ul show > "$out" 2>&1 && return 0 ;;
+        dlg.list|tm.stats|core.version|core.uptime)
+          docker exec "$KAM_CONTAINER" kamctl rpc "$cmd" > "$out" 2>&1 && return 0 ;;
+      esac
+    fi
+  fi
+  case "$cmd" in
+    dispatcher.list)
+      docker exec "$KAM_CONTAINER" cat /etc/kamailio/dispatcher.list > "$out" 2>&1 && return 0 ;;
+  esac
+  return 1
+}
+
 write_report() {
   local stopped="${1:-$PHASE_END}"
   {
@@ -149,15 +188,22 @@ run_phase_2() {
   local ok=1
   info "=== Phase 2 — Kamailio ==="
 
-  curl -sf "http://127.0.0.1:8880/health" > "$OUT/phase2-kam-http.json" 2>&1 || { ok=0; fail "kamailio HTTP health"; }
-  $COMPOSE exec -T kamailio kamailio -c -f /tmp/kamailio.runtime.cfg > "$OUT/phase2-kam-lint.txt" 2>&1 \
+  if ! wait_kamailio_ready; then
+    ok=0; fail "kamailio HTTP health not ready within 60s"
+  else
+    curl -sf "http://127.0.0.1:8880/health" > "$OUT/phase2-kam-http.json" 2>&1 || { ok=0; fail "kamailio HTTP health"; }
+  fi
+  docker exec "$KAM_CONTAINER" kamailio -c -f /tmp/kamailio.runtime.cfg > "$OUT/phase2-kam-lint.txt" 2>&1 \
     || { ok=0; fail "kamailio config lint"; }
 
+  docker exec "$KAM_CONTAINER" sh -c 'command -v kamcmd; command -v kamctl; ls -la /tmp/kamailio_ctl 2>/dev/null || true' \
+    > "$OUT/phase2-kam-tools.txt" 2>&1 || true
+
   for cmd in "core.version" "core.uptime" "dispatcher.list" "ul.dump" "dlg.list" "tm.stats"; do
-    if $COMPOSE exec -T kamailio kamcmd "$cmd" > "$OUT/phase2-kamcmd-${cmd//./-}.txt" 2>&1; then
-      pass "kamcmd $cmd"
+    if kam_rpc "$cmd" "$OUT/phase2-kamcmd-${cmd//./-}.txt"; then
+      pass "kam RPC $cmd"
     else
-      ok=0; fail "kamcmd $cmd"
+      ok=0; fail "kam RPC $cmd (see phase2-kam-tools.txt)"
     fi
   done
 
@@ -269,8 +315,8 @@ run_phase_6() {
   local ok=1
   info "=== Phase 6 — Registration ==="
 
-  $COMPOSE exec -T kamailio kamcmd ul.dump > "$OUT/phase6-ul-dump.txt" 2>&1 \
-    || { ok=0; fail "kamcmd ul.dump"; }
+  kam_rpc ul.dump "$OUT/phase6-ul-dump.txt" \
+    || { ok=0; fail "kam RPC ul.dump"; }
 
   if command -v node >/dev/null 2>&1 && [[ -f scripts/platform/parse-usrloc-dump.cjs ]]; then
     node scripts/platform/parse-usrloc-dump.cjs "$OUT/phase6-ul-dump.txt" > "$OUT/phase6-contacts.json" 2>&1 \

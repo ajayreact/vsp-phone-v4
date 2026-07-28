@@ -140,4 +140,6 @@ if ! kamailio -c -f "${CFG}"; then
 fi
 
 echo "[kamailio] configuration OK — starting kamailio"
+mkdir -p /var/run/kamailio
+ln -sf /tmp/kamailio_ctl /var/run/kamailio/kamailio_ctl
 exec kamailio -DD -E -f "${RUNTIME_CFG}"
