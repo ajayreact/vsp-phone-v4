@@ -262,7 +262,7 @@ run_phase_4() {
   curl -sf "http://127.0.0.1:3000/api/health/telnyx" > "$OUT/phase4-telnyx-health.json" 2>&1 \
     || { ok=0; fail "API /health/telnyx"; }
 
-  if [[ -x rc1-evidence/telnyx-config-audit.sh ]]; then
+  if [[ -f rc1-evidence/telnyx-config-audit.sh ]]; then
     bash rc1-evidence/telnyx-config-audit.sh > "$OUT/phase4-telnyx-config-audit.txt" 2>&1 \
       || { ok=0; fail "telnyx-config-audit.sh"; }
   else
@@ -280,9 +280,12 @@ run_phase_5() {
   local ok=1
   info "=== Phase 5 — Database ==="
 
-  if command -v node >/dev/null 2>&1 && [[ -f scripts/platform/rc1-infrastructure-validate.cjs ]]; then
-    node scripts/platform/rc1-infrastructure-validate.cjs > "$OUT/phase5-rc1-infra-validate.txt" 2>&1 \
-      && pass "rc1-infrastructure-validate.cjs" || { ok=0; fail "rc1-infrastructure-validate.cjs"; }
+  if [[ -f scripts/platform/rc1-infrastructure-validate.cjs ]]; then
+    if $COMPOSE exec -T api node scripts/platform/rc1-infrastructure-validate.cjs > "$OUT/phase5-rc1-infra-validate.txt" 2>&1; then
+      pass "rc1-infrastructure-validate.cjs (via api container)"
+    else
+      ok=0; fail "rc1-infrastructure-validate.cjs — see phase5-rc1-infra-validate.txt"
+    fi
   fi
 
   PSQL="$COMPOSE exec -T postgres psql -U vsp -d vsp_phone_v4 -t -A"
