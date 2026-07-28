@@ -261,14 +261,17 @@ Until a capture shows those fields matching, do not declare the 32s issue resolv
 
 ## PASS/FAIL (validation)
 
-| Criterion | Result |
-|-----------|--------|
-| ACK after 200 OK exists on wire | YES (but invalid) |
-| ACK dialog tags match 200 OK | **FAIL** |
-| ACK CSeq matches auth INVITE | **FAIL** (10 vs 11) |
-| No malformed headers | **FAIL** (duplicate CSeq) |
-| No 200 OK retransmissions | **FAIL** |
-| No 408 ACK Timeout BYE | **FAIL** |
-| call_sec >= 300 | **FAIL** (32) |
+| Criterion | Pre-fix (50741629) | Post-fix deploy |
+|-----------|-------------------|-----------------|
+| ACK after 200 OK exists on wire | YES (orphan) | **PENDING** — no Grandstream/Zoiper PSTN test during capture window |
+| ACK dialog tags match 200 OK | **FAIL** | **PENDING** |
+| ACK CSeq matches auth INVITE | **FAIL** (10 vs 11) | **PENDING** |
+| Single ACK, no duplicate CSeq | **FAIL** | **PENDING** |
+| Route set present on ACK | **FAIL** | **PENDING** |
+| No 200 OK retransmissions | **FAIL** | **PENDING** |
+| No 408 ACK Timeout BYE | **FAIL** | **PENDING** |
+| call_sec >= 300 | **FAIL** (32) | **PENDING** |
 
-**Overall: FAIL — root cause identified: ACK is not dialog-compliant.**
+**Overall: FAIL (pre-fix proven) — post-fix validation PENDING.**
+
+Kamailio redeployed healthy at 2026-07-28 ~05:42 UTC (`478cf12`). Capture window `20260728T054246Z` (420s) had no qualifying PSTN calls on Grandstream IP filter; run `rc1-evidence/capture-teardown.sh` while holding Grandstream → PSTN and Zoiper → PSTN for ≥5 minutes each.
