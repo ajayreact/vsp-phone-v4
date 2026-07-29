@@ -88,7 +88,7 @@ for k in keys:
         match='YES' if v200==vack else 'NO'
     elif k=='CSeq' and v200 and vack:
         n200=v200.split()[0]; nack=vack.split()[0]
-        match='YES' if n200==nack and 'ACK' in vack else 'NO'
+        match='YES' if n200==nack and 'ACK' in vack else f'NO ({n200}!={nack})'
     elif k=='Route' and ok200 and ack:
         rr=list(reversed(ok200['f'].get('Record-Route',[])))
         ar=ack['f'].get('Route',[])
@@ -96,4 +96,7 @@ for k in keys:
     print(f"{k:<16} {req:<40} {str(v200)[:40]:<40} {str(vack)[:40]:<40} {match}")
 if not ok200: print('ERROR: no carrier 200 OK found', file=sys.stderr); sys.exit(1)
 if not ack: print('ERROR: no post-200 ACK found', file=sys.stderr); sys.exit(1)
+print('=== RESULT ===')
+print('carrier_200_OK: found')
+print('post_200_ack: found')
 PY

@@ -29,7 +29,7 @@ fi
 
 log "=== Kamailio ACK trace ==="
 docker logs --since "$((SEC + 60))"s vsp-kamailio 2>&1 \
-  | grep -E 'desk carrier reply normalized|carrier dialog stored|carrier ack cseq stored|carrier phone ACK relay|carrier phone ACK absorbed|carrier encoded Contact|carrier 200 OK|BYE received|carrier ACK TX' \
+  | grep -E 'desk carrier reply normalized|carrier dialog stored|carrier ack cseq stored|carrier phone ACK relay|carrier phone ACK absorbed|carrier encoded Contact|carrier 200 OK|carrier ACK route applied|BYE received|carrier ACK TX' \
   | tee "$OUT/kamailio-ack.log" || true
 
 log "=== Telnyx CDR ==="
@@ -82,11 +82,13 @@ log "=== PASS/FAIL heuristic ==="
   echo "out=$OUT"
   echo "desk_normalize=$(grep -c 'desk carrier reply normalized' "$OUT/kamailio-ack.log" 2>/dev/null || echo 0)"
   echo "phone_ack_relay=$(grep -c 'carrier phone ACK relay' "$OUT/kamailio-ack.log" 2>/dev/null || echo 0)"
+  echo "ack_route_hops=$(grep -oE 'carrier ACK route applied count=[0-9]+' "$OUT/kamailio-ack.log" 2>/dev/null | tail -1 || echo none)"
   echo "orphan_ack_tx=$(grep -c 'carrier ACK TX' "$OUT/kamailio-ack.log" 2>/dev/null || echo 0)"
   echo "bye_ack_timeout=$(grep -c 'ACK Timeout' "$OUT/ack-wire.txt" 2>/dev/null || echo 0)"
   CDR_SEC=$(head -1 "$OUT/cdr.txt" 2>/dev/null | awk '{print $1}' || echo 0)
   echo "latest_cdr_call_sec=$CDR_SEC"
   if grep -q 'carrier phone ACK relay' "$OUT/kamailio-ack.log" 2>/dev/null \
+      && grep -qE 'carrier ACK route applied count=[2-9]' "$OUT/kamailio-ack.log" 2>/dev/null \
       && [[ "${CDR_SEC:-0}" -ge 300 ]] 2>/dev/null \
       && [[ "$(grep -c 'ACK Timeout' "$OUT/ack-wire.txt" 2>/dev/null || echo 0)" -eq 0 ]]; then
     echo "result=PASS"

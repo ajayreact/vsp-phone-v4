@@ -385,10 +385,16 @@ run_phase_8() {
   fi
 
   local ok=1
-  if grep -qi 'FAIL.*32' "$OUT/phase8-validate-32s.log" 2>/dev/null; then
+  if grep -qi 'FAIL.*32\|result=PENDING_OR_FAIL' "$OUT/phase8-validate-32s.log" 2>/dev/null; then
     ok=0
   fi
-  if grep -qi 'PASS.*600\|PASS.*hold' "$OUT/phase8-validate-32s.log" 2>/dev/null; then
+  if grep -q 'carrier phone ACK relay' "$OUT/phase8-validate-32s.log" 2>/dev/null \
+     && grep -qE 'carrier ACK route applied count=[2-9]' "$OUT/phase8-validate-32s.log" 2>/dev/null; then
+    pass "Phase 8 ACK relay logs (route count ≥2)"
+  else
+    warn "Phase 8 — missing carrier ACK route applied count=2 in logs"
+  fi
+  if grep -qi 'result=PASS' "$OUT/phase8-validate-32s.log" 2>/dev/null; then
     ok=1
   fi
   gate 8 "$ok" "Outbound PSTN call (≥10 min hold, no T+32s BYE)"

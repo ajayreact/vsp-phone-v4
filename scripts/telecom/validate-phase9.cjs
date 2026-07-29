@@ -49,8 +49,13 @@ else ok('platformUuid via extra_id_pv');
 if (!kam.includes('ICE=force') || !kam.includes('DTLS=passive')) {
   fail('WebRTC ICE/DTLS flags missing');
 } else ok('WebRTC ICE relay + DTLS passive flags');
-if (!kam.includes('SDES=on')) fail('SRTP SDES flag missing');
-else ok('SRTP SDES=on for internal SIP');
+if (!kam.includes('SIP-source-address')) fail('desk NAT SIP-source-address flag missing');
+else ok('desk NAT SIP-source-address');
+if (!kam.includes('direction=internal') || !kam.includes('direction=external')) {
+  fail('rtpengine leg direction=internal/external labels missing');
+} else ok('rtpengine B2BUA leg direction labels');
+if (!kam.includes('RTP/AVP')) fail('RTP/AVP profile missing');
+else ok('RTP/AVP media profile');
 if (!kam.includes('rtpe_puuid')) fail('htable rtpe_puuid correlation missing');
 else ok('htable platformUuid by Call-ID');
 if (!kam.includes('route[INVITE]') || !kam.includes('routing/resolve')) {

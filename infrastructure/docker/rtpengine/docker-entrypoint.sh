@@ -34,6 +34,8 @@ cp "${CONF}" "${RUNTIME_CONF}"
 if [ -n "${RTPENGINE_ADVERTISE:-}" ]; then
   sed -i "s|^interface = .*|interface = internal/eth0!${RTPENGINE_ADVERTISE}|" "${RUNTIME_CONF}"
   echo "[rtpengine] advertised public address ${RTPENGINE_ADVERTISE}"
+elif [ "${REQUIRE}" = "1" ] || [ "${REQUIRE}" = "true" ]; then
+  echo "[rtpengine] WARNING: RTPENGINE_ADVERTISE unset — desk SDP c= may use private IP (0 RTP from NAT phones)"
 fi
 
 if [ -n "${RTPENGINE_LOG_LEVEL:-}" ]; then
