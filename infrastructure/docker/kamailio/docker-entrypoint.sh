@@ -88,6 +88,12 @@ ESC_DOMAIN=$(printf '%s' "${DESK_CONTACT_DOMAIN}" | sed 's/[\\/&|]/\\&/g')
 sed -i "s|__SIP_REGISTRAR_HOST__|${ESC_DOMAIN}|g" "${CFG}"
 echo "[kamailio] desk Contact domain=${DESK_CONTACT_DOMAIN}"
 
+# Private host bind address for forced ACK egress (EC2 eth0, e.g. 172.31.39.116).
+SIP_BIND_ADDR="${SIP_BIND_ADDR:-0.0.0.0}"
+ESC_BIND=$(printf '%s' "${SIP_BIND_ADDR}" | sed 's/[\\/&|]/\\&/g')
+sed -i "s|__SIP_BIND_IP__|${ESC_BIND}|g" "${CFG}"
+echo "[kamailio] SIP bind address for carrier ACK fs=${SIP_BIND_ADDR}"
+
 # Remediation H-06 — usrloc persistence mode
 case "${USRLOC_MODE}" in
   postgres)
