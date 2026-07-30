@@ -468,6 +468,44 @@ def main() -> int:
         lines.append("No header/SDP differences at aligned milestones (or both sides missing same messages).")
     lines.append("")
 
+    # Architecture / ACK ownership (B2BUA gate)
+    lines.append("## Architecture — ACK ownership")
+    lines.append("| Check | Reference (Asterisk) | Kamailio | Required |")
+    lines.append("|-------|----------------------|----------|----------|")
+    ref_ack = ref_ms.get("carrier_ack")
+    kam_ack = kam_ms.get("carrier_ack")
+    ref_200 = ref_ms.get("carrier_200")
+    kam_200 = kam_ms.get("carrier_200")
+    lines.append(
+        f"| carrier_ack present | {'YES' if ref_ack else 'NO'} | {'YES' if kam_ack else 'NO'} | YES |"
+    )
+    def _ack_delta(m200, mack):
+        if not m200 or not mack:
+            return "n/a"
+        try:
+            from datetime import datetime
+            fmt = "%Y-%m-%d %H:%M:%S.%f"
+            t0 = datetime.strptime(m200.ts[:26], fmt)
+            t1 = datetime.strptime(mack.ts[:26], fmt)
+            return f"{(t1-t0).total_seconds()*1000:.1f} ms"
+        except Exception:
+            return "parse-error"
+    lines.append(
+        f"| 200→ACK latency | {_ack_delta(ref_200, ref_ack)} | {_ack_delta(kam_200, kam_ack)} | <50 ms (UAC) |"
+    )
+    ref_cid = ref_ack.field("Call-ID") if ref_ack else (ref_200.field("Call-ID") if ref_200 else "")
+    desk_inv = kam_ms.get("desk_invite")
+    kam_carrier_cid = kam_ack.field("Call-ID") if kam_ack else (kam_200.field("Call-ID") if kam_200 else "")
+    desk_cid = desk_inv.field("Call-ID") if desk_inv else ""
+    split = "YES" if desk_cid and kam_carrier_cid and desk_cid != kam_carrier_cid else ("NO (same Call-ID hybrid)" if desk_cid else "n/a")
+    lines.append(f"| Separate Call-ID per leg | YES (B2BUA) | {split} | YES for true B2BUA |")
+    lines.append("")
+    lines.append(
+        "**Gate:** Kamailio must emit carrier ACK as local UAC (~1 ms after 200), "
+        "independent of Grandstream desk ACK — matching Asterisk."
+    )
+    lines.append("")
+
     lines.append("## Full diff table")
     for fld, ref_v, kam_v, note in all_diffs:
         lines.append(f"### {fld}")
