@@ -96,7 +96,19 @@ for k in keys:
     print(f"{k:<16} {req:<40} {str(v200)[:40]:<40} {str(vack)[:40]:<40} {match}")
 if not ok200: print('ERROR: no carrier 200 OK found', file=sys.stderr); sys.exit(1)
 if not ack: print('ERROR: no post-200 ACK found', file=sys.stderr); sys.exit(1)
+# Next-hop check: Asterisk/Telnyx require UDP dst = first Route hop (192.76.120.10), not R-URI-only.
+ack_ip = ack.get('ip','')
+next_hop_ok = '192.76.120.10' in ack_ip and '> 192.76.120.10' in ack_ip.replace(' ', '')
+# tcpdump style: "172.31.x.x.5060 > 192.76.120.10.5060"
+if '> 192.76.120.10' not in ack_ip and ' > 192.76.120.10' not in ack_ip:
+    next_hop_ok = '192.76.120.10' in ack_ip.split('>')[-1] if '>' in ack_ip else False
+else:
+    next_hop_ok = True
 print('=== RESULT ===')
 print('carrier_200_OK: found')
 print('post_200_ack: found')
+print(f"ack_udp_next_hop: {ack_ip}")
+print(f"ack_next_hop_telnyx_sbc: {'PASS' if next_hop_ok else 'FAIL — must be 192.76.120.10 (RFC3261 loose route / Asterisk ref)'}")
+if not next_hop_ok:
+    sys.exit(2)
 PY
