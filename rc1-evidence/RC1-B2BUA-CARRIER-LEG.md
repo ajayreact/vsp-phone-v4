@@ -1,6 +1,10 @@
 # RC1 — True B2BUA Carrier Leg (Asterisk-Identical)
 
 **Status:** IMPLEMENTED in `infrastructure/kamailio/kamailio.cfg`  
+
+**2026-07-30 fix:** Desk “Internal Server Error” was TM fallback 500 after `uac_req_send` 407 —
+`$uac_req(auser/apasswd)` required for auto-auth (not `uac_auth`+`t_relay`); fail codes must
+be int via htable across `t_continue` (`get_int_fparam` on string → 500).  
 **Date:** 2026-07-30  
 **Directive:** No further proxy ACK header patches — ACK ownership is architectural.
 

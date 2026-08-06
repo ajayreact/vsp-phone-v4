@@ -1,2 +1,5 @@
 # Raw production log captures contain serviceAuth tokens and SIP digest responses.
 *-live.txt
+
+# Validation capture runs (ADR-045): pcaps and container logs, generated on the host.
+adr045-runs/

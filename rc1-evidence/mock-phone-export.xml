@@ -1,0 +1,24 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<gs_provision version="1">
+  <mac>ec74d751e3e7</mac>
+  <config version="1">
+    <P1>NJCS2Bl1SyLc8Q</P1>
+    <P64>auto</P64>
+    <P212>2</P212>
+    <P8463>1</P8463>
+    <P237>https://prov.vspphone.com/gs/ec74d751e3e7/cfg.xml</P237>
+    <P192>https://prov.vspphone.com/fw/grp261x/1.0.5.12/grp261x-fw.bin</P192>
+    <P271>1</P271>
+    <P270>Ajay 100</P270>
+    <P31>1</P31>
+    <P35>100</P35>
+    <P36>100</P36>
+    <P34>LihmIeoBHZrHaymGn_EMOw</P34>
+    <P47>sip.vspphone.com</P47>
+    <P48></P48>
+    <P139>5060</P139>
+    <P40>5060</P40>
+    <P130>0</P130>
+    <P3>Ajay 100</P3>
+  </config>
+</gs_provision>

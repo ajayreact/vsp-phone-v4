@@ -1,0 +1,1118 @@
+﻿=== FULL SIP LADDER (carrier + phone legs) ===
+
+--- [PHONE] 2026-07-27 07:03:21.287908 122.177.247.143.23098 > 172.31.39.116.5060 ---
+INVITE sip:17045502033@sip.vspphone.com SIP/2.0
+Via: SIP/2.0/UDP 122.177.247.143:23098;rport;branch=z9hG4bK261939462
+Route: <sip:sip.vspphone.com;lr>
+From: "Ajay 100" <sip:100@sip.vspphone.com>;tag=4567312
+To: <sip:17045502033@sip.vspphone.com>
+Call-ID: 1938501546-17916-2@BCC.BHH.CEH.BED
+CSeq: 10 INVITE
+Contact: "Ajay 100" <sip:100@122.177.247.143:23098>
+X-Grandstream-PBX: true
+Max-Forwards: 70
+User-Agent: Grandstream GRP2601 1.0.7.11
+Privacy: none
+P-Preferred-Identity: "Ajay 100" <sip:100@sip.vspphone.com>
+P-Access-Network-Info: IEEE-EUI-48;eui-48-addr=FC-22-F4-2A-91-C6
+P-Emergency-Info: IEEE-EUI-48;eui-48-addr=EC-74-D7-51-E3-E7
+Supported: replaces,path
+Allow: INVITE,ACK,OPTIONS,CANCEL,BYE,SUBSCRIBE,NOTIFY,INFO,REFER,UPDATE,MESSAGE
+Accept: application/sdp,application/dtmf-relay
+Content-Type: application/sdp
+Content-Length: 611
+
+
+--- [PHONE] 2026-07-27 07:03:21.288270 172.31.39.116.5060 > 122.177.247.143.23098 ---
+SIP/2.0 100 Trying
+Via: SIP/2.0/UDP 122.177.247.143:23098;rport=23098;received=122.177.247.143;branch=z9hG4bK261939462
+From: "Ajay 100" <sip:100@sip.vspphone.com>;tag=4567312
+To: <sip:17045502033@sip.vspphone.com>
+Call-ID: 1938501546-17916-2@BCC.BHH.CEH.BED
+CSeq: 10 INVITE
+Server: VSP-Phone-v4
+Content-Length: 0
+
+
+--- [CARRIER] 2026-07-27 07:03:21.380540 172.31.39.116.5060 > 192.76.120.10.5060 ---
+INVITE sip:+17045502033@sip.telnyx.com SIP/2.0
+.....Z..INVITE sip:+17045502033@sip.telnyx.com SIP/2.0
+Record-Route: <sip:32.196.41.160;lr=on;ftag=4567312;vsf=AAAAABoBA3FAX0UeQEFJQigcBxUAFRwdcGhvbmUuY29t;did=46c.aa02>
+Via: SIP/2.0/UDP 32.196.41.160:5060;branch=z9hG4bK2835.42cf217bfb6f45f56494794567da98d4.0
+Via: SIP/2.0/UDP 122.177.247.143:23098;received=122.177.247.143;rport=23098;branch=z9hG4bK261939462
+Route: <sip:sip.vspphone.com;lr>
+From:  <sip:+13136506292@sip.vspphone.com>;tag=4567312
+To: <sip:17045502033@sip.vspphone.com>
+Call-ID: 1938501546-17916-2@BCC.BHH.CEH.BED
+CSeq: 10 INVITE
+Contact: "Ajay 100" <sip:100@122.177.247.143:23098>
+X-Grandstream-PBX: true
+Max-Forwards: 69
+User-Agent: Grandstream GRP2601 1.0.7.11
+Privacy: none
+P-Access-Network-Info: IEEE-EUI-48;eui-48-addr=FC-22-F4-2A-91-C6
+P-Emergency-Info: IEEE-EUI-48;eui-48-addr=EC-74-D7-51-E3-E7
+Supported: replaces,path
+Allow: INVITE,ACK,OPTIONS,CANCEL,BYE,SUBSCRIBE,NOTIFY,INFO,REFER,UPDATE,MESSAGE
+Accept: application/sdp,application/dtmf-relay
+Content-Type: application/sdp
+Content-Length: 629
+X-VSP-Platform-UUID: d9ffffc5-4c1a-4966-9f96-6c501088f190
+P-Asserted-Identity: <sip:+13136506292@sip.vspphone.com>
+Remote-Party-ID: <sip:+13136506292@sip.vspphone.com>;party=calling;screen=yes;privacy=off
+
+
+--- [CARRIER] 2026-07-27 07:03:21.422470 192.76.120.10.5060 > 172.31.39.116.5060 ---
+SIP/2.0 100 Telnyx Trying
+..'t........SIP/2.0 100 Telnyx Trying
+Via: SIP/2.0/UDP 32.196.41.160:5060;branch=z9hG4bK2835.42cf217bfb6f45f56494794567da98d4.0;rport=5060
+Via: SIP/2.0/UDP 122.177.247.143:23098;received=122.177.247.143;rport=23098;branch=z9hG4bK261939462
+From:  <sip:+13136506292@sip.vspphone.com>;tag=4567312
+To: <sip:17045502033@sip.vspphone.com>
+Call-ID: 1938501546-17916-2@BCC.BHH.CEH.BED
+CSeq: 10 INVITE
+Server: Telnyx SIP Proxy
+Content-Length: 0
+
+
+--- [CARRIER] 2026-07-27 07:03:21.587010 192.76.120.10.5060 > 172.31.39.116.5060 ---
+SIP/2.0 407 Proxy Authentication Required
+..'t.....,..SIP/2.0 407 Proxy Authentication Required
+Via: SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9hG4bK2835.42cf217bfb6f45f56494794567da98d4.0
+Via: SIP/2.0/UDP 122.177.247.143:23098;received=122.177.247.143;rport=23098;branch=z9hG4bK261939462
+From: <sip:+13136506292@sip.vspphone.com>;tag=4567312
+To: <sip:17045502033@sip.vspphone.com>;tag=QjKQZBXeBr5rH
+Call-ID: 1938501546-17916-2@BCC.BHH.CEH.BED
+CSeq: 10 INVITE
+Accept: application/sdp
+Allow: INVITE, ACK, BYE, CANCEL, OPTIONS, MESSAGE, INFO, UPDATE, REFER, NOTIFY
+Supported: path
+Allow-Events: talk, hold, conference, refer
+Proxy-Authenticate: Digest realm="sip.vspphone.com", nonce="9e49f87f-3a6f-46b7-8c8e-d39e5f7b692e", algorithm=MD5, qop="auth", opaque="325a9776-4686-4a85-8a71-e85291d7d850/10.239.196.24/df4e4c5"
+Content-Length: 0
+
+
+--- [CARRIER] 2026-07-27 07:03:21.590092 172.31.39.116.5060 > 192.76.120.10.5060 ---
+ACK sip:+17045502033@sip.telnyx.com SIP/2.0
+........ACK sip:+17045502033@sip.telnyx.com SIP/2.0
+Via: SIP/2.0/UDP 32.196.41.160:5060;branch=z9hG4bK2835.42cf217bfb6f45f56494794567da98d4.0
+Route: <sip:sip.vspphone.com;lr>
+From:  <sip:+13136506292@sip.vspphone.com>;tag=4567312
+To: <sip:17045502033@sip.vspphone.com>;tag=QjKQZBXeBr5rH
+Call-ID: 1938501546-17916-2@BCC.BHH.CEH.BED
+CSeq: 10 ACK
+Max-Forwards: 69
+Content-Length: 0
+
+
+--- [CARRIER] 2026-07-27 07:03:21.590321 172.31.39.116.5060 > 192.76.120.10.5060 ---
+INVITE sip:+17045502033@sip.telnyx.com SIP/2.0
+.......lINVITE sip:+17045502033@sip.telnyx.com SIP/2.0
+Record-Route: <sip:32.196.41.160;lr=on;ftag=4567312;vsf=AAAAABoBA3FAX0UeQEFJQigcBxUAFRwdcGhvbmUuY29t;did=46c.aa02>
+Via: SIP/2.0/UDP 32.196.41.160:5060;branch=z9hG4bK2835.42cf217bfb6f45f56494794567da98d4.1.cs10
+Via: SIP/2.0/UDP 122.177.247.143:23098;received=122.177.247.143;rport=23098;branch=z9hG4bK261939462
+Route: <sip:sip.vspphone.com;lr>
+From:  <sip:+13136506292@sip.vspphone.com>;tag=4567312
+To: <sip:17045502033@sip.vspphone.com>
+Call-ID: 1938501546-17916-2@BCC.BHH.CEH.BED
+CSeq: 11 INVITE
+Contact: "Ajay 100" <sip:100@122.177.247.143:23098>
+X-Grandstream-PBX: true
+Max-Forwards: 69
+User-Agent: Grandstream GRP2601 1.0.7.11
+Privacy: none
+P-Access-Network-Info: IEEE-EUI-48;eui-48-addr=FC-22-F4-2A-91-C6
+P-Emergency-Info: IEEE-EUI-48;eui-48-addr=EC-74-D7-51-E3-E7
+Supported: replaces,path
+Allow: INVITE,ACK,OPTIONS,CANCEL,BYE,SUBSCRIBE,NOTIFY,INFO,REFER,UPDATE,MESSAGE
+Accept: application/sdp,application/dtmf-relay
+Content-Type: application/sdp
+Content-Length: 629
+X-VSP-Platform-UUID: d9ffffc5-4c1a-4966-9f96-6c501088f190
+P-Asserted-Identity: <sip:+13136506292@sip.vspphone.com>
+Remote-Party-ID: <sip:+13136506292@sip.vspphone.com>;party=calling;screen=yes;privacy=off
+Proxy-Authorization: Digest username="userinfo26316", realm="sip.vspphone.com", nonce="9e49f87f-3a6f-46b7-8c8e-d39e5f7b692e", uri="sip:+17045502033@sip.telnyx.com", opaque="325a9776-4686-4a85-8a71-e85291d7d850/10.239.196.24/
+
+--- [CARRIER] 2026-07-27 07:03:21.632413 192.76.120.10.5060 > 172.31.39.116.5060 ---
+SIP/2.0 100 Telnyx Trying
+..'t......U.SIP/2.0 100 Telnyx Trying
+Via: SIP/2.0/UDP 32.196.41.160:5060;branch=z9hG4bK2835.42cf217bfb6f45f56494794567da98d4.1.cs10;rport=5060
+Via: SIP/2.0/UDP 122.177.247.143:23098;received=122.177.247.143;rport=23098;branch=z9hG4bK261939462
+From:  <sip:+13136506292@sip.vspphone.com>;tag=4567312
+To: <sip:17045502033@sip.vspphone.com>
+Call-ID: 1938501546-17916-2@BCC.BHH.CEH.BED
+CSeq: 11 INVITE
+Server: Telnyx SIP Proxy
+Content-Length: 0
+
+
+--- [CARRIER] 2026-07-27 07:03:22.469838 192.76.120.10.5060 > 172.31.39.116.5060 ---
+SIP/2.0 183 Session Progress
+..'t.....i./SIP/2.0 183 Session Progress
+Via: SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9hG4bK2835.42cf217bfb6f45f56494794567da98d4.1.cs10
+Via: SIP/2.0/UDP 122.177.247.143:23098;received=122.177.247.143;rport=23098;branch=z9hG4bK261939462
+Record-Route: <sip:10.255.0.1;r2=on;lr;ftag=4567312>
+Record-Route: <sip:192.76.120.10;r2=on;lr;ftag=4567312>
+Record-Route: <sip:32.196.41.160;lr=on;ftag=4567312;vsf=AAAAABoBA3FAX0UeQEFJQigcBxUAFRwdcGhvbmUuY29t;did=46c.aa02>
+From: <sip:+13136506292@sip.vspphone.com>;tag=4567312
+To: <sip:17045502033@sip.vspphone.com>;tag=rUcg16Dj80UBD
+Call-ID: 1938501546-17916-2@BCC.BHH.CEH.BED
+CSeq: 11 INVITE
+Contact: <sip:telnyx*17045502033**10.239.196.24*5070*udp@telnyx.com>
+Accept: application/sdp
+Allow: INVITE, ACK, BYE, CANCEL, OPTIONS, MESSAGE, INFO, UPDATE, REFER, NOTIFY
+Supported: path
+Allow-Events: talk, hold, conference, refer
+Content-Type: application/sdp
+Content-Disposition: session
+Content-Length: 302
+X-Telnyx-Session-ID: 40df409e-8989-11f1-919f-02420aef3b1f
+X-Telnyx-Leg-ID: 40df45c6-8989-11f1-a048-02420aef3b1f
+
+
+--- [PHONE] 2026-07-27 07:03:22.474741 172.31.39.116.5060 > 122.177.247.143.23098 ---
+SIP/2.0 183 Session Progress
+Via: SIP/2.0/UDP 122.177.247.143:23098;received=122.177.247.143;rport=23098;branch=z9hG4bK261939462
+From: "Ajay 100" <sip:100@sip.vspphone.com>;tag=4567312
+To: <sip:17045502033@sip.vspphone.com>;tag=rUcg16Dj80UBD
+Call-ID: 1938501546-17916-2@BCC.BHH.CEH.BED
+CSeq: 10 INVITE
+Contact: <sip:telnyx*17045502033**10.239.196.24*5070*udp@telnyx.com>
+Accept: application/sdp
+Allow: INVITE, ACK, BYE, CANCEL, OPTIONS, MESSAGE, INFO, UPDATE, REFER, NOTIFY
+Supported: path
+Allow-Events: talk, hold, conference, refer
+Content-Type: application/sdp
+Content-Disposition: session
+Content-Length: 284
+X-Telnyx-Session-ID: 40df409e-8989-11f1-919f-02420aef3b1f
+X-Telnyx-Leg-ID: 40df45c6-8989-11f1-a048-02420aef3b1f
+
+
+--- [CARRIER] 2026-07-27 07:03:39.544634 192.76.120.10.5060 > 172.31.39.116.5060 ---
+SIP/2.0 200 OK
+..'t.......GSIP/2.0 200 OK
+Via: SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9hG4bK2835.42cf217bfb6f45f56494794567da98d4.1.cs10
+Via: SIP/2.0/UDP 122.177.247.143:23098;received=122.177.247.143;rport=23098;branch=z9hG4bK261939462
+Record-Route: <sip:10.255.0.1;r2=on;lr;ftag=4567312>
+Record-Route: <sip:192.76.120.10;r2=on;lr;ftag=4567312>
+Record-Route: <sip:32.196.41.160;lr=on;ftag=4567312;vsf=AAAAABoBA3FAX0UeQEFJQigcBxUAFRwdcGhvbmUuY29t;did=46c.aa02>
+From: <sip:+13136506292@sip.vspphone.com>;tag=4567312
+To: <sip:17045502033@sip.vspphone.com>;tag=rUcg16Dj80UBD
+Call-ID: 1938501546-17916-2@BCC.BHH.CEH.BED
+CSeq: 11 INVITE
+Contact: <sip:telnyx*17045502033**10.239.196.24*5070*udp@telnyx.com>
+Allow: INVITE, ACK, BYE, CANCEL, OPTIONS, MESSAGE, INFO, UPDATE, REFER, NOTIFY
+Supported: path
+Allow-Events: talk, hold, conference, refer
+Content-Type: application/sdp
+Content-Disposition: session
+Content-Length: 302
+
+
+--- [PHONE] 2026-07-27 07:03:39.548076 172.31.39.116.5060 > 122.177.247.143.23098 ---
+SIP/2.0 200 OK
+Via: SIP/2.0/UDP 122.177.247.143:23098;received=122.177.247.143;rport=23098;branch=z9hG4bK261939462
+From: "Ajay 100" <sip:100@sip.vspphone.com>;tag=4567312
+To: <sip:17045502033@sip.vspphone.com>;tag=rUcg16Dj80UBD
+Call-ID: 1938501546-17916-2@BCC.BHH.CEH.BED
+CSeq: 10 INVITE
+Contact: <sip:telnyx*17045502033**10.239.196.24*5070*udp@telnyx.com>
+Allow: INVITE, ACK, BYE, CANCEL, OPTIONS, MESSAGE, INFO, UPDATE, REFER, NOTIFY
+Supported: path
+Allow-Events: talk, hold, conference, refer
+Content-Type: application/sdp
+Content-Disposition: session
+Content-Length: 284
+
+
+--- [CARRIER] 2026-07-27 07:03:40.044983 192.76.120.10.5060 > 172.31.39.116.5060 ---
+SIP/2.0 200 OK
+..'t.......GSIP/2.0 200 OK
+Via: SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9hG4bK2835.42cf217bfb6f45f56494794567da98d4.1.cs10
+Via: SIP/2.0/UDP 122.177.247.143:23098;received=122.177.247.143;rport=23098;branch=z9hG4bK261939462
+Record-Route: <sip:10.255.0.1;r2=on;lr;ftag=4567312>
+Record-Route: <sip:192.76.120.10;r2=on;lr;ftag=4567312>
+Record-Route: <sip:32.196.41.160;lr=on;ftag=4567312;vsf=AAAAABoBA3FAX0UeQEFJQigcBxUAFRwdcGhvbmUuY29t;did=46c.aa02>
+From: <sip:+13136506292@sip.vspphone.com>;tag=4567312
+To: <sip:17045502033@sip.vspphone.com>;tag=rUcg16Dj80UBD
+Call-ID: 1938501546-17916-2@BCC.BHH.CEH.BED
+CSeq: 11 INVITE
+Contact: <sip:telnyx*17045502033**10.239.196.24*5070*udp@telnyx.com>
+Allow: INVITE, ACK, BYE, CANCEL, OPTIONS, MESSAGE, INFO, UPDATE, REFER, NOTIFY
+Supported: path
+Allow-Events: talk, hold, conference, refer
+Content-Type: application/sdp
+Content-Disposition: session
+Content-Length: 302
+
+
+--- [PHONE] 2026-07-27 07:03:40.048867 172.31.39.116.5060 > 122.177.247.143.23098 ---
+SIP/2.0 200 OK
+Via: SIP/2.0/UDP 122.177.247.143:23098;received=122.177.247.143;rport=23098;branch=z9hG4bK261939462
+From: "Ajay 100" <sip:100@sip.vspphone.com>;tag=4567312
+To: <sip:17045502033@sip.vspphone.com>;tag=rUcg16Dj80UBD
+Call-ID: 1938501546-17916-2@BCC.BHH.CEH.BED
+CSeq: 10 INVITE
+Contact: <sip:telnyx*17045502033**10.239.196.24*5070*udp@telnyx.com>
+Allow: INVITE, ACK, BYE, CANCEL, OPTIONS, MESSAGE, INFO, UPDATE, REFER, NOTIFY
+Supported: path
+Allow-Events: talk, hold, conference, refer
+Content-Type: application/sdp
+Content-Disposition: session
+Content-Length: 284
+
+
+--- [CARRIER] 2026-07-27 07:03:41.044801 192.76.120.10.5060 > 172.31.39.116.5060 ---
+SIP/2.0 200 OK
+..'t.......GSIP/2.0 200 OK
+Via: SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9hG4bK2835.42cf217bfb6f45f56494794567da98d4.1.cs10
+Via: SIP/2.0/UDP 122.177.247.143:23098;received=122.177.247.143;rport=23098;branch=z9hG4bK261939462
+Record-Route: <sip:10.255.0.1;r2=on;lr;ftag=4567312>
+Record-Route: <sip:192.76.120.10;r2=on;lr;ftag=4567312>
+Record-Route: <sip:32.196.41.160;lr=on;ftag=4567312;vsf=AAAAABoBA3FAX0UeQEFJQigcBxUAFRwdcGhvbmUuY29t;did=46c.aa02>
+From: <sip:+13136506292@sip.vspphone.com>;tag=4567312
+To: <sip:17045502033@sip.vspphone.com>;tag=rUcg16Dj80UBD
+Call-ID: 1938501546-17916-2@BCC.BHH.CEH.BED
+CSeq: 11 INVITE
+Contact: <sip:telnyx*17045502033**10.239.196.24*5070*udp@telnyx.com>
+Allow: INVITE, ACK, BYE, CANCEL, OPTIONS, MESSAGE, INFO, UPDATE, REFER, NOTIFY
+Supported: path
+Allow-Events: talk, hold, conference, refer
+Content-Type: application/sdp
+Content-Disposition: session
+Content-Length: 302
+
+
+--- [PHONE] 2026-07-27 07:03:41.048211 172.31.39.116.5060 > 122.177.247.143.23098 ---
+SIP/2.0 200 OK
+Via: SIP/2.0/UDP 122.177.247.143:23098;received=122.177.247.143;rport=23098;branch=z9hG4bK261939462
+From: "Ajay 100" <sip:100@sip.vspphone.com>;tag=4567312
+To: <sip:17045502033@sip.vspphone.com>;tag=rUcg16Dj80UBD
+Call-ID: 1938501546-17916-2@BCC.BHH.CEH.BED
+CSeq: 10 INVITE
+Contact: <sip:telnyx*17045502033**10.239.196.24*5070*udp@telnyx.com>
+Allow: INVITE, ACK, BYE, CANCEL, OPTIONS, MESSAGE, INFO, UPDATE, REFER, NOTIFY
+Supported: path
+Allow-Events: talk, hold, conference, refer
+Content-Type: application/sdp
+Content-Disposition: session
+Content-Length: 284
+
+
+--- [CARRIER] 2026-07-27 07:03:43.045867 192.76.120.10.5060 > 172.31.39.116.5060 ---
+SIP/2.0 200 OK
+..'t.......GSIP/2.0 200 OK
+Via: SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9hG4bK2835.42cf217bfb6f45f56494794567da98d4.1.cs10
+Via: SIP/2.0/UDP 122.177.247.143:23098;received=122.177.247.143;rport=23098;branch=z9hG4bK261939462
+Record-Route: <sip:10.255.0.1;r2=on;lr;ftag=4567312>
+Record-Route: <sip:192.76.120.10;r2=on;lr;ftag=4567312>
+Record-Route: <sip:32.196.41.160;lr=on;ftag=4567312;vsf=AAAAABoBA3FAX0UeQEFJQigcBxUAFRwdcGhvbmUuY29t;did=46c.aa02>
+From: <sip:+13136506292@sip.vspphone.com>;tag=4567312
+To: <sip:17045502033@sip.vspphone.com>;tag=rUcg16Dj80UBD
+Call-ID: 1938501546-17916-2@BCC.BHH.CEH.BED
+CSeq: 11 INVITE
+Contact: <sip:telnyx*17045502033**10.239.196.24*5070*udp@telnyx.com>
+Allow: INVITE, ACK, BYE, CANCEL, OPTIONS, MESSAGE, INFO, UPDATE, REFER, NOTIFY
+Supported: path
+Allow-Events: talk, hold, conference, refer
+Content-Type: application/sdp
+Content-Disposition: session
+Content-Length: 302
+
+
+--- [PHONE] 2026-07-27 07:03:43.052598 172.31.39.116.5060 > 122.177.247.143.23098 ---
+SIP/2.0 200 OK
+Via: SIP/2.0/UDP 122.177.247.143:23098;received=122.177.247.143;rport=23098;branch=z9hG4bK261939462
+From: "Ajay 100" <sip:100@sip.vspphone.com>;tag=4567312
+To: <sip:17045502033@sip.vspphone.com>;tag=rUcg16Dj80UBD
+Call-ID: 1938501546-17916-2@BCC.BHH.CEH.BED
+CSeq: 10 INVITE
+Contact: <sip:telnyx*17045502033**10.239.196.24*5070*udp@telnyx.com>
+Allow: INVITE, ACK, BYE, CANCEL, OPTIONS, MESSAGE, INFO, UPDATE, REFER, NOTIFY
+Supported: path
+Allow-Events: talk, hold, conference, refer
+Content-Type: application/sdp
+Content-Disposition: session
+Content-Length: 284
+
+
+--- [CARRIER] 2026-07-27 07:03:47.045209 192.76.120.10.5060 > 172.31.39.116.5060 ---
+SIP/2.0 200 OK
+..'t.......<SIP/2.0 200 OK
+Via: SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9hG4bK2835.42cf217bfb6f45f56494794567da98d4.1.cs10
+Via: SIP/2.0/UDP 122.177.247.143:23098;received=122.177.247.143;rport=23098;branch=z9hG4bK261939462
+Record-Route: <sip:10.255.0.1;r2=on;lr;ftag=4567312>
+Record-Route: <sip:192.76.120.10;r2=on;lr;ftag=4567312>
+Record-Route: <sip:32.196.41.160;lr=on;ftag=4567312;vsf=AAAAABoBA3FAX0UeQEFJQigcBxUAFRwdcGhvbmUuY29t;did=46c.aa02>
+From: <sip:+13136506292@sip.vspphone.com>;tag=4567312
+To: <sip:17045502033@sip.vspphone.com>;tag=rUcg16Dj80UBD
+Call-ID: 1938501546-17916-2@BCC.BHH.CEH.BED
+CSeq: 11 INVITE
+Contact: <sip:17045502033@10.239.196.24:5070;transport=udp>
+Allow: INVITE, ACK, BYE, CANCEL, OPTIONS, MESSAGE, INFO, UPDATE, REFER, NOTIFY
+Supported: path
+Allow-Events: talk, hold, conference, refer
+Content-Type: application/sdp
+Content-Disposition: session
+Content-Length: 302
+
+
+--- [PHONE] 2026-07-27 07:03:47.045805 172.31.39.116.5060 > 122.177.247.143.23098 ---
+SIP/2.0 200 OK
+Via: SIP/2.0/UDP 122.177.247.143:23098;received=122.177.247.143;rport=23098;branch=z9hG4bK261939462
+Record-Route: <sip:10.255.0.1;r2=on;lr;ftag=4567312>
+Record-Route: <sip:192.76.120.10;r2=on;lr;ftag=4567312>
+Record-Route: <sip:32.196.41.160;lr=on;ftag=4567312;vsf=AAAAABoBA3FAX0UeQEFJQigcBxUAFRwdcGhvbmUuY29t;did=46c.aa02>
+From: <sip:+13136506292@sip.vspphone.com>;tag=4567312
+To: <sip:17045502033@sip.vspphone.com>;tag=rUcg16Dj80UBD
+Call-ID: 1938501546-17916-2@BCC.BHH.CEH.BED
+CSeq: 10 INVITE
+Contact: <sip:17045502033@192.76.120.10:5060;transport=udp>
+Allow: INVITE, ACK, BYE, CANCEL, OPTIONS, MESSAGE, INFO, UPDATE, REFER, NOTIFY
+Supported: path
+Allow-Events: talk, hold, conference, refer
+Content-Type: application/sdp
+Content-Disposition: session
+Content-Length: 302
+
+
+--- [CARRIER] 2026-07-27 07:03:51.045251 192.76.120.10.5060 > 172.31.39.116.5060 ---
+SIP/2.0 200 OK
+..'t.......<SIP/2.0 200 OK
+Via: SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9hG4bK2835.42cf217bfb6f45f56494794567da98d4.1.cs10
+Via: SIP/2.0/UDP 122.177.247.143:23098;received=122.177.247.143;rport=23098;branch=z9hG4bK261939462
+Record-Route: <sip:10.255.0.1;r2=on;lr;ftag=4567312>
+Record-Route: <sip:192.76.120.10;r2=on;lr;ftag=4567312>
+Record-Route: <sip:32.196.41.160;lr=on;ftag=4567312;vsf=AAAAABoBA3FAX0UeQEFJQigcBxUAFRwdcGhvbmUuY29t;did=46c.aa02>
+From: <sip:+13136506292@sip.vspphone.com>;tag=4567312
+To: <sip:17045502033@sip.vspphone.com>;tag=rUcg16Dj80UBD
+Call-ID: 1938501546-17916-2@BCC.BHH.CEH.BED
+CSeq: 11 INVITE
+Contact: <sip:17045502033@10.239.196.24:5070;transport=udp>
+Allow: INVITE, ACK, BYE, CANCEL, OPTIONS, MESSAGE, INFO, UPDATE, REFER, NOTIFY
+Supported: path
+Allow-Events: talk, hold, conference, refer
+Content-Type: application/sdp
+Content-Disposition: session
+Content-Length: 302
+
+
+--- [PHONE] 2026-07-27 07:03:51.045603 172.31.39.116.5060 > 122.177.247.143.23098 ---
+SIP/2.0 200 OK
+Via: SIP/2.0/UDP 122.177.247.143:23098;received=122.177.247.143;rport=23098;branch=z9hG4bK261939462
+Record-Route: <sip:10.255.0.1;r2=on;lr;ftag=4567312>
+Record-Route: <sip:192.76.120.10;r2=on;lr;ftag=4567312>
+Record-Route: <sip:32.196.41.160;lr=on;ftag=4567312;vsf=AAAAABoBA3FAX0UeQEFJQigcBxUAFRwdcGhvbmUuY29t;did=46c.aa02>
+From: <sip:+13136506292@sip.vspphone.com>;tag=4567312
+To: <sip:17045502033@sip.vspphone.com>;tag=rUcg16Dj80UBD
+Call-ID: 1938501546-17916-2@BCC.BHH.CEH.BED
+CSeq: 10 INVITE
+Contact: <sip:17045502033@192.76.120.10:5060;transport=udp>
+Allow: INVITE, ACK, BYE, CANCEL, OPTIONS, MESSAGE, INFO, UPDATE, REFER, NOTIFY
+Supported: path
+Allow-Events: talk, hold, conference, refer
+Content-Type: application/sdp
+Content-Disposition: session
+Content-Length: 302
+
+
+--- [CARRIER] 2026-07-27 07:03:55.045163 192.76.120.10.5060 > 172.31.39.116.5060 ---
+SIP/2.0 200 OK
+..'t.......<SIP/2.0 200 OK
+Via: SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9hG4bK2835.42cf217bfb6f45f56494794567da98d4.1.cs10
+Via: SIP/2.0/UDP 122.177.247.143:23098;received=122.177.247.143;rport=23098;branch=z9hG4bK261939462
+Record-Route: <sip:10.255.0.1;r2=on;lr;ftag=4567312>
+Record-Route: <sip:192.76.120.10;r2=on;lr;ftag=4567312>
+Record-Route: <sip:32.196.41.160;lr=on;ftag=4567312;vsf=AAAAABoBA3FAX0UeQEFJQigcBxUAFRwdcGhvbmUuY29t;did=46c.aa02>
+From: <sip:+13136506292@sip.vspphone.com>;tag=4567312
+To: <sip:17045502033@sip.vspphone.com>;tag=rUcg16Dj80UBD
+Call-ID: 1938501546-17916-2@BCC.BHH.CEH.BED
+CSeq: 11 INVITE
+Contact: <sip:17045502033@10.239.196.24:5070;transport=udp>
+Allow: INVITE, ACK, BYE, CANCEL, OPTIONS, MESSAGE, INFO, UPDATE, REFER, NOTIFY
+Supported: path
+Allow-Events: talk, hold, conference, refer
+Content-Type: application/sdp
+Content-Disposition: session
+Content-Length: 302
+
+
+--- [PHONE] 2026-07-27 07:03:55.045511 172.31.39.116.5060 > 122.177.247.143.23098 ---
+SIP/2.0 200 OK
+Via: SIP/2.0/UDP 122.177.247.143:23098;received=122.177.247.143;rport=23098;branch=z9hG4bK261939462
+Record-Route: <sip:10.255.0.1;r2=on;lr;ftag=4567312>
+Record-Route: <sip:192.76.120.10;r2=on;lr;ftag=4567312>
+Record-Route: <sip:32.196.41.160;lr=on;ftag=4567312;vsf=AAAAABoBA3FAX0UeQEFJQigcBxUAFRwdcGhvbmUuY29t;did=46c.aa02>
+From: <sip:+13136506292@sip.vspphone.com>;tag=4567312
+To: <sip:17045502033@sip.vspphone.com>;tag=rUcg16Dj80UBD
+Call-ID: 1938501546-17916-2@BCC.BHH.CEH.BED
+CSeq: 10 INVITE
+Contact: <sip:17045502033@192.76.120.10:5060;transport=udp>
+Allow: INVITE, ACK, BYE, CANCEL, OPTIONS, MESSAGE, INFO, UPDATE, REFER, NOTIFY
+Supported: path
+Allow-Events: talk, hold, conference, refer
+Content-Type: application/sdp
+Content-Disposition: session
+Content-Length: 302
+
+
+--- [CARRIER] 2026-07-27 07:03:59.045505 192.76.120.10.5060 > 172.31.39.116.5060 ---
+SIP/2.0 200 OK
+..'t.......<SIP/2.0 200 OK
+Via: SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9hG4bK2835.42cf217bfb6f45f56494794567da98d4.1.cs10
+Via: SIP/2.0/UDP 122.177.247.143:23098;received=122.177.247.143;rport=23098;branch=z9hG4bK261939462
+Record-Route: <sip:10.255.0.1;r2=on;lr;ftag=4567312>
+Record-Route: <sip:192.76.120.10;r2=on;lr;ftag=4567312>
+Record-Route: <sip:32.196.41.160;lr=on;ftag=4567312;vsf=AAAAABoBA3FAX0UeQEFJQigcBxUAFRwdcGhvbmUuY29t;did=46c.aa02>
+From: <sip:+13136506292@sip.vspphone.com>;tag=4567312
+To: <sip:17045502033@sip.vspphone.com>;tag=rUcg16Dj80UBD
+Call-ID: 1938501546-17916-2@BCC.BHH.CEH.BED
+CSeq: 11 INVITE
+Contact: <sip:17045502033@10.239.196.24:5070;transport=udp>
+Allow: INVITE, ACK, BYE, CANCEL, OPTIONS, MESSAGE, INFO, UPDATE, REFER, NOTIFY
+Supported: path
+Allow-Events: talk, hold, conference, refer
+Content-Type: application/sdp
+Content-Disposition: session
+Content-Length: 302
+
+
+--- [PHONE] 2026-07-27 07:03:59.045827 172.31.39.116.5060 > 122.177.247.143.23098 ---
+SIP/2.0 200 OK
+Via: SIP/2.0/UDP 122.177.247.143:23098;received=122.177.247.143;rport=23098;branch=z9hG4bK261939462
+Record-Route: <sip:10.255.0.1;r2=on;lr;ftag=4567312>
+Record-Route: <sip:192.76.120.10;r2=on;lr;ftag=4567312>
+Record-Route: <sip:32.196.41.160;lr=on;ftag=4567312;vsf=AAAAABoBA3FAX0UeQEFJQigcBxUAFRwdcGhvbmUuY29t;did=46c.aa02>
+From: <sip:+13136506292@sip.vspphone.com>;tag=4567312
+To: <sip:17045502033@sip.vspphone.com>;tag=rUcg16Dj80UBD
+Call-ID: 1938501546-17916-2@BCC.BHH.CEH.BED
+CSeq: 10 INVITE
+Contact: <sip:17045502033@192.76.120.10:5060;transport=udp>
+Allow: INVITE, ACK, BYE, CANCEL, OPTIONS, MESSAGE, INFO, UPDATE, REFER, NOTIFY
+Supported: path
+Allow-Events: talk, hold, conference, refer
+Content-Type: application/sdp
+Content-Disposition: session
+Content-Length: 302
+
+
+--- [CARRIER] 2026-07-27 07:04:03.044885 192.76.120.10.5060 > 172.31.39.116.5060 ---
+SIP/2.0 200 OK
+.Lx
+..'t.......<SIP/2.0 200 OK
+Via: SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9hG4bK2835.42cf217bfb6f45f56494794567da98d4.1.cs10
+Via: SIP/2.0/UDP 122.177.247.143:23098;received=122.177.247.143;rport=23098;branch=z9hG4bK261939462
+Record-Route: <sip:10.255.0.1;r2=on;lr;ftag=4567312>
+Record-Route: <sip:192.76.120.10;r2=on;lr;ftag=4567312>
+Record-Route: <sip:32.196.41.160;lr=on;ftag=4567312;vsf=AAAAABoBA3FAX0UeQEFJQigcBxUAFRwdcGhvbmUuY29t;did=46c.aa02>
+From: <sip:+13136506292@sip.vspphone.com>;tag=4567312
+To: <sip:17045502033@sip.vspphone.com>;tag=rUcg16Dj80UBD
+Call-ID: 1938501546-17916-2@BCC.BHH.CEH.BED
+CSeq: 11 INVITE
+Contact: <sip:17045502033@10.239.196.24:5070;transport=udp>
+Allow: INVITE, ACK, BYE, CANCEL, OPTIONS, MESSAGE, INFO, UPDATE, REFER, NOTIFY
+Supported: path
+Allow-Events: talk, hold, conference, refer
+Content-Type: application/sdp
+Content-Disposition: session
+Content-Length: 302
+
+
+--- [PHONE] 2026-07-27 07:04:03.045194 172.31.39.116.5060 > 122.177.247.143.23098 ---
+SIP/2.0 200 OK
+Via: SIP/2.0/UDP 122.177.247.143:23098;received=122.177.247.143;rport=23098;branch=z9hG4bK261939462
+Record-Route: <sip:10.255.0.1;r2=on;lr;ftag=4567312>
+Record-Route: <sip:192.76.120.10;r2=on;lr;ftag=4567312>
+Record-Route: <sip:32.196.41.160;lr=on;ftag=4567312;vsf=AAAAABoBA3FAX0UeQEFJQigcBxUAFRwdcGhvbmUuY29t;did=46c.aa02>
+From: <sip:+13136506292@sip.vspphone.com>;tag=4567312
+To: <sip:17045502033@sip.vspphone.com>;tag=rUcg16Dj80UBD
+Call-ID: 1938501546-17916-2@BCC.BHH.CEH.BED
+CSeq: 10 INVITE
+Contact: <sip:17045502033@192.76.120.10:5060;transport=udp>
+Allow: INVITE, ACK, BYE, CANCEL, OPTIONS, MESSAGE, INFO, UPDATE, REFER, NOTIFY
+Supported: path
+Allow-Events: talk, hold, conference, refer
+Content-Type: application/sdp
+Content-Disposition: session
+Content-Length: 302
+
+
+--- [CARRIER] 2026-07-27 07:04:07.045092 192.76.120.10.5060 > 172.31.39.116.5060 ---
+SIP/2.0 200 OK
+..'t.......<SIP/2.0 200 OK
+Via: SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9hG4bK2835.42cf217bfb6f45f56494794567da98d4.1.cs10
+Via: SIP/2.0/UDP 122.177.247.143:23098;received=122.177.247.143;rport=23098;branch=z9hG4bK261939462
+Record-Route: <sip:10.255.0.1;r2=on;lr;ftag=4567312>
+Record-Route: <sip:192.76.120.10;r2=on;lr;ftag=4567312>
+Record-Route: <sip:32.196.41.160;lr=on;ftag=4567312;vsf=AAAAABoBA3FAX0UeQEFJQigcBxUAFRwdcGhvbmUuY29t;did=46c.aa02>
+From: <sip:+13136506292@sip.vspphone.com>;tag=4567312
+To: <sip:17045502033@sip.vspphone.com>;tag=rUcg16Dj80UBD
+Call-ID: 1938501546-17916-2@BCC.BHH.CEH.BED
+CSeq: 11 INVITE
+Contact: <sip:17045502033@10.239.196.24:5070;transport=udp>
+Allow: INVITE, ACK, BYE, CANCEL, OPTIONS, MESSAGE, INFO, UPDATE, REFER, NOTIFY
+Supported: path
+Allow-Events: talk, hold, conference, refer
+Content-Type: application/sdp
+Content-Disposition: session
+Content-Length: 302
+
+
+--- [PHONE] 2026-07-27 07:04:07.045454 172.31.39.116.5060 > 122.177.247.143.23098 ---
+SIP/2.0 200 OK
+Via: SIP/2.0/UDP 122.177.247.143:23098;received=122.177.247.143;rport=23098;branch=z9hG4bK261939462
+Record-Route: <sip:10.255.0.1;r2=on;lr;ftag=4567312>
+Record-Route: <sip:192.76.120.10;r2=on;lr;ftag=4567312>
+Record-Route: <sip:32.196.41.160;lr=on;ftag=4567312;vsf=AAAAABoBA3FAX0UeQEFJQigcBxUAFRwdcGhvbmUuY29t;did=46c.aa02>
+From: <sip:+13136506292@sip.vspphone.com>;tag=4567312
+To: <sip:17045502033@sip.vspphone.com>;tag=rUcg16Dj80UBD
+Call-ID: 1938501546-17916-2@BCC.BHH.CEH.BED
+CSeq: 10 INVITE
+Contact: <sip:17045502033@192.76.120.10:5060;transport=udp>
+Allow: INVITE, ACK, BYE, CANCEL, OPTIONS, MESSAGE, INFO, UPDATE, REFER, NOTIFY
+Supported: path
+Allow-Events: talk, hold, conference, refer
+Content-Type: application/sdp
+Content-Disposition: session
+Content-Length: 302
+
+
+--- [CARRIER] 2026-07-27 07:04:11.045029 192.76.120.10.5060 > 172.31.39.116.5060 ---
+SIP/2.0 200 OK
+..'t.......<SIP/2.0 200 OK
+Via: SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9hG4bK2835.42cf217bfb6f45f56494794567da98d4.1.cs10
+Via: SIP/2.0/UDP 122.177.247.143:23098;received=122.177.247.143;rport=23098;branch=z9hG4bK261939462
+Record-Route: <sip:10.255.0.1;r2=on;lr;ftag=4567312>
+Record-Route: <sip:192.76.120.10;r2=on;lr;ftag=4567312>
+Record-Route: <sip:32.196.41.160;lr=on;ftag=4567312;vsf=AAAAABoBA3FAX0UeQEFJQigcBxUAFRwdcGhvbmUuY29t;did=46c.aa02>
+From: <sip:+13136506292@sip.vspphone.com>;tag=4567312
+To: <sip:17045502033@sip.vspphone.com>;tag=rUcg16Dj80UBD
+Call-ID: 1938501546-17916-2@BCC.BHH.CEH.BED
+CSeq: 11 INVITE
+Contact: <sip:17045502033@10.239.196.24:5070;transport=udp>
+Allow: INVITE, ACK, BYE, CANCEL, OPTIONS, MESSAGE, INFO, UPDATE, REFER, NOTIFY
+Supported: path
+Allow-Events: talk, hold, conference, refer
+Content-Type: application/sdp
+Content-Disposition: session
+Content-Length: 302
+
+
+--- [PHONE] 2026-07-27 07:04:11.045296 172.31.39.116.5060 > 122.177.247.143.23098 ---
+SIP/2.0 200 OK
+Via: SIP/2.0/UDP 122.177.247.143:23098;received=122.177.247.143;rport=23098;branch=z9hG4bK261939462
+Record-Route: <sip:10.255.0.1;r2=on;lr;ftag=4567312>
+Record-Route: <sip:192.76.120.10;r2=on;lr;ftag=4567312>
+Record-Route: <sip:32.196.41.160;lr=on;ftag=4567312;vsf=AAAAABoBA3FAX0UeQEFJQigcBxUAFRwdcGhvbmUuY29t;did=46c.aa02>
+From: <sip:+13136506292@sip.vspphone.com>;tag=4567312
+To: <sip:17045502033@sip.vspphone.com>;tag=rUcg16Dj80UBD
+Call-ID: 1938501546-17916-2@BCC.BHH.CEH.BED
+CSeq: 10 INVITE
+Contact: <sip:17045502033@192.76.120.10:5060;transport=udp>
+Allow: INVITE, ACK, BYE, CANCEL, OPTIONS, MESSAGE, INFO, UPDATE, REFER, NOTIFY
+Supported: path
+Allow-Events: talk, hold, conference, refer
+Content-Type: application/sdp
+Content-Disposition: session
+Content-Length: 302
+
+
+--- [CARRIER] 2026-07-27 07:04:11.545107 192.76.120.10.5060 > 172.31.39.116.5060 ---
+BYE sip:100@122.177.247.143:23098 SIP/2.0
+..'t.......LBYE sip:100@122.177.247.143:23098 SIP/2.0
+Via: SIP/2.0/UDP 192.76.120.10;branch=z9hG4bK9482.3cc0d54dd3b603db09d4083804f9e9dc.0
+Via: SIP/2.0/UDP 10.239.196.24:5070;received=10.239.196.24;rport=5070;branch=z9hG4bKe0XSag2Dy998D
+Route: <sip:32.196.41.160;lr=on;ftag=4567312;vsf=AAAAABoBA3FAX0UeQEFJQigcBxUAFRwdcGhvbmUuY29t;did=46c.aa02>
+Max-Forwards: 69
+From: <sip:17045502033@sip.vspphone.com>;tag=rUcg16Dj80UBD
+To: <sip:+13136506292@sip.vspphone.com>;tag=4567312
+Call-ID: 1938501546-17916-2@BCC.BHH.CEH.BED
+CSeq: 118014133 BYE
+Contact: <sip:17045502033@10.239.196.24:5070;transport=udp>
+Allow: INVITE, ACK, BYE, CANCEL, OPTIONS, MESSAGE, INFO, UPDATE, REFER, NOTIFY
+Supported: path
+Reason: SIP;cause=408;text="ACK Timeout"
+Content-Length: 0
+
+
+--- [PHONE] 2026-07-27 07:04:11.552933 172.31.39.116.5060 > 122.177.247.143.23098 ---
+BYE sip:100@122.177.247.143:23098 SIP/2.0
+Via: SIP/2.0/UDP 32.196.41.160:5060;branch=z9hG4bK9482.8dbc89adee8f8cfe5426deee9764c24b.0
+Via: SIP/2.0/UDP 192.76.120.10;rport=5060;branch=z9hG4bK9482.3cc0d54dd3b603db09d4083804f9e9dc.0
+Via: SIP/2.0/UDP 10.239.196.24:5070;received=10.239.196.24;rport=5070;branch=z9hG4bKe0XSag2Dy998D
+Max-Forwards: 68
+From: <sip:17045502033@sip.vspphone.com>;tag=rUcg16Dj80UBD
+To: <sip:100@sip.vspphone.com>;tag=4567312
+Call-ID: 1938501546-17916-2@BCC.BHH.CEH.BED
+CSeq: 118014133 BYE
+Contact: <sip:17045502033@10.239.196.24:5070;transport=udp>
+Allow: INVITE, ACK, BYE, CANCEL, OPTIONS, MESSAGE, INFO, UPDATE, REFER, NOTIFY
+Supported: path
+Reason: SIP;cause=408;text="ACK Timeout"
+Content-Length: 0
+
+
+--- [PHONE] 2026-07-27 07:04:11.805971 122.177.247.143.23098 > 172.31.39.116.5060 ---
+SIP/2.0 200 OK
+Via: SIP/2.0/UDP 32.196.41.160:5060;branch=z9hG4bK9482.8dbc89adee8f8cfe5426deee9764c24b.0
+Via: SIP/2.0/UDP 192.76.120.10;rport=5060;branch=z9hG4bK9482.3cc0d54dd3b603db09d4083804f9e9dc.0
+Via: SIP/2.0/UDP 10.239.196.24:5070;received=10.239.196.24;rport=5070;branch=z9hG4bKe0XSag2Dy998D
+From: <sip:17045502033@sip.vspphone.com>;tag=rUcg16Dj80UBD
+To: <sip:100@sip.vspphone.com>;tag=4567312
+Call-ID: 1938501546-17916-2@BCC.BHH.CEH.BED
+CSeq: 118014133 BYE
+Contact: <sip:100@122.177.247.143:23098>
+Supported: replaces,path
+User-Agent: Grandstream GRP2601 1.0.7.11
+Allow: INVITE,ACK,OPTIONS,CANCEL,BYE,SUBSCRIBE,NOTIFY,INFO,REFER,UPDATE,MESSAGE
+Content-Length: 0
+
+
+--- [CARRIER] 2026-07-27 07:04:11.806415 172.31.39.116.5060 > 192.76.120.10.5060 ---
+SIP/2.0 200 OK
+.....c._SIP/2.0 200 OK
+Via: SIP/2.0/UDP 192.76.120.10;rport=5060;branch=z9hG4bK9482.3cc0d54dd3b603db09d4083804f9e9dc.0
+Via: SIP/2.0/UDP 10.239.196.24:5070;received=10.239.196.24;rport=5070;branch=z9hG4bKe0XSag2Dy998D
+From: <sip:17045502033@sip.vspphone.com>;tag=rUcg16Dj80UBD
+To: <sip:+13136506292@sip.vspphone.com>;tag=4567312
+Call-ID: 1938501546-17916-2@BCC.BHH.CEH.BED
+CSeq: 118014133 BYE
+Contact: <sip:100@122.177.247.143:23098>
+Supported: replaces,path
+User-Agent: Grandstream GRP2601 1.0.7.11
+Allow: INVITE,ACK,OPTIONS,CANCEL,BYE,SUBSCRIBE,NOTIFY,INFO,REFER,UPDATE,MESSAGE
+Content-Length: 0
+
+
+=== CARRIER LEG SUMMARY ===
+2026-07-27 07:03:21.380540  INVITE        172.31.39.116.5060 > 192.76.120.10.5060
+2026-07-27 07:03:21.422470  100           192.76.120.10.5060 > 172.31.39.116.5060
+2026-07-27 07:03:21.587010  407           192.76.120.10.5060 > 172.31.39.116.5060
+2026-07-27 07:03:21.590092  ACK           172.31.39.116.5060 > 192.76.120.10.5060
+2026-07-27 07:03:21.590321  INVITE        172.31.39.116.5060 > 192.76.120.10.5060
+2026-07-27 07:03:21.632413  100           192.76.120.10.5060 > 172.31.39.116.5060
+2026-07-27 07:03:22.469838  183           192.76.120.10.5060 > 172.31.39.116.5060
+2026-07-27 07:03:39.544634  200           192.76.120.10.5060 > 172.31.39.116.5060
+2026-07-27 07:03:40.044983  200           192.76.120.10.5060 > 172.31.39.116.5060
+2026-07-27 07:03:41.044801  200           192.76.120.10.5060 > 172.31.39.116.5060
+2026-07-27 07:03:43.045867  200           192.76.120.10.5060 > 172.31.39.116.5060
+2026-07-27 07:03:47.045209  200           192.76.120.10.5060 > 172.31.39.116.5060
+2026-07-27 07:03:51.045251  200           192.76.120.10.5060 > 172.31.39.116.5060
+2026-07-27 07:03:55.045163  200           192.76.120.10.5060 > 172.31.39.116.5060
+2026-07-27 07:03:59.045505  200           192.76.120.10.5060 > 172.31.39.116.5060
+2026-07-27 07:04:03.044885  200           192.76.120.10.5060 > 172.31.39.116.5060
+2026-07-27 07:04:07.045092  200           192.76.120.10.5060 > 172.31.39.116.5060
+2026-07-27 07:04:11.045029  200           192.76.120.10.5060 > 172.31.39.116.5060
+2026-07-27 07:04:11.545107  BYE           192.76.120.10.5060 > 172.31.39.116.5060
+2026-07-27 07:04:11.806415  200           172.31.39.116.5060 > 192.76.120.10.5060
+
+=== PROTOCOL FIELD COMPARISON (Telnyx 200 OK vs Kamailio ACK) ===
+Field              200 OK                                                  ACK                                                     RFC/Telnyx
+--------------------------------------------------------------------------------------------------------------------------------------------
+Request-URI        <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          RFC3261 ??12.2.1.1: ACK R-URI = Contact
+Request-URI        <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Request-URI        <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Request-URI        <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Request-URI        <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Request-URI        <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Request-URI        <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Request-URI        <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Request-URI        <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Request-URI        <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Request-URI        <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Request-URI        <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Request-URI        <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Request-URI        <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Request-URI        <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Request-URI        <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Request-URI        <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Request-URI        <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Request-URI        <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Request-URI        <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Request-URI        <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Request-URI        <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Request-URI        <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Request-URI        <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Request-URI        <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Request-URI        <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Request-URI        <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Request-URI        <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Request-URI        <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Request-URI        <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Request-URI        <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Request-URI        <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Request-URI        <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Request-URI        <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Request-URI        <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Request-URI        <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Request-URI        <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Request-URI        <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Request-URI        <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Request-URI        <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Request-URI        <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Request-URI        <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Request-URI        <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Request-URI        <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Request-URI        <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Request-URI        <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Request-URI        <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Request-URI        <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Request-URI        <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Request-URI        <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Request-URI        <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Request-URI        <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Request-URI        <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Request-URI        <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Request-URI        <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Request-URI        <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Request-URI        <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Request-URI        <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Request-URI        <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Route                                                                                                                              Telnyx P01: same order as INVITE Record-Route
+Record-Route       <sip:10.255.0.1;r2=on;lr;ftag=4567312>                                                                          
+Record-Route       <sip:10.255.0.1;r2=on;lr;ftag=4567312>                                                                          
+Record-Route       <sip:10.255.0.1;r2=on;lr;ftag=4567312>                                                                          
+Record-Route       <sip:10.255.0.1;r2=on;lr;ftag=4567312>                                                                          
+Record-Route       <sip:10.255.0.1;r2=on;lr;ftag=4567312>                                                                          
+Record-Route       <sip:10.255.0.1;r2=on;lr;ftag=4567312>                                                                          
+Record-Route       <sip:10.255.0.1;r2=on;lr;ftag=4567312>                                                                          
+Record-Route       <sip:10.255.0.1;r2=on;lr;ftag=4567312>                                                                          
+Record-Route       <sip:10.255.0.1;r2=on;lr;ftag=4567312>                                                                          
+Record-Route       <sip:10.255.0.1;r2=on;lr;ftag=4567312>                                                                          
+Record-Route       <sip:10.255.0.1;r2=on;lr;ftag=4567312>                                                                          
+Record-Route       <sip:10.255.0.1;r2=on;lr;ftag=4567312>                                                                          
+Record-Route       <sip:10.255.0.1;r2=on;lr;ftag=4567312>                                                                          
+Record-Route       <sip:10.255.0.1;r2=on;lr;ftag=4567312>                                                                          
+Record-Route       <sip:10.255.0.1;r2=on;lr;ftag=4567312>                                                                          
+Record-Route       <sip:10.255.0.1;r2=on;lr;ftag=4567312>                                                                          
+Record-Route       <sip:10.255.0.1;r2=on;lr;ftag=4567312>                                                                          
+Record-Route       <sip:10.255.0.1;r2=on;lr;ftag=4567312>                                                                          
+Record-Route       <sip:10.255.0.1;r2=on;lr;ftag=4567312>                                                                          
+Record-Route       <sip:10.255.0.1;r2=on;lr;ftag=4567312>                                                                          
+Record-Route       <sip:10.255.0.1;r2=on;lr;ftag=4567312>                                                                          
+Record-Route       <sip:10.255.0.1;r2=on;lr;ftag=4567312>                                                                          
+Record-Route       <sip:10.255.0.1;r2=on;lr;ftag=4567312>                                                                          
+Record-Route       <sip:10.255.0.1;r2=on;lr;ftag=4567312>                                                                          
+Record-Route       <sip:10.255.0.1;r2=on;lr;ftag=4567312>                                                                          
+Record-Route       <sip:10.255.0.1;r2=on;lr;ftag=4567312>                                                                          
+Record-Route       <sip:10.255.0.1;r2=on;lr;ftag=4567312>                                                                          
+Record-Route       <sip:10.255.0.1;r2=on;lr;ftag=4567312>                                                                          
+Record-Route       <sip:10.255.0.1;r2=on;lr;ftag=4567312>                                                                          
+Record-Route       <sip:10.255.0.1;r2=on;lr;ftag=4567312>                                                                          
+Record-Route       <sip:10.255.0.1;r2=on;lr;ftag=4567312>                                                                          
+Record-Route       <sip:10.255.0.1;r2=on;lr;ftag=4567312>                                                                          
+Record-Route       <sip:10.255.0.1;r2=on;lr;ftag=4567312>                                                                          
+Record-Route       <sip:10.255.0.1;r2=on;lr;ftag=4567312>                                                                          
+Record-Route       <sip:10.255.0.1;r2=on;lr;ftag=4567312>                                                                          
+Record-Route       <sip:10.255.0.1;r2=on;lr;ftag=4567312>                                                                          
+Record-Route       <sip:10.255.0.1;r2=on;lr;ftag=4567312>                                                                          
+Record-Route       <sip:10.255.0.1;r2=on;lr;ftag=4567312>                                                                          
+Contact            <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Contact            <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Contact            <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Contact            <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Contact            <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Contact            <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Contact            <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Contact            <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Contact            <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Contact            <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Contact            <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Contact            <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Contact            <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Contact            <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Contact            <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Contact            <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Contact            <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Contact            <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Contact            <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Contact            <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Contact            <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Contact            <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Contact            <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Contact            <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Contact            <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Contact            <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Contact            <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Contact            <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Contact            <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Contact            <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Contact            <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Contact            <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Contact            <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Contact            <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Contact            <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Contact            <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Contact            <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Contact            <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Contact            <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Contact            <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Contact            <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Contact            <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Contact            <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Contact            <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Contact            <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Contact            <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Contact            <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Contact            <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Contact            <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Contact            <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Contact            <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Contact            <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Contact            <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Contact            <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Contact            <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Contact            <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Contact            <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Contact            <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Contact            <sip:telnyx*17045502033**10.239.196.24*5070*udp@teln..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          New branch; sent-by = our public IP
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Via                SIP/2.0/UDP 32.196.41.160:5060;rport=5060;branch=z9h..                                                          
+Call-ID            1938501546-17916-2@BCC.BHH.CEH.BED                                                                              
+Call-ID            1938501546-17916-2@BCC.BHH.CEH.BED                                                                              
+Call-ID            1938501546-17916-2@BCC.BHH.CEH.BED                                                                              
+Call-ID            1938501546-17916-2@BCC.BHH.CEH.BED                                                                              
+Call-ID            1938501546-17916-2@BCC.BHH.CEH.BED                                                                              
+Call-ID            1938501546-17916-2@BCC.BHH.CEH.BED                                                                              
+Call-ID            1938501546-17916-2@BCC.BHH.CEH.BED                                                                              
+Call-ID            1938501546-17916-2@BCC.BHH.CEH.BED                                                                              
+Call-ID            1938501546-17916-2@BCC.BHH.CEH.BED                                                                              
+Call-ID            1938501546-17916-2@BCC.BHH.CEH.BED                                                                              
+Call-ID            1938501546-17916-2@BCC.BHH.CEH.BED                                                                              
+Call-ID            1938501546-17916-2@BCC.BHH.CEH.BED                                                                              
+Call-ID            1938501546-17916-2@BCC.BHH.CEH.BED                                                                              
+Call-ID            1938501546-17916-2@BCC.BHH.CEH.BED                                                                              
+Call-ID            1938501546-17916-2@BCC.BHH.CEH.BED                                                                              
+Call-ID            1938501546-17916-2@BCC.BHH.CEH.BED                                                                              
+Call-ID            1938501546-17916-2@BCC.BHH.CEH.BED                                                                              
+Call-ID            1938501546-17916-2@BCC.BHH.CEH.BED                                                                              
+Call-ID            1938501546-17916-2@BCC.BHH.CEH.BED                                                                              
+Call-ID            1938501546-17916-2@BCC.BHH.CEH.BED                                                                              
+Call-ID            1938501546-17916-2@BCC.BHH.CEH.BED                                                                              
+Call-ID            1938501546-17916-2@BCC.BHH.CEH.BED                                                                              
+Call-ID            1938501546-17916-2@BCC.BHH.CEH.BED                                                                              
+Call-ID            1938501546-17916-2@BCC.BHH.CEH.BED                                                                              
+Call-ID            1938501546-17916-2@BCC.BHH.CEH.BED                                                                              
+Call-ID            1938501546-17916-2@BCC.BHH.CEH.BED                                                                              
+Call-ID            1938501546-17916-2@BCC.BHH.CEH.BED                                                                              
+Call-ID            1938501546-17916-2@BCC.BHH.CEH.BED                                                                              
+Call-ID            1938501546-17916-2@BCC.BHH.CEH.BED                                                                              
+Call-ID            1938501546-17916-2@BCC.BHH.CEH.BED                                                                              
+Call-ID            1938501546-17916-2@BCC.BHH.CEH.BED                                                                              
+Call-ID            1938501546-17916-2@BCC.BHH.CEH.BED                                                                              
+Call-ID            1938501546-17916-2@BCC.BHH.CEH.BED                                                                              
+Call-ID            1938501546-17916-2@BCC.BHH.CEH.BED                                                                              
+From               <sip:+13136506292@sip.vspphone.com>;tag=4567312                                                                 
+From               <sip:+13136506292@sip.vspphone.com>;tag=4567312                                                                 
+From               <sip:+13136506292@sip.vspphone.com>;tag=4567312                                                                 
+From               <sip:+13136506292@sip.vspphone.com>;tag=4567312                                                                 
+From               <sip:+13136506292@sip.vspphone.com>;tag=4567312                                                                 
+From               <sip:+13136506292@sip.vspphone.com>;tag=4567312                                                                 
+From               <sip:+13136506292@sip.vspphone.com>;tag=4567312                                                                 
+From               <sip:+13136506292@sip.vspphone.com>;tag=4567312                                                                 
+From               <sip:+13136506292@sip.vspphone.com>;tag=4567312                                                                 
+From               <sip:+13136506292@sip.vspphone.com>;tag=4567312                                                                 
+From               <sip:+13136506292@sip.vspphone.com>;tag=4567312                                                                 
+From               <sip:+13136506292@sip.vspphone.com>;tag=4567312                                                                 
+From               <sip:+13136506292@sip.vspphone.com>;tag=4567312                                                                 
+From               <sip:+13136506292@sip.vspphone.com>;tag=4567312                                                                 
+From               <sip:+13136506292@sip.vspphone.com>;tag=4567312                                                                 
+From               <sip:+13136506292@sip.vspphone.com>;tag=4567312                                                                 
+From               <sip:+13136506292@sip.vspphone.com>;tag=4567312                                                                 
+From               <sip:+13136506292@sip.vspphone.com>;tag=4567312                                                                 
+From               <sip:+13136506292@sip.vspphone.com>;tag=4567312                                                                 
+From               <sip:+13136506292@sip.vspphone.com>;tag=4567312                                                                 
+From               <sip:+13136506292@sip.vspphone.com>;tag=4567312                                                                 
+From               <sip:+13136506292@sip.vspphone.com>;tag=4567312                                                                 
+From               <sip:+13136506292@sip.vspphone.com>;tag=4567312                                                                 
+From               <sip:+13136506292@sip.vspphone.com>;tag=4567312                                                                 
+From               <sip:+13136506292@sip.vspphone.com>;tag=4567312                                                                 
+From               <sip:+13136506292@sip.vspphone.com>;tag=4567312                                                                 
+From               <sip:+13136506292@sip.vspphone.com>;tag=4567312                                                                 
+From               <sip:+13136506292@sip.vspphone.com>;tag=4567312                                                                 
+From               <sip:+13136506292@sip.vspphone.com>;tag=4567312                                                                 
+From               <sip:+13136506292@sip.vspphone.com>;tag=4567312                                                                 
+From               <sip:+13136506292@sip.vspphone.com>;tag=4567312                                                                 
+From               <sip:+13136506292@sip.vspphone.com>;tag=4567312                                                                 
+From               <sip:+13136506292@sip.vspphone.com>;tag=4567312                                                                 
+From               <sip:+13136506292@sip.vspphone.com>;tag=4567312                                                                 
+From               <sip:+13136506292@sip.vspphone.com>;tag=4567312                                                                 
+From               <sip:+13136506292@sip.vspphone.com>;tag=4567312                                                                 
+From               <sip:+13136506292@sip.vspphone.com>;tag=4567312                                                                 
+From               <sip:+13136506292@sip.vspphone.com>;tag=4567312                                                                 
+From               <sip:+13136506292@sip.vspphone.com>;tag=4567312                                                                 
+From               <sip:+13136506292@sip.vspphone.com>;tag=4567312                                                                 
+From               <sip:+13136506292@sip.vspphone.com>;tag=4567312                                                                 
+From               <sip:+13136506292@sip.vspphone.com>;tag=4567312                                                                 
+From               <sip:+13136506292@sip.vspphone.com>;tag=4567312                                                                 
+From               <sip:+13136506292@sip.vspphone.com>;tag=4567312                                                                 
+From               <sip:+13136506292@sip.vspphone.com>;tag=4567312                                                                 
+From               <sip:+13136506292@sip.vspphone.com>;tag=4567312                                                                 
+From               <sip:+13136506292@sip.vspphone.com>;tag=4567312                                                                 
+To                 <sip:17045502033@sip.vspphone.com>;tag=rUcg16Dj80UBD                                                            
+To                 <sip:17045502033@sip.vspphone.com>;tag=rUcg16Dj80UBD                                                            
+To                 <sip:17045502033@sip.vspphone.com>;tag=rUcg16Dj80UBD                                                            
+To                 <sip:17045502033@sip.vspphone.com>;tag=rUcg16Dj80UBD                                                            
+To                 <sip:17045502033@sip.vspphone.com>;tag=rUcg16Dj80UBD                                                            
+To                 <sip:17045502033@sip.vspphone.com>;tag=rUcg16Dj80UBD                                                            
+To                 <sip:17045502033@sip.vspphone.com>;tag=rUcg16Dj80UBD                                                            
+To                 <sip:17045502033@sip.vspphone.com>;tag=rUcg16Dj80UBD                                                            
+To                 <sip:17045502033@sip.vspphone.com>;tag=rUcg16Dj80UBD                                                            
+To                 <sip:17045502033@sip.vspphone.com>;tag=rUcg16Dj80UBD                                                            
+To                 <sip:17045502033@sip.vspphone.com>;tag=rUcg16Dj80UBD                                                            
+To                 <sip:17045502033@sip.vspphone.com>;tag=rUcg16Dj80UBD                                                            
+To                 <sip:17045502033@sip.vspphone.com>;tag=rUcg16Dj80UBD                                                            
+To                 <sip:17045502033@sip.vspphone.com>;tag=rUcg16Dj80UBD                                                            
+To                 <sip:17045502033@sip.vspphone.com>;tag=rUcg16Dj80UBD                                                            
+To                 <sip:17045502033@sip.vspphone.com>;tag=rUcg16Dj80UBD                                                            
+To                 <sip:17045502033@sip.vspphone.com>;tag=rUcg16Dj80UBD                                                            
+To                 <sip:17045502033@sip.vspphone.com>;tag=rUcg16Dj80UBD                                                            
+To                 <sip:17045502033@sip.vspphone.com>;tag=rUcg16Dj80UBD                                                            
+To                 <sip:17045502033@sip.vspphone.com>;tag=rUcg16Dj80UBD                                                            
+To                 <sip:17045502033@sip.vspphone.com>;tag=rUcg16Dj80UBD                                                            
+To                 <sip:17045502033@sip.vspphone.com>;tag=rUcg16Dj80UBD                                                            
+To                 <sip:17045502033@sip.vspphone.com>;tag=rUcg16Dj80UBD                                                            
+To                 <sip:17045502033@sip.vspphone.com>;tag=rUcg16Dj80UBD                                                            
+To                 <sip:17045502033@sip.vspphone.com>;tag=rUcg16Dj80UBD                                                            
+To                 <sip:17045502033@sip.vspphone.com>;tag=rUcg16Dj80UBD                                                            
+To                 <sip:17045502033@sip.vspphone.com>;tag=rUcg16Dj80UBD                                                            
+To                 <sip:17045502033@sip.vspphone.com>;tag=rUcg16Dj80UBD                                                            
+To                 <sip:17045502033@sip.vspphone.com>;tag=rUcg16Dj80UBD                                                            
+To                 <sip:17045502033@sip.vspphone.com>;tag=rUcg16Dj80UBD                                                            
+To                 <sip:17045502033@sip.vspphone.com>;tag=rUcg16Dj80UBD                                                            
+To                 <sip:17045502033@sip.vspphone.com>;tag=rUcg16Dj80UBD                                                            
+To                 <sip:17045502033@sip.vspphone.com>;tag=rUcg16Dj80UBD                                                            
+To                 <sip:17045502033@sip.vspphone.com>;tag=rUcg16Dj80UBD                                                            
+To                 <sip:17045502033@sip.vspphone.com>;tag=rUcg16Dj80UBD                                                            
+To                 <sip:17045502033@sip.vspphone.com>;tag=rUcg16Dj80UBD                                                            
+To                 <sip:17045502033@sip.vspphone.com>;tag=rUcg16Dj80UBD                                                            
+To                 <sip:17045502033@sip.vspphone.com>;tag=rUcg16Dj80UBD                                                            
+To                 <sip:17045502033@sip.vspphone.com>;tag=rUcg16Dj80UBD                                                            
+To                 <sip:17045502033@sip.vspphone.com>;tag=rUcg16Dj80UBD                                                            
+To                 <sip:17045502033@sip.vspphone.com>;tag=rUcg16Dj80UBD                                                            
+To                 <sip:17045502033@sip.vspphone.com>;tag=rUcg16Dj80UBD                                                            
+To                 <sip:17045502033@sip.vspphone.com>;tag=rUcg16Dj80UBD                                                            
+To                 <sip:17045502033@sip.vspphone.com>;tag=rUcg16Dj80UBD                                                            
+To                 <sip:17045502033@sip.vspphone.com>;tag=rUcg16Dj80UBD                                                            
+To                 <sip:17045502033@sip.vspphone.com>;tag=rUcg16Dj80UBD                                                            
+To                 <sip:17045502033@sip.vspphone.com>;tag=rUcg16Dj80UBD                                                            
+To                 <sip:17045502033@sip.vspphone.com>;tag=rUcg16Dj80UBD                                                            
+To                 <sip:17045502033@sip.vspphone.com>;tag=rUcg16Dj80UBD                                                            
+To                 <sip:17045502033@sip.vspphone.com>;tag=rUcg16Dj80UBD                                                            
+To                 <sip:17045502033@sip.vspphone.com>;tag=rUcg16Dj80UBD                                                            
+To                 <sip:17045502033@sip.vspphone.com>;tag=rUcg16Dj80UBD                                                            
+CSeq               11 INVITE                                                                                                       Same number as 200 OK INVITE, method ACK
+CSeq               11 INVITE                                                                                                       
+CSeq               11 INVITE                                                                                                       
+CSeq               11 INVITE                                                                                                       
+CSeq               11 INVITE                                                                                                       
+CSeq               11 INVITE                                                                                                       
+CSeq               11 INVITE                                                                                                       
+CSeq               11 INVITE                                                                                                       
+CSeq               11 INVITE                                                                                                       
+Max-Forwards                                                                                                                       
+Reason                                                                                                                             
+Content-Length     302                                                                                                             
+Content-Length     302                                                                                                             
+Content-Length     302                                                                                                             
+
+*** DEFECT: NO POST-200 ACK ON WIRE (Telnyx will retransmit 200 OK ??? 408 ACK Timeout @ 32s) ***
