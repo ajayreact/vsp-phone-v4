@@ -89,6 +89,18 @@ chk('pjsip telnyx endpoint has outbound_auth', /outbound_auth=telnyx-auth/.test(
 chk('pjsip transport binds the internal port only',
   /bind=0\.0\.0\.0:__ASTERISK_SIP_PORT__/.test(pjsip));
 
+// Debian removed the asterisk package before bookworm released (bug #1031046) and never
+// restored it, so a Debian base silently breaks the build.
+const astDockerfile = fs.readFileSync('infrastructure/docker/Dockerfile.asterisk', 'utf8');
+chk('asterisk image base still ships an asterisk package',
+  /^FROM ubuntu:/m.test(astDockerfile), (astDockerfile.match(/^FROM .*/m) || [])[0]);
+chk('asterisk build verifies chan_pjsip is present', astDockerfile.includes('chan_pjsip.so'));
+
+// Ubuntu uses a multiarch libdir; a hardcoded astmoddir loads zero modules.
+const astConf = fs.readFileSync('infrastructure/asterisk/asterisk.conf', 'utf8');
+chk('astmoddir is detected at start-up, not hardcoded',
+  /astmoddir => __ASTERISK_MODULE_DIR__/.test(astConf));
+
 const rtpconf = fs.readFileSync('infrastructure/rtpengine/rtpengine.conf', 'utf8');
 chk('rtpengine declares both logical interfaces',
   /interface = internal\//.test(rtpconf) && /interface = external\//.test(rtpconf));

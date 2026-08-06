@@ -1,7 +1,11 @@
 # VSP Phone v4 — Asterisk B2BUA carrier core (ADR-045)
-# Debian bookworm ships Asterisk 20 LTS with chan_pjsip, which is the reference
+#
+# Ubuntu 24.04 LTS rather than Debian: Debian dropped Asterisk before bookworm released
+# (unfixed CVEs, bug #1031046) and did not bring it back for trixie, so `apt-get install
+# asterisk` on any current Debian gives "no installation candidate". Ubuntu noble still
+# carries Asterisk 20 LTS (1:20.6.0) in universe, which is the chan_pjsip reference
 # B2BUA behaviour the carrier leg depends on.
-FROM debian:bookworm-slim
+FROM ubuntu:24.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -16,9 +20,24 @@ RUN apt-get update \
         netcat-openbsd \
     && rm -rf /var/lib/apt/lists/*
 
+# Fail the build, not the first PSTN call, if the packaging ever stops shipping the SIP
+# channel driver or the session-timer support this architecture is built on.
+RUN set -eu; \
+    moddir=""; \
+    for cand in /usr/lib/*/asterisk/modules /usr/lib/asterisk/modules; do \
+        [ -f "${cand}/chan_pjsip.so" ] && moddir="${cand}" && break; \
+    done; \
+    [ -n "${moddir}" ] || { echo "chan_pjsip.so not found in any module directory"; exit 1; }; \
+    for m in res_pjsip res_pjsip_session res_pjsip_outbound_authenticator_digest app_dial; do \
+        test -f "${moddir}/${m}.so" || { echo "missing module ${m}.so"; exit 1; }; \
+    done; \
+    echo "asterisk modules: ${moddir}"; \
+    asterisk -V
+
 COPY infrastructure/docker/asterisk/docker-entrypoint.sh /docker-entrypoint.sh
 COPY infrastructure/docker/asterisk/healthcheck.sh /healthcheck.sh
-RUN chmod +x /docker-entrypoint.sh /healthcheck.sh
+RUN chmod +x /docker-entrypoint.sh /healthcheck.sh \
+    && sed -i 's/\r$//' /docker-entrypoint.sh /healthcheck.sh
 
 # Rendered from /etc/asterisk-template at start-up by the entrypoint.
 VOLUME ["/var/log/asterisk", "/var/spool/asterisk"]

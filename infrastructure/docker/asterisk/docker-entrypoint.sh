@@ -30,6 +30,23 @@ if [ -z "${TELNYX_SIP_USERNAME}" ] || [ -z "${TELNYX_SIP_PASSWORD}" ]; then
   TELNYX_SIP_PASSWORD="${TELNYX_SIP_PASSWORD:-unset}"
 fi
 
+# Ubuntu builds Asterisk with a multiarch libdir, so the module directory is
+# /usr/lib/<triplet>/asterisk/modules. Detect it rather than assuming either layout: an
+# astmoddir that does not exist starts Asterisk with no channel drivers at all.
+ASTERISK_MODULE_DIR="${ASTERISK_MODULE_DIR:-}"
+if [ -z "${ASTERISK_MODULE_DIR}" ]; then
+  for cand in /usr/lib/*/asterisk/modules /usr/lib/asterisk/modules /usr/lib64/asterisk/modules; do
+    if [ -f "${cand}/chan_pjsip.so" ]; then
+      ASTERISK_MODULE_DIR="${cand}"
+      break
+    fi
+  done
+fi
+if [ -z "${ASTERISK_MODULE_DIR}" ]; then
+  echo "[asterisk] FATAL: cannot locate chan_pjsip.so — no usable module directory"
+  exit 1
+fi
+
 esc() {
   printf '%s' "$1" | sed 's/[\\/&|]/\\&/g'
 }
@@ -42,6 +59,7 @@ E_KAM_PORT=$(esc "${KAMAILIO_INTERNAL_PORT}")
 E_TELNYX_HOST=$(esc "${TELNYX_SIP_HOST}")
 E_TELNYX_USER=$(esc "${TELNYX_SIP_USERNAME}")
 E_TELNYX_PASS=$(esc "${TELNYX_SIP_PASSWORD}")
+E_MOD_DIR=$(esc "${ASTERISK_MODULE_DIR}")
 
 for tpl in "${TPL_DIR}"/*.conf; do
   [ -f "${tpl}" ] || continue
@@ -55,23 +73,29 @@ for tpl in "${TPL_DIR}"/*.conf; do
       -e "s|__TELNYX_SIP_HOST__|${E_TELNYX_HOST}|g" \
       -e "s|__TELNYX_SIP_USERNAME__|${E_TELNYX_USER}|g" \
       -e "s|__TELNYX_SIP_PASSWORD__|${E_TELNYX_PASS}|g" \
+      -e "s|__ASTERISK_MODULE_DIR__|${E_MOD_DIR}|g" \
       "${tpl}" > "${out}"
   chown asterisk:asterisk "${out}" 2>/dev/null || true
   chmod 640 "${out}"
   echo "[asterisk] rendered ${out}"
 done
 
-if grep -q '__[A-Z_]*__' "${CFG_DIR}/pjsip.conf"; then
-  echo "[asterisk] ERROR: unresolved placeholders remain in pjsip.conf"
-  grep -n '__[A-Z_]*__' "${CFG_DIR}/pjsip.conf"
-  exit 1
-fi
+for tpl in "${TPL_DIR}"/*.conf; do
+  [ -f "${tpl}" ] || continue
+  out="${CFG_DIR}/$(basename "${tpl}")"
+  if grep -q '__[A-Z_]*__' "${out}"; then
+    echo "[asterisk] ERROR: unresolved placeholders remain in ${out}"
+    grep -n '__[A-Z_]*__' "${out}"
+    exit 1
+  fi
+done
 
 for dir in /var/run/asterisk /var/log/asterisk /var/spool/asterisk /var/lib/asterisk; do
   mkdir -p "${dir}"
   chown -R asterisk:asterisk "${dir}" 2>/dev/null || true
 done
 
+echo "[asterisk] modules=${ASTERISK_MODULE_DIR}"
 echo "[asterisk] sip=${ASTERISK_SIP_PORT}/udp rtp=${ASTERISK_RTP_PORT_MIN}-${ASTERISK_RTP_PORT_MAX}"
 echo "[asterisk] edge=${KAMAILIO_HOST}:${KAMAILIO_INTERNAL_PORT} trunk=${TELNYX_SIP_HOST} (via edge outbound proxy)"
 echo "[asterisk] starting Asterisk B2BUA carrier core"

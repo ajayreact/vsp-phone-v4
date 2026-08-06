@@ -22,7 +22,7 @@ filter correctly under time pressure:
 | Component | Change |
 |---|---|
 | `infrastructure/asterisk/*` | New — PJSIP endpoints (`kamailio`, `telnyx`), dialplan, RTP, logging |
-| `infrastructure/docker/Dockerfile.asterisk` | New — Debian bookworm + Asterisk 20 |
+| `infrastructure/docker/Dockerfile.asterisk` | New — Ubuntu 24.04 LTS + Asterisk 20 LTS from universe (Debian dropped the package before bookworm released and never restored it) |
 | `docker-compose.yml` / `.prod.yml` | New `asterisk` service on `vsp_internal`, no published ports |
 | `infrastructure/kamailio/kamailio.cfg` | −890 lines of hand-rolled B2BUA / ACK / Contact / Route surgery; new internal socket, `record_route()`, `CARRIER_EGRESS` |
 | `infrastructure/rtpengine/rtpengine.conf` | Second logical interface (`internal` / `external`) so the Asterisk side is not given the public IP |
