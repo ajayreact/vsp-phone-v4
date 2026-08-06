@@ -5,7 +5,10 @@
 #
 # Prints one line per gate and exits non-zero if any gate fails. Passing these gates does
 # NOT mean the 32 s teardown is fixed — only the call in adr045-capture.sh can show that.
-set -uo pipefail
+#
+# Deliberately no `pipefail`: `docker logs | grep -q` makes grep exit on the first match,
+# which SIGPIPEs docker and turns a successful match into a failed pipeline.
+set -u
 
 PASS=0
 FAIL=0
@@ -46,14 +49,17 @@ for c in vsp-kamailio vsp-asterisk vsp-rtpengine; do
 done
 
 hdr "D3 Kamailio bound both SIP sockets"
-SOCKS=$(docker exec vsp-kamailio sh -c 'ss -lnup 2>/dev/null || netstat -lnup 2>/dev/null' | awk '{print $5}' | grep -oE ':(5060|5070)$' | sort -u | tr '\n' ' ')
-case "$SOCKS" in
-  *:5060*) ok "public socket 5060 bound" ;;
-  *)       bad "public socket 5060 not bound" ;;
+# The Kamailio image ships neither ss nor netstat, so read procfs directly. Local ports
+# are big-endian hex there: 5060 = 13C4, 5070 = 13CE.
+UDPHEX=$(docker exec vsp-kamailio sh -c 'cat /proc/net/udp /proc/net/udp6 2>/dev/null' \
+  | awk 'NR>1 { split($2, a, ":"); print toupper(a[2]) }' | sort -u | tr '\n' ' ')
+case " $UDPHEX " in
+  *" 13C4 "*) ok "public socket 5060/udp bound" ;;
+  *)          bad "public socket 5060/udp not bound (listening: $UDPHEX)" ;;
 esac
-case "$SOCKS" in
-  *:5070*) ok "internal socket 5070 bound" ;;
-  *)       bad "internal socket 5070 not bound" ;;
+case " $UDPHEX " in
+  *" 13CE "*) ok "internal socket 5070/udp bound" ;;
+  *)          bad "internal socket 5070/udp not bound (listening: $UDPHEX)" ;;
 esac
 
 KAM_IP=$(docker inspect -f '{{.NetworkSettings.Networks.vsp_internal.IPAddress}}' vsp-kamailio 2>/dev/null)
@@ -94,6 +100,14 @@ for e in kamailio telnyx; do
     bad "pjsip endpoint '$e' missing"
   fi
 done
+IDENT=$(docker exec vsp-asterisk asterisk -rx 'pjsip show identifies' 2>/dev/null)
+if printf '%s' "$IDENT" | grep -q 'kamailio'; then
+  ok "edge identify object loaded: $(printf '%s' "$IDENT" | grep -i 'match' | head -1 | tr -s ' ')"
+else
+  bad "kamailio-identify did not load — Asterisk will answer 401 to every edge request"
+  printf '%s\n' "$IDENT" | sed 's/^/        /'
+fi
+
 if docker exec vsp-asterisk asterisk -rx 'dialplan show vsp-outbound' 2>/dev/null | grep -q 'vsp-pstn'; then
   ok "dialplan context vsp-outbound routes to vsp-pstn"
 else
@@ -114,21 +128,35 @@ else
   bad "rtpengine did not report an advertised external interface (media will use a private IP)"
 fi
 
+# The probe binds a known source port and puts it in the Via sent-by. Neither peer has
+# yet applied force_rport to a bare `;rport`, so a reply is addressed to the Via literally;
+# with an ephemeral source port the answer would go to a socket nc is not holding.
+sip_probe() { # sip_probe <container> <src-ip> <src-port> <dst-host> <dst-port> <tag>
+  docker exec "$1" sh -c "printf 'OPTIONS sip:probe@$4:$5 SIP/2.0\r\nVia: SIP/2.0/UDP $2:$3;branch=z9hG4bK-adr045-$6;rport\r\nMax-Forwards: 70\r\nFrom: <sip:probe@$2>;tag=adr045$6\r\nTo: <sip:probe@$4>\r\nCall-ID: adr045-probe-$6\r\nCSeq: 1 OPTIONS\r\nContent-Length: 0\r\n\r\n' | nc -u -p $3 -w 3 $4 $5" 2>/dev/null | head -1 | tr -d '\r'
+}
+
 hdr "D7 Kamailio -> Asterisk SIP reachability"
-KAM_PROBE=$(docker exec vsp-kamailio sh -c "printf 'OPTIONS sip:probe@asterisk:5080 SIP/2.0\r\nVia: SIP/2.0/UDP ${KAM_IP}:5070;branch=z9hG4bK-adr045-k;rport\r\nMax-Forwards: 70\r\nFrom: <sip:probe@${KAM_IP}>;tag=adr045k\r\nTo: <sip:probe@asterisk>\r\nCall-ID: adr045-kam-probe\r\nCSeq: 1 OPTIONS\r\nContent-Length: 0\r\n\r\n' | nc -u -w 3 asterisk 5080" 2>/dev/null | head -1)
-if printf '%s' "$KAM_PROBE" | grep -q 'SIP/2.0 2'; then
-  ok "Kamailio -> Asterisk OPTIONS answered: $(printf '%s' "$KAM_PROBE" | tr -d '\r')"
-else
-  bad "Kamailio -> Asterisk OPTIONS unanswered (got: '$(printf '%s' "$KAM_PROBE" | tr -d '\r')')"
-fi
+KAM_PROBE=$(sip_probe vsp-kamailio "$KAM_IP" 45071 asterisk 5080 k)
+case "$KAM_PROBE" in
+  "SIP/2.0 2"*)
+    ok "Kamailio -> Asterisk OPTIONS answered: $KAM_PROBE" ;;
+  "SIP/2.0 401"*|"SIP/2.0 407"*)
+    bad "Asterisk reachable but does NOT identify the edge ($KAM_PROBE) — it will challenge every INVITE"
+    docker exec vsp-asterisk asterisk -rx 'pjsip show identifies' 2>&1 | sed 's/^/        /'
+    docker logs vsp-asterisk 2>&1 | grep -iE 'identif|did not resolve' | tail -5 | sed 's/^/        /' ;;
+  "")
+    bad "Kamailio -> Asterisk OPTIONS unanswered (no reply)" ;;
+  *)
+    bad "Kamailio -> Asterisk OPTIONS rejected: $KAM_PROBE" ;;
+esac
 
 hdr "D8 Asterisk -> Kamailio SIP reachability"
-AST_PROBE=$(docker exec vsp-asterisk sh -c "printf 'OPTIONS sip:probe@kamailio:5070 SIP/2.0\r\nVia: SIP/2.0/UDP ${AST_IP}:5080;branch=z9hG4bK-adr045-a;rport\r\nMax-Forwards: 70\r\nFrom: <sip:probe@${AST_IP}>;tag=adr045a\r\nTo: <sip:probe@kamailio>\r\nCall-ID: adr045-ast-probe\r\nCSeq: 1 OPTIONS\r\nContent-Length: 0\r\n\r\n' | nc -u -w 3 kamailio 5070" 2>/dev/null | head -1)
-if printf '%s' "$AST_PROBE" | grep -q 'SIP/2.0 2'; then
-  ok "Asterisk -> Kamailio OPTIONS answered: $(printf '%s' "$AST_PROBE" | tr -d '\r')"
-else
-  bad "Asterisk -> Kamailio OPTIONS unanswered (got: '$(printf '%s' "$AST_PROBE" | tr -d '\r')')"
-fi
+AST_PROBE=$(sip_probe vsp-asterisk "$AST_IP" 45081 "$KAM_IP" 5070 a)
+case "$AST_PROBE" in
+  "SIP/2.0 2"*) ok  "Asterisk -> Kamailio OPTIONS answered: $AST_PROBE" ;;
+  "")           bad "Asterisk -> Kamailio OPTIONS unanswered (no reply)" ;;
+  *)            bad "Asterisk -> Kamailio OPTIONS rejected: $AST_PROBE" ;;
+esac
 
 hdr "D9 Kamailio -> Telnyx carrier path"
 DS=$(docker exec vsp-kamailio kamcmd dispatcher.list 2>/dev/null)

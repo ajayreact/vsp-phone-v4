@@ -47,6 +47,27 @@ if [ -z "${ASTERISK_MODULE_DIR}" ]; then
   exit 1
 fi
 
+# Subnet this container sits on, used to identify the Kamailio edge by address. Derived
+# from our own interface so it follows whatever pool Docker allocated.
+net_cidr() {
+  awk -v ip="${1%/*}" -v pfx="${1#*/}" 'BEGIN {
+    split(ip, o, ".");
+    v = o[1]*16777216 + o[2]*65536 + o[3]*256 + o[4];
+    blk = 2 ^ (32 - pfx);
+    n = v - (v % blk);
+    printf "%d.%d.%d.%d/%d", int(n/16777216)%256, int(n/65536)%256, int(n/256)%256, n%256, pfx;
+  }'
+}
+
+ASTERISK_NET_CIDR="${ASTERISK_NET_CIDR:-}"
+if [ -z "${ASTERISK_NET_CIDR}" ]; then
+  ADDR=$(ip -o -f inet addr show scope global 2>/dev/null | awk '{print $4; exit}')
+  case "${ADDR}" in
+    *.*.*.*/*) ASTERISK_NET_CIDR=$(net_cidr "${ADDR}") ;;
+    *)         ASTERISK_NET_CIDR="172.16.0.0/12" ;;
+  esac
+fi
+
 esc() {
   printf '%s' "$1" | sed 's/[\\/&|]/\\&/g'
 }
@@ -60,6 +81,7 @@ E_TELNYX_HOST=$(esc "${TELNYX_SIP_HOST}")
 E_TELNYX_USER=$(esc "${TELNYX_SIP_USERNAME}")
 E_TELNYX_PASS=$(esc "${TELNYX_SIP_PASSWORD}")
 E_MOD_DIR=$(esc "${ASTERISK_MODULE_DIR}")
+E_NET_CIDR=$(esc "${ASTERISK_NET_CIDR}")
 
 for tpl in "${TPL_DIR}"/*.conf; do
   [ -f "${tpl}" ] || continue
@@ -74,6 +96,7 @@ for tpl in "${TPL_DIR}"/*.conf; do
       -e "s|__TELNYX_SIP_USERNAME__|${E_TELNYX_USER}|g" \
       -e "s|__TELNYX_SIP_PASSWORD__|${E_TELNYX_PASS}|g" \
       -e "s|__ASTERISK_MODULE_DIR__|${E_MOD_DIR}|g" \
+      -e "s|__ASTERISK_NET_CIDR__|${E_NET_CIDR}|g" \
       "${tpl}" > "${out}"
   chown asterisk:asterisk "${out}" 2>/dev/null || true
   chmod 640 "${out}"
@@ -96,6 +119,7 @@ for dir in /var/run/asterisk /var/log/asterisk /var/spool/asterisk /var/lib/aste
 done
 
 echo "[asterisk] modules=${ASTERISK_MODULE_DIR}"
+echo "[asterisk] edge identified by source subnet ${ASTERISK_NET_CIDR}"
 echo "[asterisk] sip=${ASTERISK_SIP_PORT}/udp rtp=${ASTERISK_RTP_PORT_MIN}-${ASTERISK_RTP_PORT_MAX}"
 echo "[asterisk] edge=${KAMAILIO_HOST}:${KAMAILIO_INTERNAL_PORT} trunk=${TELNYX_SIP_HOST} (via edge outbound proxy)"
 echo "[asterisk] starting Asterisk B2BUA carrier core"

@@ -15,4 +15,11 @@ for ep in kamailio telnyx; do
   fi
 done
 
+# Without the identify object Asterisk answers 401 to everything Kamailio sends, while
+# still looking perfectly healthy by every other measure. Fail here instead.
+if ! asterisk -rx 'pjsip show identifies' 2>/dev/null | grep -q 'kamailio'; then
+  echo "[asterisk] unhealthy: kamailio-identify did not load — edge requests will be challenged"
+  exit 1
+fi
+
 exit 0
