@@ -93,6 +93,13 @@ services:
   kamailio:
     restart: always
 
+  # ADR-045 — the carrier B2BUA is load-bearing for all PSTN calls in production, and
+  # must refuse to start without trunk credentials rather than fail every call at 407.
+  asterisk:
+    restart: always
+    environment:
+      ASTERISK_REQUIRE_TRUNK: ${ASTERISK_REQUIRE_TRUNK:-1}
+
   postgres:
     restart: always
 

@@ -185,10 +185,11 @@ services:
       SIP_PUBLIC_IP: ${SIP_PUBLIC_IP:-}
       NESTJS_BASE_URL: http://api:3000
       TELECOM_SERVICE_AUTH_TOKEN: ${TELECOM_SERVICE_AUTH_TOKEN:-}
-      # RC1 fix: Telnyx SIP Connection is Credentials-auth — it challenges every
-      # outbound INVITE with 407 Proxy Authentication Required. uac module answers it.
-      TELNYX_SIP_USERNAME: ${TELNYX_SIP_USERNAME:-}
-      TELNYX_SIP_PASSWORD: ${TELNYX_SIP_PASSWORD:-}
+      # ADR-045: PSTN calls are bridged by the Asterisk B2BUA core. Kamailio is the
+      # edge proxy on both legs and never authenticates to Telnyx itself.
+      ASTERISK_HOST: asterisk
+      ASTERISK_SIP_PORT: ${ASTERISK_SIP_PORT:-5080}
+      KAMAILIO_INTERNAL_SIP_PORT: ${KAMAILIO_INTERNAL_SIP_PORT:-5070}
     ports:
       - '${KAMAILIO_SIP_PORT:-5060}:5060/udp'
       - '${KAMAILIO_SIP_PORT:-5060}:5060/tcp'
@@ -217,6 +218,39 @@ services:
       timeout: 5s
       retries: 10
       start_period: 40s
+
+  # ADR-045 — B2BUA carrier core. Terminates the desk dialog from Kamailio and
+  # originates an independent dialog to Telnyx (via Kamailio as outbound proxy), so
+  # the carrier ACK no longer depends on the desk phone. No published ports: the SIP
+  # transport is reachable only inside vsp_internal and media is anchored by RTPengine.
+  asterisk:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/Dockerfile.asterisk
+    container_name: vsp-asterisk
+    restart: unless-stopped
+    logging: *default-logging
+    environment:
+      ASTERISK_SIP_PORT: ${ASTERISK_SIP_PORT:-5080}
+      ASTERISK_RTP_PORT_MIN: ${ASTERISK_RTP_PORT_MIN:-20000}
+      ASTERISK_RTP_PORT_MAX: ${ASTERISK_RTP_PORT_MAX:-20999}
+      ASTERISK_REQUIRE_TRUNK: ${ASTERISK_REQUIRE_TRUNK:-0}
+      KAMAILIO_HOST: kamailio
+      KAMAILIO_INTERNAL_PORT: ${KAMAILIO_INTERNAL_SIP_PORT:-5070}
+      TELNYX_SIP_HOST: ${TELNYX_SIP_HOST:-sip.telnyx.com}
+      TELNYX_SIP_USERNAME: ${TELNYX_SIP_USERNAME:-}
+      TELNYX_SIP_PASSWORD: ${TELNYX_SIP_PASSWORD:-}
+    volumes:
+      - ./infrastructure/asterisk:/etc/asterisk-template:ro
+      - asterisk_logs:/var/log/asterisk
+      - asterisk_spool:/var/spool/asterisk
+    networks: [vsp_internal]
+    healthcheck:
+      test: ['CMD', '/healthcheck.sh']
+      interval: 15s
+      timeout: 10s
+      retries: 8
+      start_period: 30s
 
   rtpengine:
     build:
@@ -285,6 +319,10 @@ volumes:
     name: vsp_redis_data
   kamailio_logs:
     name: vsp_kamailio_logs
+  asterisk_logs:
+    name: vsp_asterisk_logs
+  asterisk_spool:
+    name: vsp_asterisk_spool
   rtpengine_spool:
     name: vsp_rtpengine_spool
   rtpengine_logs:

@@ -45,20 +45,33 @@ else
   echo "[kamailio] WARNING: TELECOM_SERVICE_AUTH_TOKEN unset — NestJS auth header omitted (lab only)"
 fi
 
-# RC1 — Telnyx SIP Connection is Credentials-auth (challenges outbound INVITE
-# with 407 Proxy Authentication Required). uac module's credential row answers it.
-TELNYX_USER="${TELNYX_SIP_USERNAME:-}"
-TELNYX_PASS="${TELNYX_SIP_PASSWORD:-}"
-if [ -n "${TELNYX_USER}" ] && [ -n "${TELNYX_PASS}" ]; then
-  ESC_USER=$(printf '%s' "${TELNYX_USER}" | sed 's/[\\/&|]/\\&/g')
-  ESC_PASS=$(printf '%s' "${TELNYX_PASS}" | sed 's/[\\/&|]/\\&/g')
-  sed -i "s|__TELNYX_SIP_USERNAME__|${ESC_USER}|g; s|__TELNYX_SIP_PASSWORD__|${ESC_PASS}|g" "${CFG}"
-  echo "[kamailio] Telnyx UAC credential injected (uac module will answer 407 challenges)"
-else
-  # Placeholder credential row so uac module still loads cleanly; will simply never match.
-  sed -i "s|__TELNYX_SIP_USERNAME__|unset|g; s|__TELNYX_SIP_PASSWORD__|unset|g" "${CFG}"
-  echo "[kamailio] WARNING: TELNYX_SIP_USERNAME/TELNYX_SIP_PASSWORD unset — carrier 407 challenges will NOT be answered"
+# ADR-045 — carrier leg is bridged by the Asterisk B2BUA core. Kamailio proxies the
+# desk leg to Asterisk on an internal socket, and Asterisk's carrier leg back out to
+# Telnyx on the public socket. Trunk credentials live in Asterisk, not here.
+ASTERISK_HOST="${ASTERISK_HOST:-asterisk}"
+ASTERISK_SIP_PORT="${ASTERISK_SIP_PORT:-5080}"
+KAM_INT_PORT="${KAMAILIO_INTERNAL_SIP_PORT:-5070}"
+# rr double record-routing needs a real address on the internal hop: 0.0.0.0 in a
+# Route header is unroutable for Asterisk, so advertise the container address.
+KAM_INT_IP=$(hostname -i 2>/dev/null | awk '{print $1}')
+if [ -z "${KAM_INT_IP}" ]; then
+  KAM_INT_IP=$(ip -4 -o addr show scope global 2>/dev/null | awk 'NR==1{split($4,a,"/"); print a[1]}')
 fi
+if [ -z "${KAM_INT_IP}" ]; then
+  KAM_INT_IP=$(getent hosts "$(hostname)" 2>/dev/null | awk 'NR==1{print $1}')
+fi
+if [ -z "${KAM_INT_IP}" ]; then
+  echo "[kamailio] ERROR: cannot determine container address for the internal SIP socket"
+  exit 1
+fi
+sed -i "s|__ASTERISK_HOST__|$(printf '%s' "${ASTERISK_HOST}" | sed 's/[\\/&|]/\\&/g')|g; \
+        s|__ASTERISK_SIP_PORT__|${ASTERISK_SIP_PORT}|g; \
+        s|__KAMAILIO_INTERNAL_SIP_PORT__|${KAM_INT_PORT}|g; \
+        s|__KAM_INTERNAL_IP__|${KAM_INT_IP}|g" "${CFG}"
+# loose_route() must recognise the advertised addresses as our own when stripping the
+# Route hops we inserted with record_route().
+sed -i "s|alias=\"localhost\"|alias=\"localhost\"\nalias=\"${KAM_INT_IP}\"|" "${CFG}"
+echo "[kamailio] B2BUA core=${ASTERISK_HOST}:${ASTERISK_SIP_PORT} internal socket=${KAM_INT_IP}:${KAM_INT_PORT}"
 
 # RC1 — advertise shared registrar FQDN for desk phones (alias in Record-Route / domain handling)
 SIP_REGISTRAR_HOST="${SIP_REGISTRAR_HOST:-}"
@@ -76,6 +89,7 @@ SIP_PUBLIC_IP="${SIP_PUBLIC_IP:-}"
 if [ -n "${SIP_PUBLIC_IP}" ]; then
   ESC_IP=$(printf '%s' "${SIP_PUBLIC_IP}" | sed 's/[\\/&|]/\\&/g')
   sed -i "s|__SIP_PUBLIC_IP__|${ESC_IP}|g" "${CFG}"
+  sed -i "s|alias=\"localhost\"|alias=\"localhost\"\nalias=\"${ESC_IP}\"|" "${CFG}"
   echo "[kamailio] SIP advertise address=${SIP_PUBLIC_IP}"
 else
   sed -i 's| advertise __SIP_PUBLIC_IP__:5060||g' "${CFG}"
@@ -131,6 +145,12 @@ if command -v nc >/dev/null 2>&1; then
   else
     echo "[kamailio] WARNING: rtpengine ${RTP_HOST}:${RTP_PORT} not reachable yet"
   fi
+fi
+
+if grep -q '__[A-Z_]*__' "${CFG}"; then
+  echo "[kamailio] ERROR: unresolved placeholders remain in the runtime config"
+  grep -n '__[A-Z_]*__' "${CFG}"
+  exit 1
 fi
 
 echo "[kamailio] lint: kamailio -c -f ${CFG}"

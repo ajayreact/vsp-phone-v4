@@ -1,0 +1,26 @@
+# VSP Phone v4 — Asterisk B2BUA carrier core (ADR-045)
+# Debian bookworm ships Asterisk 20 LTS with chan_pjsip, which is the reference
+# B2BUA behaviour the carrier leg depends on.
+FROM debian:bookworm-slim
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        asterisk \
+        asterisk-config \
+        asterisk-modules \
+        ca-certificates \
+        iproute2 \
+        procps \
+        netcat-openbsd \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY infrastructure/docker/asterisk/docker-entrypoint.sh /docker-entrypoint.sh
+COPY infrastructure/docker/asterisk/healthcheck.sh /healthcheck.sh
+RUN chmod +x /docker-entrypoint.sh /healthcheck.sh
+
+# Rendered from /etc/asterisk-template at start-up by the entrypoint.
+VOLUME ["/var/log/asterisk", "/var/spool/asterisk"]
+
+ENTRYPOINT ["/docker-entrypoint.sh"]
