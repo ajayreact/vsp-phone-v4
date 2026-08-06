@@ -39,12 +39,14 @@ q() { # q <display-filter> <fields...>
   tshark -r "$CAP" -Y "$f" -T fields -E separator='|' -e frame.time_epoch "${args[@]}" 2>/dev/null
 }
 
-# Collapse near-duplicate frames (same key, < 100 ms apart) into single events.
-# stdin: "<epoch>|<key>"  ->  stdout: "<epoch>|<key>" one line per distinct event
+# Collapse near-duplicate frames into single events. The key is every field after the
+# timestamp, so two genuinely different messages that happen to share a source address are
+# never merged. Retransmissions (>= T1 = 500 ms) survive as separate events.
 dedupe() {
-  sort -t'|' -k2,2 -k1,1n | awk -F'|' '
-    { if ($2 != k || ($1 - t) > 0.1) { print $0; k=$2; t=$1 } }
-  ' | sort -t'|' -k1,1n
+  awk -F'|' '{ k=""; for (i=2; i<=NF; i++) k = k "|" $i; print $1 "\t" k "\t" $0 }' \
+  | sort -t"$(printf '\t')" -k2,2 -k1,1n \
+  | awk -F'\t' '{ if ($2 != k || ($1 - t) > 0.1) { print $3; k=$2; t=$1 } }' \
+  | sort -t'|' -k1,1n
 }
 
 exec > >(tee "$OUT") 2>&1
@@ -139,11 +141,23 @@ else
   res FAIL "7. Telnyx 200 OK reached Asterisk" "call was never answered on the carrier leg"
 fi
 
-ACKOUT=$(q "$CF"' && sip.CSeq.method=="ACK" && '"$NOT_PRIV_DST" sip.Via.branch | dedupe)
+# A 407 challenge is ACKed hop-by-hop by the proxy's own transaction layer, so the carrier
+# leg legitimately carries an earlier ACK that has nothing to do with the answered call.
+# Only ACKs at or after the 200 OK belong to the 2xx transaction being measured.
+ACKALL=$(q "$CF"' && sip.CSeq.method=="ACK" && '"$NOT_PRIV_DST" sip.Via.branch | dedupe)
+if [ -n "$T200" ]; then
+  ACKOUT=$(printf '%s\n' "$ACKALL" | awk -F'|' -v t="$T200" '$1 >= t - 0.001')
+else
+  ACKOUT=""
+fi
 ACKOUT_N=$(printf '%s' "$ACKOUT" | grep -c . )
 TACK=$(printf '%s' "$ACKOUT" | head -1 | cut -d'|' -f1)
+PREACK_N=$(printf '%s' "$ACKALL" | grep -c . )
+PREACK_N=$((PREACK_N - ACKOUT_N))
+[ "$PREACK_N" -gt 0 ] && echo "pre-answer ACKs toward Telnyx (407 challenge transactions): ${PREACK_N}"
 
-ACKINT=$(q "$CF"' && sip.CSeq.method=="ACK" && udp.dstport==5070' sip.Via.branch | dedupe | head -1 | cut -d'|' -f1)
+ACKINT=$(q "$CF"' && sip.CSeq.method=="ACK" && udp.dstport==5070' sip.Via.branch | dedupe \
+  | awk -F'|' -v t="${T200:-0}" '$1 >= t - 0.001' | head -1 | cut -d'|' -f1)
 
 if [ -n "$T200" ] && [ -n "$TACK" ]; then
   LAT=$(awk -v a="$T200" -v b="$TACK" 'BEGIN{printf "%.1f", (b-a)*1000}')
